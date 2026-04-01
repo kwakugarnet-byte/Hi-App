@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
 type BatchItem = { menuItemName: string; menuItemId: number; quantity: number; pricePence: number };
@@ -71,16 +71,24 @@ export default function Bar() {
   const { role, isLoading: authLoading } = useAuth();
   const [selectedWaiter, setSelectedWaiter] = useState<string | null>(null);
 
-  if (!authLoading && role !== "bartender" && role !== "admin") {
-    return <Redirect to="/" />;
-  }
-
-  const { data: batches, isLoading } = useGetOrderBatches({
+  const { data: batches, isLoading, refetch } = useGetOrderBatches({
     query: {
       queryKey: getGetOrderBatchesQueryKey(),
-      refetchInterval: 5000,
+      refetchInterval: 3000,
+      refetchOnWindowFocus: true,
     },
   });
+
+  // Immediately refetch when the screen becomes visible (e.g. wakes from sleep)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        refetch();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [refetch]);
 
   const completeBatch = useCompleteOrderBatch();
 
@@ -110,6 +118,10 @@ export default function Bar() {
       toast({ title: "Error", description: "Could not mark order as done.", variant: "destructive" });
     }
   };
+
+  if (!authLoading && role !== "bartender" && role !== "admin") {
+    return <Redirect to="/" />;
+  }
 
   const allClear = preparingGroups.length === 0;
 
