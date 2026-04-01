@@ -1,20 +1,20 @@
-import { useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Link } from "wouter";
 import { ArrowLeft, Plus, Trash2, Send } from "lucide-react";
-import { 
-  useGetMenuItems, 
-  useCreateOrderBatch, 
+import {
+  useGetMenuItems,
+  useCreateOrderBatch,
   getGetMenuItemsQueryKey,
   getGetOrderBatchesQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@workspace/replit-auth-web";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -26,7 +26,6 @@ const orderItemSchema = z.object({
 });
 
 const orderFormSchema = z.object({
-  waitressName: z.string().min(1, "Your name is required"),
   customerName: z.string().min(1, "Customer name is required"),
   items: z.array(orderItemSchema).min(1, "Add at least one item"),
 });
@@ -36,6 +35,11 @@ type OrderFormValues = z.infer<typeof orderFormSchema>;
 export default function Waitress() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  const waitressName = user?.firstName
+    ? `${user.firstName}${user.lastName ? " " + user.lastName : ""}`
+    : user?.email ?? "Staff";
 
   const { data: menuItems, isLoading: menuLoading } = useGetMenuItems({
     query: { queryKey: getGetMenuItemsQueryKey() }
@@ -46,7 +50,6 @@ export default function Waitress() {
   const form = useForm<OrderFormValues>({
     resolver: zodResolver(orderFormSchema),
     defaultValues: {
-      waitressName: "",
       customerName: "",
       items: [{ menuItemId: 0, quantity: 1 }],
     },
@@ -60,7 +63,7 @@ export default function Waitress() {
   function onSubmit(data: OrderFormValues) {
     createOrder.mutate({
       data: {
-        waitressName: data.waitressName,
+        waitressName,
         customerName: data.customerName,
         items: data.items,
       }
@@ -72,12 +75,11 @@ export default function Waitress() {
         });
         queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
         form.reset({
-          waitressName: data.waitressName, // Keep waitress name for next order
           customerName: "",
           items: [{ menuItemId: 0, quantity: 1 }],
         });
       },
-      onError: (err) => {
+      onError: () => {
         toast({
           title: "Failed to send order",
           description: "An error occurred. Please try again.",
@@ -88,14 +90,17 @@ export default function Waitress() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-background text-foreground pb-20">
+    <div className="min-h-[100dvh] bg-background text-foreground pb-24">
       <header className="sticky top-0 z-10 bg-card border-b border-border p-4 flex items-center justify-between">
         <Link href="/">
           <Button variant="ghost" size="icon" className="text-muted-foreground">
             <ArrowLeft className="w-5 h-5" />
           </Button>
         </Link>
-        <h1 className="text-xl font-bold uppercase tracking-wide text-primary">New Order</h1>
+        <div className="text-center">
+          <h1 className="text-xl font-bold uppercase tracking-wide text-primary">New Order</h1>
+          <p className="text-xs text-muted-foreground">{waitressName}</p>
+        </div>
         <div className="w-10" />
       </header>
 
@@ -103,43 +108,30 @@ export default function Waitress() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <Card className="border-border bg-card">
-              <CardContent className="pt-6 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="waitressName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-muted-foreground uppercase text-xs font-bold tracking-wider">Your Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="E.g. Sarah" className="h-12 text-lg bg-background border-border focus-visible:ring-primary" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="customerName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-muted-foreground uppercase text-xs font-bold tracking-wider">Customer Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="E.g. Table 4 / John" className="h-12 text-lg bg-background border-border focus-visible:ring-primary" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+              <CardContent className="pt-6">
+                <FormField
+                  control={form.control}
+                  name="customerName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-muted-foreground uppercase text-xs font-bold tracking-wider">Customer Name</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="E.g. Table 4 / John"
+                          className="h-12 text-lg bg-background border-border focus-visible:ring-primary"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </CardContent>
             </Card>
 
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold uppercase tracking-wide">Items</h2>
-              </div>
-              
+              <h2 className="text-lg font-bold uppercase tracking-wide">Items</h2>
+
               {menuLoading ? (
                 <div className="space-y-2">
                   <Skeleton className="h-16 w-full bg-card" />
@@ -176,18 +168,18 @@ export default function Waitress() {
                             </FormItem>
                           )}
                         />
-                        
+
                         <FormField
                           control={form.control}
                           name={`items.${index}.quantity`}
                           render={({ field }) => (
                             <FormItem className="w-24">
                               <FormControl>
-                                <Input 
-                                  type="number" 
-                                  min={1} 
-                                  className="h-12 text-center text-lg bg-background border-border focus-visible:ring-primary" 
-                                  {...field} 
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  className="h-12 text-center text-lg bg-background border-border focus-visible:ring-primary"
+                                  {...field}
                                   onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
                                 />
                               </FormControl>
@@ -196,10 +188,10 @@ export default function Waitress() {
                           )}
                         />
 
-                        <Button 
-                          type="button" 
-                          variant="destructive" 
-                          size="icon" 
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
                           className="h-12 w-12 shrink-0"
                           onClick={() => remove(index)}
                           disabled={fields.length === 1}
@@ -212,9 +204,9 @@ export default function Waitress() {
                 </div>
               )}
 
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 className="w-full h-12 border-dashed border-2 border-border text-muted-foreground hover:text-primary hover:border-primary bg-transparent"
                 onClick={() => append({ menuItemId: 0, quantity: 1 })}
               >
@@ -225,9 +217,9 @@ export default function Waitress() {
 
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-card border-t border-border z-10">
               <div className="max-w-2xl mx-auto">
-                <Button 
-                  type="submit" 
-                  size="lg" 
+                <Button
+                  type="submit"
+                  size="lg"
                   className="w-full h-16 text-xl font-bold uppercase tracking-wider gap-3"
                   disabled={createOrder.isPending}
                 >
