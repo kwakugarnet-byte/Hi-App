@@ -3,6 +3,7 @@ import { Link, Redirect } from "wouter";
 import { ArrowLeft, Send, Plus, Minus, Trash2 } from "lucide-react";
 import {
   useGetMenuItems,
+  useGetOrderBatches,
   useCreateOrderBatch,
   getGetMenuItemsQueryKey,
   getGetOrderBatchesQueryKey,
@@ -34,12 +35,24 @@ export default function Waitress() {
     query: { queryKey: getGetMenuItemsQueryKey() },
   });
 
+  const { data: batches } = useGetOrderBatches({
+    query: { queryKey: getGetOrderBatchesQueryKey(), refetchInterval: 10000 },
+  });
+
   const createOrder = useCreateOrderBatch();
 
   const [customerName, setCustomerName] = useState("");
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [selected, setSelected] = useState<Record<number, SelectedItem>>({});
   const [nameError, setNameError] = useState(false);
+
+  const activeCustomers = useMemo(() => {
+    if (!batches) return [];
+    const names = batches
+      .filter((b) => b.status !== "paid")
+      .map((b) => b.customerName);
+    return Array.from(new Set(names)).sort();
+  }, [batches]);
 
   const categories = useMemo(() => {
     if (!menuItems) return [];
@@ -131,17 +144,43 @@ export default function Waitress() {
       </header>
 
       {/* Customer name */}
-      <div className="px-4 pt-4 pb-3 shrink-0 border-b border-border bg-card">
-        <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
-          Customer Name
-        </label>
-        <Input
-          value={customerName}
-          onChange={(e) => { setCustomerName(e.target.value); setNameError(false); }}
-          placeholder="E.g. Table 4 / John"
-          className={`h-12 text-lg bg-background border-border focus-visible:ring-primary ${nameError ? "border-destructive" : ""}`}
-        />
-        {nameError && <p className="text-destructive text-xs mt-1">Customer name is required</p>}
+      <div className="px-4 pt-4 pb-3 shrink-0 border-b border-border bg-card space-y-3">
+        {activeCustomers.length > 0 && (
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
+              Active Customers
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {activeCustomers.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => { setCustomerName(name); setNameError(false); }}
+                  className={`px-3 py-1.5 rounded-full text-sm font-bold uppercase tracking-wide border transition-all ${
+                    customerName === name
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-card border-border text-muted-foreground hover:border-primary/60 hover:text-foreground"
+                  }`}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
+            {activeCustomers.length > 0 ? "Or New Customer" : "Customer Name"}
+          </label>
+          <Input
+            value={customerName}
+            onChange={(e) => { setCustomerName(e.target.value); setNameError(false); }}
+            placeholder="E.g. Table 4 / John"
+            className={`h-12 text-lg bg-background border-border focus-visible:ring-primary ${nameError ? "border-destructive" : ""}`}
+          />
+          {nameError && <p className="text-destructive text-xs mt-1">Customer name is required</p>}
+        </div>
       </div>
 
       {/* Category tabs */}
