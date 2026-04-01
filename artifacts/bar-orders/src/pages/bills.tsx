@@ -10,35 +10,63 @@ function formatPrice(pence: number) {
   return `₵${(pence / 100).toFixed(2)}`;
 }
 
-function batchTotal(items: { pricePence: number; quantity: number }[]) {
-  return items.reduce((sum, i) => sum + i.pricePence * i.quantity, 0);
-}
+type BatchItem = { menuItemName: string; menuItemId: number; quantity: number; pricePence: number };
 
-const STATUS_LABEL: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  pending: {
-    label: "Being prepared",
-    icon: <Hourglass className="w-3 h-3" />,
-    color: "text-yellow-500",
-  },
-  completed: {
-    label: "Drinks served",
-    icon: <CheckCircle2 className="w-3 h-3" />,
-    color: "text-green-500",
-  },
-};
-
-type Batch = {
-  id: number;
+type GroupedCustomer = {
   customerName: string;
   waitressName: string;
-  status: string;
-  createdAt: string;
-  items: { menuItemName: string; menuItemId: number; quantity: number; pricePence: number }[];
+  status: "pending" | "completed";
+  firstOrderAt: string;
+  items: BatchItem[];
+  total: number;
 };
 
-function printBill(batch: Batch) {
-  const total = batchTotal(batch.items);
-  const rows = batch.items
+function groupBatches(
+  batches: { customerName: string; waitressName: string; status: string; createdAt: string; items: BatchItem[] }[]
+): GroupedCustomer[] {
+  const map = new Map<string, GroupedCustomer>();
+
+  for (const batch of batches) {
+    const key = `${batch.waitressName}|||${batch.customerName}`;
+    if (!map.has(key)) {
+      map.set(key, {
+        customerName: batch.customerName,
+        waitressName: batch.waitressName,
+        status: "completed",
+        firstOrderAt: batch.createdAt,
+        items: [],
+        total: 0,
+      });
+    }
+    const group = map.get(key)!;
+
+    if (batch.status === "pending") group.status = "pending";
+
+    if (new Date(batch.createdAt) < new Date(group.firstOrderAt)) {
+      group.firstOrderAt = batch.createdAt;
+    }
+
+    for (const item of batch.items) {
+      const existing = group.items.find((i) => i.menuItemId === item.menuItemId);
+      if (existing) {
+        existing.quantity += item.quantity;
+      } else {
+        group.items.push({ ...item });
+      }
+    }
+  }
+
+  for (const group of map.values()) {
+    group.total = group.items.reduce((sum, i) => sum + i.pricePence * i.quantity, 0);
+  }
+
+  return [...map.values()].sort(
+    (a, b) => new Date(a.firstOrderAt).getTime() - new Date(b.firstOrderAt).getTime()
+  );
+}
+
+function printBill(customer: GroupedCustomer) {
+  const rows = customer.items
     .map(
       (item) => `
       <tr>
@@ -53,7 +81,7 @@ function printBill(batch: Batch) {
 <html>
 <head>
   <meta charset="utf-8"/>
-  <title>Receipt — ${batch.customerName}</title>
+  <title>Receipt — ${customer.customerName}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Courier New', monospace; font-size: 13px; width: 300px; margin: 0 auto; padding: 16px; }
@@ -81,9 +109,9 @@ function printBill(batch: Batch) {
   </div>
   <div class="divider"></div>
   <div class="label">Customer</div>
-  <div class="customer">${batch.customerName}</div>
-  <div class="meta">Served by: ${batch.waitressName}</div>
-  <div class="meta">Time: ${format(new Date(batch.createdAt), "dd MMM yyyy, h:mm a")}</div>
+  <div class="customer">${customer.customerName}</div>
+  <div class="meta">Served by: ${customer.waitressName}</div>
+  <div class="meta">Date: ${format(new Date(customer.firstOrderAt), "dd MMM yyyy, h:mm a")}</div>
   <div class="divider"></div>
   <table>
     ${rows}
@@ -91,7 +119,7 @@ function printBill(batch: Batch) {
   <div class="divider"></div>
   <div class="total-row">
     <span class="total-label">Total</span>
-    <span class="total-amount">${formatPrice(total)}</span>
+    <span class="total-amount">${formatPrice(customer.total)}</span>
   </div>
   <div class="divider"></div>
   <div class="center footer">Thank you for your visit!</div>
@@ -128,21 +156,22 @@ export default function Bills() {
     return [...new Set(active.map((b) => b.waitressName))].sort();
   }, [batches]);
 
-  const outstanding = useMemo(() => {
+  const customers = useMemo(() => {
     if (!batches) return [];
-    return batches
-      .filter((b) => b.status !== "paid" && (!selectedWaiter || b.waitressName === selectedWaiter))
-      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    const unpaid = batches.filter(
+      (b) => b.status !== "paid" && (!selectedWaiter || b.waitressName === selectedWaiter)
+    );
+    return groupBatches(unpaid);
   }, [batches, selectedWaiter]);
 
   const grandTotal = useMemo(
-    () => outstanding.reduce((sum, b) => sum + batchTotal(b.items), 0),
-    [outstanding]
+    () => customers.reduce((sum, c) => sum + c.total, 0),
+    [customers]
   );
 
   const subtitle = selectedWaiter
-    ? `${outstanding.length} table${outstanding.length !== 1 ? "s" : ""} — ${selectedWaiter}`
-    : `${outstanding.length} active table${outstanding.length !== 1 ? "s" : ""}`;
+    ? `${customers.length} customer${customers.length !== 1 ? "s" : ""} — ${selectedWaiter}`
+    : `${customers.length} active customer${customers.length !== 1 ? "s" : ""}`;
 
   return (
     <div className="min-h-[100dvh] bg-background text-foreground flex flex-col">
@@ -198,80 +227,74 @@ export default function Bills() {
               <Skeleton key={n} className="h-36 w-full bg-card rounded-xl" />
             ))}
           </div>
-        ) : outstanding.length === 0 ? (
+        ) : customers.length === 0 ? (
           <div className="h-64 flex flex-col items-center justify-center opacity-50 gap-4">
             <Receipt className="w-16 h-16 text-muted-foreground" />
             <p className="text-muted-foreground font-bold uppercase tracking-widest text-sm">No outstanding bills</p>
           </div>
         ) : (
-          outstanding.map((batch) => {
-            const total = batchTotal(batch.items);
-            const status = STATUS_LABEL[batch.status] ?? STATUS_LABEL.pending;
-            return (
-              <div
-                key={batch.id}
-                className="bg-card border border-border rounded-xl overflow-hidden"
-              >
-                {/* Customer header */}
-                <div className="px-4 py-3 border-b border-border flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <h2 className="text-xl font-black uppercase tracking-tight truncate">{batch.customerName}</h2>
-                    <div className={`flex items-center gap-1 text-xs font-bold mt-0.5 ${status.color}`}>
-                      {status.icon}
-                      <span className="uppercase tracking-wide">{status.label}</span>
-                    </div>
-                    {!isWaitress && (
-                      <p className="text-xs text-amber-400/80 font-semibold mt-1 uppercase tracking-wide">
-                        by {batch.waitressName}
-                      </p>
-                    )}
+          customers.map((customer) => (
+            <div
+              key={`${customer.waitressName}|||${customer.customerName}`}
+              className="bg-card border border-border rounded-xl overflow-hidden"
+            >
+              {/* Customer header */}
+              <div className="px-4 py-3 border-b border-border flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-xl font-black uppercase tracking-tight truncate">{customer.customerName}</h2>
+                  <div className={`flex items-center gap-1 text-xs font-bold mt-0.5 ${customer.status === "pending" ? "text-yellow-500" : "text-green-500"}`}>
+                    {customer.status === "pending"
+                      ? <><Hourglass className="w-3 h-3" /><span className="uppercase tracking-wide">Being prepared</span></>
+                      : <><CheckCircle2 className="w-3 h-3" /><span className="uppercase tracking-wide">Drinks served</span></>
+                    }
                   </div>
-                  <div className="text-right shrink-0 flex flex-col items-end gap-2">
-                    <p className="text-2xl font-black text-primary">{formatPrice(total)}</p>
-                    <p className="text-xs text-muted-foreground flex items-center justify-end gap-1">
-                      <Clock className="w-3 h-3" />
-                      {format(new Date(batch.createdAt), "h:mm a")}
-                    </p>
-                    <button
-                      onClick={() => printBill(batch as Batch)}
-                      className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground hover:text-primary transition-colors border border-border hover:border-primary/50 rounded-lg px-2.5 py-1.5"
-                    >
-                      <Printer className="w-3.5 h-3.5" />
-                      Print
-                    </button>
-                  </div>
+                  <p className="text-xs text-amber-400/80 font-semibold mt-1 uppercase tracking-wide">
+                    by {customer.waitressName}
+                  </p>
                 </div>
-
-                {/* Items */}
-                <div className="px-4 py-3 space-y-2">
-                  {batch.items.map((item, i) => (
-                    <div key={i} className="flex items-center justify-between text-sm">
-                      <span className="text-foreground font-medium">
-                        <span className="text-muted-foreground font-bold mr-2">{item.quantity}×</span>
-                        {item.menuItemName}
-                      </span>
-                      <span className="text-muted-foreground font-semibold tabular-nums">
-                        {formatPrice(item.pricePence * item.quantity)}
-                      </span>
-                    </div>
-                  ))}
+                <div className="text-right shrink-0 flex flex-col items-end gap-2">
+                  <p className="text-2xl font-black text-primary">{formatPrice(customer.total)}</p>
+                  <p className="text-xs text-muted-foreground flex items-center justify-end gap-1">
+                    <Clock className="w-3 h-3" />
+                    {format(new Date(customer.firstOrderAt), "h:mm a")}
+                  </p>
+                  <button
+                    onClick={() => printBill(customer)}
+                    className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground hover:text-primary transition-colors border border-border hover:border-primary/50 rounded-lg px-2.5 py-1.5"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    Print
+                  </button>
                 </div>
               </div>
-            );
-          })
+
+              {/* Items */}
+              <div className="px-4 py-3 space-y-2">
+                {customer.items.map((item, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm">
+                    <span className="text-foreground font-medium">
+                      <span className="text-muted-foreground font-bold mr-2">{item.quantity}×</span>
+                      {item.menuItemName}
+                    </span>
+                    <span className="text-muted-foreground font-semibold tabular-nums">
+                      {formatPrice(item.pricePence * item.quantity)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))
         )}
       </main>
 
       {/* Grand total footer */}
-      {outstanding.length > 0 && (
+      {customers.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border px-4 py-4">
           <div className="max-w-2xl mx-auto flex items-center justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                {isWaitress ? "Total Outstanding" : "All Active Bills"}
-              </p>
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">All Active Bills</p>
               <p className="text-sm text-muted-foreground">
-                {outstanding.length} table{outstanding.length !== 1 ? "s" : ""}
+                {customers.length} customer{customers.length !== 1 ? "s" : ""}
               </p>
             </div>
             <p className="text-4xl font-black text-primary">{formatPrice(grandTotal)}</p>
