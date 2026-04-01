@@ -109,6 +109,7 @@ export const GetMenuItemsResponseItem = zod.object({
   id: zod.number(),
   name: zod.string(),
   category: zod.string(),
+  pricePence: zod.number(),
 });
 export const GetMenuItemsResponse = zod.array(GetMenuItemsResponseItem);
 
@@ -121,13 +122,14 @@ export const GetOrderBatchesResponseItem = zod.object({
   waitressName: zod.string(),
   createdAt: zod.string(),
   completedAt: zod.string().nullish(),
-  status: zod.enum(["pending", "completed"]),
+  status: zod.enum(["pending", "completed", "paid"]),
   items: zod.array(
     zod.object({
       id: zod.number(),
       menuItemId: zod.number(),
       menuItemName: zod.string(),
       quantity: zod.number(),
+      pricePence: zod.number(),
     }),
   ),
 });
@@ -160,13 +162,14 @@ export const CompleteOrderBatchResponse = zod.object({
   waitressName: zod.string(),
   createdAt: zod.string(),
   completedAt: zod.string().nullish(),
-  status: zod.enum(["pending", "completed"]),
+  status: zod.enum(["pending", "completed", "paid"]),
   items: zod.array(
     zod.object({
       id: zod.number(),
       menuItemId: zod.number(),
       menuItemName: zod.string(),
       quantity: zod.number(),
+      pricePence: zod.number(),
     }),
   ),
 });
@@ -184,13 +187,14 @@ export const PayOrderBatchResponse = zod.object({
   waitressName: zod.string(),
   createdAt: zod.string(),
   completedAt: zod.string().nullish(),
-  status: zod.enum(["pending", "completed"]),
+  status: zod.enum(["pending", "completed", "paid"]),
   items: zod.array(
     zod.object({
       id: zod.number(),
       menuItemId: zod.number(),
       menuItemName: zod.string(),
       quantity: zod.number(),
+      pricePence: zod.number(),
     }),
   ),
 });

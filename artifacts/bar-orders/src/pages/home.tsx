@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { LogIn, Monitor, LogOut } from "lucide-react";
+import { LogIn, Monitor, LogOut, Receipt } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Home() {
@@ -24,13 +24,20 @@ export default function Home() {
           <Link href="/waitress" className="w-full">
             <Button size="lg" className="w-full h-24 text-xl font-bold uppercase tracking-wider flex items-center justify-center gap-3">
               <LogIn className="w-6 h-6" />
-              Waitress POS
+              Take Order
+            </Button>
+          </Link>
+
+          <Link href="/bills" className="w-full">
+            <Button size="lg" variant="outline" className="w-full h-20 text-lg font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/50 text-primary hover:bg-primary/10">
+              <Receipt className="w-5 h-5" />
+              My Outstanding Bills
             </Button>
           </Link>
 
           <Link href="/bar" className="w-full">
-            <Button size="lg" variant="secondary" className="w-full h-24 text-xl font-bold uppercase tracking-wider flex items-center justify-center gap-3">
-              <Monitor className="w-6 h-6" />
+            <Button size="lg" variant="secondary" className="w-full h-20 text-lg font-bold uppercase tracking-wider flex items-center justify-center gap-3">
+              <Monitor className="w-5 h-5" />
               Bar Display
             </Button>
           </Link>

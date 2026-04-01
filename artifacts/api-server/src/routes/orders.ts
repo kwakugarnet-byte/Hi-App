@@ -27,6 +27,7 @@ router.get("/order-batches", async (req, res): Promise<void> => {
       batchId: orderItemsTable.batchId,
       menuItemId: orderItemsTable.menuItemId,
       menuItemName: menuItemsTable.name,
+      pricePence: menuItemsTable.pricePence,
       quantity: orderItemsTable.quantity,
     })
     .from(orderItemsTable)
@@ -42,6 +43,7 @@ router.get("/order-batches", async (req, res): Promise<void> => {
         id: item.id,
         menuItemId: item.menuItemId,
         menuItemName: item.menuItemName,
+        pricePence: item.pricePence,
         quantity: item.quantity,
       })),
   }));
@@ -79,6 +81,7 @@ router.post("/order-batches", async (req, res): Promise<void> => {
       batchId: orderItemsTable.batchId,
       menuItemId: orderItemsTable.menuItemId,
       menuItemName: menuItemsTable.name,
+      pricePence: menuItemsTable.pricePence,
       quantity: orderItemsTable.quantity,
     })
     .from(orderItemsTable)
@@ -93,6 +96,7 @@ router.post("/order-batches", async (req, res): Promise<void> => {
       id: item.id,
       menuItemId: item.menuItemId,
       menuItemName: item.menuItemName,
+      pricePence: item.pricePence,
       quantity: item.quantity,
     })),
   };
@@ -125,6 +129,7 @@ router.post("/order-batches/:id/complete", async (req, res): Promise<void> => {
       batchId: orderItemsTable.batchId,
       menuItemId: orderItemsTable.menuItemId,
       menuItemName: menuItemsTable.name,
+      pricePence: menuItemsTable.pricePence,
       quantity: orderItemsTable.quantity,
     })
     .from(orderItemsTable)
@@ -139,6 +144,7 @@ router.post("/order-batches/:id/complete", async (req, res): Promise<void> => {
       id: item.id,
       menuItemId: item.menuItemId,
       menuItemName: item.menuItemName,
+      pricePence: item.pricePence,
       quantity: item.quantity,
     })),
   };
@@ -171,6 +177,7 @@ router.post("/order-batches/:id/pay", async (req, res): Promise<void> => {
       batchId: orderItemsTable.batchId,
       menuItemId: orderItemsTable.menuItemId,
       menuItemName: menuItemsTable.name,
+      pricePence: menuItemsTable.pricePence,
       quantity: orderItemsTable.quantity,
     })
     .from(orderItemsTable)
@@ -185,6 +192,7 @@ router.post("/order-batches/:id/pay", async (req, res): Promise<void> => {
       id: item.id,
       menuItemId: item.menuItemId,
       menuItemName: item.menuItemName,
+      pricePence: item.pricePence,
       quantity: item.quantity,
     })),
   };

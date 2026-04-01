@@ -10,4 +10,5 @@ export interface MenuItem {
   id: number;
   name: string;
   category: string;
+  pricePence: number;
 }

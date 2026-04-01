@@ -12,4 +12,5 @@ export type OrderBatchStatus =
 export const OrderBatchStatus = {
   pending: "pending",
   completed: "completed",
+  paid: "paid",
 } as const;

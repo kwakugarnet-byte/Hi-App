@@ -306,10 +306,13 @@ components:
           type: string
         category:
           type: string
+        pricePence:
+          type: integer
       required:
         - id
         - name
         - category
+        - pricePence
 
     OrderItem:
       type: object
@@ -322,11 +325,14 @@ components:
           type: string
         quantity:
           type: integer
+        pricePence:
+          type: integer
       required:
         - id
         - menuItemId
         - menuItemName
         - quantity
+        - pricePence
 
     OrderBatch:
       type: object
@@ -344,7 +350,7 @@ components:
           nullable: true
         status:
           type: string
-          enum: [pending, completed]
+          enum: [pending, completed, paid]
         items:
           type: array
           items:

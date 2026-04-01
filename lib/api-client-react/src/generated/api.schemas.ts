@@ -43,6 +43,7 @@ export interface MenuItem {
   id: number;
   name: string;
   category: string;
+  pricePence: number;
 }
 
 export interface OrderItem {
@@ -50,6 +51,7 @@ export interface OrderItem {
   menuItemId: number;
   menuItemName: string;
   quantity: number;
+  pricePence: number;
 }
 
 export type OrderBatchStatus =
@@ -58,6 +60,7 @@ export type OrderBatchStatus =
 export const OrderBatchStatus = {
   pending: "pending",
   completed: "completed",
+  paid: "paid",
 } as const;
 
 export interface OrderBatch {

@@ -11,4 +11,5 @@ export interface OrderItem {
   menuItemId: number;
   menuItemName: string;
   quantity: number;
+  pricePence: number;
 }
