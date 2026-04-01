@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer } from "lucide-react";
 import { useGetOrderBatches, getGetOrderBatchesQueryKey } from "@workspace/api-client-react";
@@ -107,16 +107,13 @@ function printBill(batch: Batch) {
 }
 
 export default function Bills() {
-  const { user, role, isWaitress } = useAuth();
+  const { isWaitress } = useAuth();
   const [, setLocation] = useLocation();
+  const [selectedWaiter, setSelectedWaiter] = useState<string | null>(null);
 
   useEffect(() => {
     if (isWaitress) setLocation("/");
   }, [isWaitress]);
-
-  const waitressName = user?.firstName
-    ? `${user.firstName}${user.lastName ? " " + user.lastName : ""}`
-    : "";
 
   const { data: batches, isLoading } = useGetOrderBatches({
     query: {
@@ -125,38 +122,73 @@ export default function Bills() {
     },
   });
 
+  const waiterNames = useMemo(() => {
+    if (!batches) return [];
+    const active = batches.filter((b) => b.status !== "paid");
+    return [...new Set(active.map((b) => b.waitressName))].sort();
+  }, [batches]);
+
   const outstanding = useMemo(() => {
     if (!batches) return [];
-    const unpaid = batches.filter((b) => b.status !== "paid");
-    if (isWaitress && waitressName) {
-      return unpaid
-        .filter((b) => b.waitressName === waitressName)
-        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-    }
-    return unpaid.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  }, [batches, waitressName, isWaitress]);
+    return batches
+      .filter((b) => b.status !== "paid" && (!selectedWaiter || b.waitressName === selectedWaiter))
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }, [batches, selectedWaiter]);
 
   const grandTotal = useMemo(
     () => outstanding.reduce((sum, b) => sum + batchTotal(b.items), 0),
     [outstanding]
   );
 
-  const pageTitle = isWaitress ? "My Outstanding Bills" : "All Active Bills";
-  const subtitle = isWaitress ? waitressName : `${outstanding.length} active table${outstanding.length !== 1 ? "s" : ""}`;
+  const subtitle = selectedWaiter
+    ? `${outstanding.length} table${outstanding.length !== 1 ? "s" : ""} — ${selectedWaiter}`
+    : `${outstanding.length} active table${outstanding.length !== 1 ? "s" : ""}`;
 
   return (
     <div className="min-h-[100dvh] bg-background text-foreground flex flex-col">
-      <header className="sticky top-0 z-10 bg-card border-b border-border px-4 py-3 flex items-center justify-between shrink-0">
-        <Link href="/">
-          <button className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-        </Link>
-        <div className="text-center">
-          <h1 className="text-xl font-bold uppercase tracking-wide text-primary">{pageTitle}</h1>
-          <p className="text-xs text-muted-foreground">{subtitle}</p>
+      <header className="sticky top-0 z-10 bg-card border-b border-border shrink-0">
+        <div className="px-4 py-3 flex items-center justify-between">
+          <Link href="/">
+            <button className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          </Link>
+          <div className="text-center">
+            <h1 className="text-xl font-bold uppercase tracking-wide text-primary">All Active Bills</h1>
+            <p className="text-xs text-muted-foreground">{subtitle}</p>
+          </div>
+          <div className="w-10" />
         </div>
-        <div className="w-10" />
+
+        {/* Waiter filter chips */}
+        {waiterNames.length > 1 && (
+          <div className="px-4 pb-3 flex items-center gap-2 overflow-x-auto">
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground shrink-0">Filter:</span>
+            <button
+              onClick={() => setSelectedWaiter(null)}
+              className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border transition-colors ${
+                selectedWaiter === null
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+              }`}
+            >
+              All
+            </button>
+            {waiterNames.map((name) => (
+              <button
+                key={name}
+                onClick={() => setSelectedWaiter(selectedWaiter === name ? null : name)}
+                className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border transition-colors ${
+                  selectedWaiter === name
+                    ? "bg-amber-500 text-black border-amber-500"
+                    : "border-border text-muted-foreground hover:border-amber-500/50 hover:text-amber-400"
+                }`}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        )}
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 space-y-4 pb-32">
