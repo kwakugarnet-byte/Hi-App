@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { Link } from "wouter";
+import { useMemo, useEffect } from "react";
+import { Link, useLocation } from "wouter";
 import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer } from "lucide-react";
 import { useGetOrderBatches, getGetOrderBatchesQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -108,6 +108,11 @@ function printBill(batch: Batch) {
 
 export default function Bills() {
   const { user, role, isWaitress } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (isWaitress) setLocation("/");
+  }, [isWaitress]);
 
   const waitressName = user?.firstName
     ? `${user.firstName}${user.lastName ? " " + user.lastName : ""}`

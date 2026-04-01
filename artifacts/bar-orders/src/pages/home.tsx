@@ -39,21 +39,12 @@ export default function Home() {
 
         <div className="grid gap-4">
           {isWaitress && (
-            <>
-              <Link href="/waitress" className="w-full">
-                <Button size="lg" className="w-full h-24 text-xl font-bold uppercase tracking-wider flex items-center justify-center gap-3">
-                  <LogIn className="w-6 h-6" />
-                  Take Order
-                </Button>
-              </Link>
-
-              <Link href="/bills" className="w-full">
-                <Button size="lg" variant="outline" className="w-full h-20 text-lg font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/50 text-primary hover:bg-primary/10">
-                  <Receipt className="w-5 h-5" />
-                  My Outstanding Bills
-                </Button>
-              </Link>
-            </>
+            <Link href="/waitress" className="w-full">
+              <Button size="lg" className="w-full h-24 text-xl font-bold uppercase tracking-wider flex items-center justify-center gap-3">
+                <LogIn className="w-6 h-6" />
+                Take Order
+              </Button>
+            </Link>
           )}
 
           {isBartender && (
