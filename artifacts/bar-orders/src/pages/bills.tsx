@@ -365,12 +365,15 @@ export default function Bills() {
                     </div>
                     <div className="px-4 pb-2.5 space-y-1.5">
                       {round.items.map((item, i) => (
-                        <div key={i} className="flex items-center justify-between text-sm">
-                          <span className="text-foreground font-medium">
-                            <span className="text-muted-foreground font-bold mr-2">{item.quantity}×</span>
+                        <div key={i} className="flex items-center gap-2 text-sm">
+                          <span className="text-foreground font-medium flex-1 min-w-0 truncate">
+                            <span className="text-muted-foreground font-bold mr-1">{item.quantity}×</span>
                             {item.menuItemName}
                           </span>
-                          <span className="text-muted-foreground font-semibold tabular-nums">
+                          <span className="text-muted-foreground/60 text-xs tabular-nums shrink-0">
+                            @{formatPrice(item.pricePence)}
+                          </span>
+                          <span className="text-foreground font-bold tabular-nums shrink-0 w-16 text-right">
                             {formatPrice(item.pricePence * item.quantity)}
                           </span>
                         </div>
@@ -434,14 +437,19 @@ export default function Bills() {
                     </p>
                   </div>
                 </div>
-                <div className="px-4 py-2.5 space-y-1">
+                <div className="px-4 py-2.5 space-y-1.5">
                   {customer.rounds.flatMap((r) => r.items).map((item, i) => (
-                    <div key={i} className="flex items-center justify-between text-sm text-muted-foreground/80">
-                      <span>
-                        <span className="font-bold mr-2">{item.quantity}×</span>
+                    <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground/80">
+                      <span className="flex-1 min-w-0 truncate">
+                        <span className="font-bold mr-1">{item.quantity}×</span>
                         {item.menuItemName}
                       </span>
-                      <span className="font-semibold tabular-nums">{formatPrice(item.pricePence * item.quantity)}</span>
+                      <span className="text-xs tabular-nums shrink-0 text-muted-foreground/50">
+                        @{formatPrice(item.pricePence)}
+                      </span>
+                      <span className="font-bold tabular-nums shrink-0 w-16 text-right">
+                        {formatPrice(item.pricePence * item.quantity)}
+                      </span>
                     </div>
                   ))}
                 </div>
