@@ -56,6 +56,13 @@ export default function Home() {
                 </Button>
               </Link>
 
+              <Link href="/waitress" className="w-full">
+                <Button size="lg" variant="outline" className="w-full h-20 text-lg font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/50 text-primary hover:bg-primary/10">
+                  <LogIn className="w-5 h-5" />
+                  Take Order
+                </Button>
+              </Link>
+
               <Link href="/bills" className="w-full">
                 <Button size="lg" variant="outline" className="w-full h-20 text-lg font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/50 text-primary hover:bg-primary/10">
                   <Receipt className="w-5 h-5" />

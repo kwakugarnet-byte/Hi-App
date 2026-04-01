@@ -23,7 +23,7 @@ export default function Waitress() {
   const queryClient = useQueryClient();
   const { user, role, isLoading: authLoading } = useAuth();
 
-  if (!authLoading && role !== "waitress" && role !== "admin") {
+  if (!authLoading && role !== "waitress" && role !== "bartender" && role !== "admin") {
     return <Redirect to="/" />;
   }
 
