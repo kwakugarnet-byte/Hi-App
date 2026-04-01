@@ -14,6 +14,7 @@ import ChangePin from "@/pages/change-pin";
 import { useAuth } from "@/hooks/useAuth";
 import { useGetStaff, usePinLogin } from "@workspace/api-client-react";
 import { Delete } from "lucide-react";
+import logo from "@/assets/logo.jpg";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -88,8 +89,8 @@ function PinLogin() {
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center p-4 bg-background">
       <div className="w-full max-w-sm space-y-8">
-        <div className="text-center">
-          <h1 className="text-4xl font-black tracking-tight text-primary uppercase">The Bar</h1>
+        <div className="flex justify-center">
+          <img src={logo} alt="Trendy" className="w-36 h-36 object-contain rounded-xl" />
         </div>
 
         {step === "select" ? (

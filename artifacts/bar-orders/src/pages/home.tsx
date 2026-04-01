@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { LogIn, Monitor, LogOut, Receipt, Settings, Users, KeyRound } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import logo from "@/assets/logo.jpg";
 
 const ROLE_LABEL: Record<string, string> = {
   admin: "Admin",
@@ -26,7 +27,9 @@ export default function Home() {
     <div className="min-h-[100dvh] w-full flex items-center justify-center p-4">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center space-y-2">
-          <h1 className="text-4xl font-black tracking-tight text-primary uppercase">The Bar</h1>
+          <div className="flex justify-center mb-2">
+            <img src={logo} alt="Trendy" className="w-24 h-24 object-contain rounded-xl" />
+          </div>
           <p className="text-muted-foreground">
             Logged in as <span className="text-foreground font-semibold">{displayName}</span>
             {role && (
