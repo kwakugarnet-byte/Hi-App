@@ -1,36 +1,21 @@
-import { useForm, useFieldArray } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { useState, useMemo } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, Plus, Trash2, Send } from "lucide-react";
+import { ArrowLeft, Send, Plus, Minus, Trash2 } from "lucide-react";
 import {
   useGetMenuItems,
   useCreateOrderBatch,
   getGetMenuItemsQueryKey,
-  getGetOrderBatchesQueryKey
+  getGetOrderBatchesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@workspace/replit-auth-web";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
 
-const orderItemSchema = z.object({
-  menuItemId: z.number().min(1, "Please select an item"),
-  quantity: z.number().min(1, "Quantity must be at least 1"),
-});
-
-const orderFormSchema = z.object({
-  customerName: z.string().min(1, "Customer name is required"),
-  items: z.array(orderItemSchema).min(1, "Add at least one item"),
-});
-
-type OrderFormValues = z.infer<typeof orderFormSchema>;
+type SelectedItem = { menuItemId: number; menuItemName: string; quantity: number };
 
 export default function Waitress() {
   const { toast } = useToast();
@@ -42,56 +27,93 @@ export default function Waitress() {
     : user?.email ?? "Staff";
 
   const { data: menuItems, isLoading: menuLoading } = useGetMenuItems({
-    query: { queryKey: getGetMenuItemsQueryKey() }
+    query: { queryKey: getGetMenuItemsQueryKey() },
   });
 
   const createOrder = useCreateOrderBatch();
 
-  const form = useForm<OrderFormValues>({
-    resolver: zodResolver(orderFormSchema),
-    defaultValues: {
-      customerName: "",
-      items: [{ menuItemId: 0, quantity: 1 }],
-    },
-  });
+  const [customerName, setCustomerName] = useState("");
+  const [activeTab, setActiveTab] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Record<number, SelectedItem>>({});
+  const [nameError, setNameError] = useState(false);
 
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "items",
-  });
+  const categories = useMemo(() => {
+    if (!menuItems) return [];
+    const cats = Array.from(new Set(menuItems.map((i) => i.category)));
+    return cats;
+  }, [menuItems]);
 
-  function onSubmit(data: OrderFormValues) {
-    createOrder.mutate({
-      data: {
-        waitressName,
-        customerName: data.customerName,
-        items: data.items,
-      }
-    }, {
-      onSuccess: () => {
-        toast({
-          title: "Order Sent",
-          description: `Order for ${data.customerName} sent to the bar.`,
-        });
-        queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
-        form.reset({
-          customerName: "",
-          items: [{ menuItemId: 0, quantity: 1 }],
-        });
-      },
-      onError: () => {
-        toast({
-          title: "Failed to send order",
-          description: "An error occurred. Please try again.",
-          variant: "destructive",
-        });
-      }
+  const currentTab = activeTab ?? categories[0] ?? null;
+
+  const itemsInTab = useMemo(() => {
+    if (!menuItems || !currentTab) return [];
+    return menuItems.filter((i) => i.category === currentTab);
+  }, [menuItems, currentTab]);
+
+  const selectedList = Object.values(selected);
+  const totalItems = selectedList.reduce((sum, i) => sum + i.quantity, 0);
+
+  function addItem(id: number, name: string) {
+    setSelected((prev) => {
+      const existing = prev[id];
+      return {
+        ...prev,
+        [id]: { menuItemId: id, menuItemName: name, quantity: (existing?.quantity ?? 0) + 1 },
+      };
     });
   }
 
+  function changeQty(id: number, delta: number) {
+    setSelected((prev) => {
+      const existing = prev[id];
+      if (!existing) return prev;
+      const newQty = existing.quantity + delta;
+      if (newQty <= 0) {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      }
+      return { ...prev, [id]: { ...existing, quantity: newQty } };
+    });
+  }
+
+  function handleSend() {
+    if (!customerName.trim()) {
+      setNameError(true);
+      return;
+    }
+    if (selectedList.length === 0) {
+      toast({ title: "No items", description: "Add at least one drink to the order.", variant: "destructive" });
+      return;
+    }
+
+    createOrder.mutate(
+      {
+        data: {
+          waitressName,
+          customerName: customerName.trim(),
+          items: selectedList.map((i) => ({ menuItemId: i.menuItemId, quantity: i.quantity })),
+        },
+      },
+      {
+        onSuccess: () => {
+          toast({ title: "Order Sent", description: `Order for ${customerName.trim()} sent to the bar.` });
+          queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
+          setCustomerName("");
+          setSelected({});
+          setNameError(false);
+        },
+        onError: () => {
+          toast({ title: "Failed to send", description: "An error occurred. Please try again.", variant: "destructive" });
+        },
+      }
+    );
+  }
+
   return (
-    <div className="min-h-[100dvh] bg-background text-foreground pb-24">
-      <header className="sticky top-0 z-10 bg-card border-b border-border p-4 flex items-center justify-between">
+    <div className="min-h-[100dvh] bg-background text-foreground flex flex-col">
+      {/* Header */}
+      <header className="sticky top-0 z-20 bg-card border-b border-border px-4 py-3 flex items-center justify-between shrink-0">
         <Link href="/">
           <Button variant="ghost" size="icon" className="text-muted-foreground">
             <ArrowLeft className="w-5 h-5" />
@@ -104,133 +126,125 @@ export default function Waitress() {
         <div className="w-10" />
       </header>
 
-      <main className="max-w-2xl mx-auto p-4 space-y-6">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <Card className="border-border bg-card">
-              <CardContent className="pt-6">
-                <FormField
-                  control={form.control}
-                  name="customerName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-muted-foreground uppercase text-xs font-bold tracking-wider">Customer Name</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="E.g. Table 4 / John"
-                          className="h-12 text-lg bg-background border-border focus-visible:ring-primary"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
+      {/* Customer name */}
+      <div className="px-4 pt-4 pb-3 shrink-0 border-b border-border bg-card">
+        <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
+          Customer Name
+        </label>
+        <Input
+          value={customerName}
+          onChange={(e) => { setCustomerName(e.target.value); setNameError(false); }}
+          placeholder="E.g. Table 4 / John"
+          className={`h-12 text-lg bg-background border-border focus-visible:ring-primary ${nameError ? "border-destructive" : ""}`}
+        />
+        {nameError && <p className="text-destructive text-xs mt-1">Customer name is required</p>}
+      </div>
 
-            <div className="space-y-4">
-              <h2 className="text-lg font-bold uppercase tracking-wide">Items</h2>
-
-              {menuLoading ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-16 w-full bg-card" />
-                  <Skeleton className="h-16 w-full bg-card" />
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {fields.map((field, index) => (
-                    <Card key={field.id} className="border-border bg-card">
-                      <CardContent className="p-4 flex gap-3 items-center">
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.menuItemId`}
-                          render={({ field }) => (
-                            <FormItem className="flex-1">
-                              <Select
-                                value={field.value ? field.value.toString() : ""}
-                                onValueChange={(val) => field.onChange(parseInt(val, 10))}
-                              >
-                                <FormControl>
-                                  <SelectTrigger className="h-12 text-base bg-background border-border focus:ring-primary">
-                                    <SelectValue placeholder="Select Drink" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {menuItems?.map((item) => (
-                                    <SelectItem key={item.id} value={item.id.toString()}>
-                                      {item.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.quantity`}
-                          render={({ field }) => (
-                            <FormItem className="w-24">
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  min={1}
-                                  className="h-12 text-center text-lg bg-background border-border focus-visible:ring-primary"
-                                  {...field}
-                                  onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="icon"
-                          className="h-12 w-12 shrink-0"
-                          onClick={() => remove(index)}
-                          disabled={fields.length === 1}
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full h-12 border-dashed border-2 border-border text-muted-foreground hover:text-primary hover:border-primary bg-transparent"
-                onClick={() => append({ menuItemId: 0, quantity: 1 })}
-              >
-                <Plus className="w-5 h-5 mr-2" />
-                Add Another Item
-              </Button>
-            </div>
-
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-card border-t border-border z-10">
-              <div className="max-w-2xl mx-auto">
-                <Button
-                  type="submit"
-                  size="lg"
-                  className="w-full h-16 text-xl font-bold uppercase tracking-wider gap-3"
-                  disabled={createOrder.isPending}
+      {/* Category tabs */}
+      {menuLoading ? (
+        <div className="p-4 space-y-3">
+          <div className="flex gap-2">
+            {[1, 2, 3, 4].map((n) => <Skeleton key={n} className="h-10 w-20 bg-card rounded-lg" />)}
+          </div>
+          <div className="grid grid-cols-2 gap-3 mt-4">
+            {[1, 2, 3, 4, 5, 6].map((n) => <Skeleton key={n} className="h-16 w-full bg-card rounded-lg" />)}
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col flex-1 min-h-0">
+          {/* Tab strip */}
+          <div className="shrink-0 overflow-x-auto border-b border-border bg-card">
+            <div className="flex gap-1 px-4 py-2 min-w-max">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setActiveTab(cat)}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-all ${
+                    currentTab === cat
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                  }`}
                 >
-                  <Send className="w-6 h-6" />
-                  {createOrder.isPending ? "Sending..." : "Send to Bar"}
-                </Button>
-              </div>
+                  {cat}
+                </button>
+              ))}
             </div>
-          </form>
-        </Form>
-      </main>
+          </div>
+
+          {/* Drink grid */}
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-4">
+              {itemsInTab.map((item) => {
+                const qty = selected[item.id]?.quantity ?? 0;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => addItem(item.id, item.name)}
+                    className={`relative rounded-xl border p-4 text-left transition-all active:scale-95 ${
+                      qty > 0
+                        ? "border-primary bg-primary/10 text-foreground"
+                        : "border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                    }`}
+                  >
+                    <span className="block font-semibold text-sm leading-snug">{item.name}</span>
+                    {qty > 0 && (
+                      <span className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs font-black w-6 h-6 flex items-center justify-center rounded-full">
+                        {qty}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Order summary + send */}
+      <div className="shrink-0 border-t border-border bg-card">
+        {selectedList.length > 0 && (
+          <div className="px-4 pt-3 pb-2 space-y-2 max-h-48 overflow-y-auto">
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Order ({totalItems} item{totalItems !== 1 ? "s" : ""})
+            </p>
+            {selectedList.map((item) => (
+              <div key={item.menuItemId} className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium flex-1 truncate">{item.menuItemName}</span>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => changeQty(item.menuItemId, -1)}
+                    className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive transition-colors"
+                  >
+                    {item.quantity === 1 ? <Trash2 className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+                  </button>
+                  <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
+                  <button
+                    type="button"
+                    onClick={() => changeQty(item.menuItemId, 1)}
+                    className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary transition-colors"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="p-4">
+          <Button
+            onClick={handleSend}
+            size="lg"
+            className="w-full h-16 text-xl font-bold uppercase tracking-wider gap-3"
+            disabled={createOrder.isPending}
+          >
+            <Send className="w-6 h-6" />
+            {createOrder.isPending ? "Sending..." : selectedList.length === 0 ? "Send to Bar" : `Send ${totalItems} Item${totalItems !== 1 ? "s" : ""} to Bar`}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
