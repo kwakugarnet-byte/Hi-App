@@ -1,19 +1,24 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useGetCurrentAuthUser } from "@workspace/api-client-react";
-import { usePinLogin as useApiPinLogin, usePinLogout as useApiPinLogout } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useGetCurrentAuthUser,
+  usePinLogout,
+} from "@workspace/api-client-react";
 
 export function useAuth() {
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useGetCurrentAuthUser({
-    query: { queryKey: ["auth", "user"], staleTime: 30000 },
+    query: { queryKey: ["auth", "user"], staleTime: Infinity },
   });
 
-  const logoutMutation = useApiPinLogout();
+  const logoutMutation = usePinLogout();
 
   const user = data?.user ?? null;
   const isAuthenticated = user != null;
-  const isAdmin = user?.isAdmin === true;
+  const role = user?.role ?? null;
+  const isAdmin = role === "admin";
+  const isWaitress = role === "waitress";
+  const isBartender = role === "bartender";
 
   function logout() {
     logoutMutation.mutate(undefined, {
@@ -24,5 +29,5 @@ export function useAuth() {
     });
   }
 
-  return { user, isLoading, isAuthenticated, isAdmin, logout };
+  return { user, isLoading, isAuthenticated, role, isAdmin, isWaitress, isBartender, logout };
 }

@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link, Redirect } from "wouter";
 import { ArrowLeft, CheckCircle2, Clock, Banknote } from "lucide-react";
 import {
   useGetOrderBatches,
@@ -14,10 +14,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMemo } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Bar() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { role, isLoading: authLoading } = useAuth();
+
+  if (!authLoading && role !== "bartender" && role !== "admin") {
+    return <Redirect to="/" />;
+  }
 
   const { data: batches, isLoading } = useGetOrderBatches({
     query: {

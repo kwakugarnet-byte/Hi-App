@@ -6,6 +6,7 @@ import {
   GetStaffResponse,
   PinLoginBody,
   GetCurrentAuthUserResponse,
+  ChangePinBody,
 } from "@workspace/api-zod";
 import {
   clearSession,
@@ -72,7 +73,7 @@ router.post("/pin-login", async (req: Request, res: Response): Promise<void> => 
       firstName,
       lastName,
       profileImageUrl: null,
-      isAdmin: staff.isAdmin,
+      role: staff.role as "admin" | "waitress" | "bartender",
     },
     access_token: "staff",
   };
@@ -88,6 +89,29 @@ router.post("/pin-login", async (req: Request, res: Response): Promise<void> => 
 router.post("/pin-logout", async (req: Request, res: Response): Promise<void> => {
   const sid = getSessionId(req);
   await clearSession(res, sid);
+  res.json({ ok: true });
+});
+
+router.post("/change-pin", async (req: Request, res: Response): Promise<void> => {
+  if (!req.isAuthenticated() || !req.user) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  const parsed = ChangePinBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request" });
+    return;
+  }
+
+  const staffId = parseInt((req.user as { id: string }).id, 10);
+  const pinHash = await bcrypt.hash(parsed.data.newPin, 10);
+
+  await db
+    .update(staffTable)
+    .set({ pinHash })
+    .where(eq(staffTable.id, staffId));
+
   res.json({ ok: true });
 });
 

@@ -142,6 +142,95 @@ paths:
         "200":
           description: Logged out successfully
 
+  /change-pin:
+    post:
+      tags: [Auth]
+      operationId: changePin
+      summary: Change the current user's PIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePinBody'
+      responses:
+        "200":
+          description: PIN changed successfully
+        "401":
+          description: Not authenticated
+
+  /admin/staff:
+    get:
+      tags: [Admin]
+      operationId: getAdminStaff
+      summary: List all staff members with roles (admin only)
+      responses:
+        "200":
+          description: List of all staff
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminStaffMember'
+    post:
+      tags: [Admin]
+      operationId: createStaff
+      summary: Create a new staff member (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStaffBody'
+      responses:
+        "201":
+          description: Staff member created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminStaffMember'
+
+  /admin/staff/{id}:
+    patch:
+      tags: [Admin]
+      operationId: updateStaff
+      summary: Update a staff member (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStaffBody'
+      responses:
+        "200":
+          description: Staff member updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminStaffMember'
+        "404":
+          description: Not found
+    delete:
+      tags: [Admin]
+      operationId: deleteStaff
+      summary: Delete a staff member (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   /menu-items:
     get:
       operationId: getMenuItems
@@ -308,6 +397,10 @@ components:
       required:
         - status
 
+    StaffRole:
+      type: string
+      enum: [admin, waitress, bartender]
+
     StaffMember:
       type: object
       required: [id, name]
@@ -316,6 +409,51 @@ components:
           type: integer
         name:
           type: string
+
+    AdminStaffMember:
+      type: object
+      required: [id, name, role]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        role:
+          $ref: '#/components/schemas/StaffRole'
+
+    CreateStaffBody:
+      type: object
+      required: [name, role, pin]
+      properties:
+        name:
+          type: string
+        role:
+          $ref: '#/components/schemas/StaffRole'
+        pin:
+          type: string
+          minLength: 4
+          maxLength: 4
+
+    UpdateStaffBody:
+      type: object
+      properties:
+        name:
+          type: string
+        role:
+          $ref: '#/components/schemas/StaffRole'
+        pin:
+          type: string
+          minLength: 4
+          maxLength: 4
+
+    ChangePinBody:
+      type: object
+      required: [newPin]
+      properties:
+        newPin:
+          type: string
+          minLength: 4
+          maxLength: 4
 
     PinLoginBody:
       type: object
@@ -343,9 +481,8 @@ components:
           type: [string, 'null']
         profileImageUrl:
           type: [string, 'null']
-        isAdmin:
-          type: boolean
-          default: false
+        role:
+          $ref: '#/components/schemas/StaffRole'
     AuthUserEnvelope:
       type: object
       required: [user]

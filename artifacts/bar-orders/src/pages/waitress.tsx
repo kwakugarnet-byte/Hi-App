@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Link } from "wouter";
+import { Link, Redirect } from "wouter";
 import { ArrowLeft, Send, Plus, Minus, Trash2 } from "lucide-react";
 import {
   useGetMenuItems,
@@ -20,7 +20,11 @@ type SelectedItem = { menuItemId: number; menuItemName: string; quantity: number
 export default function Waitress() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, role, isLoading: authLoading } = useAuth();
+
+  if (!authLoading && role !== "waitress" && role !== "admin") {
+    return <Redirect to="/" />;
+  }
 
   const waitressName = user?.firstName
     ? `${user.firstName}${user.lastName ? " " + user.lastName : ""}`

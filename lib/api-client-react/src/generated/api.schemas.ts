@@ -9,9 +9,51 @@ export interface HealthStatus {
   status: string;
 }
 
+export type StaffRole = (typeof StaffRole)[keyof typeof StaffRole];
+
+export const StaffRole = {
+  admin: "admin",
+  waitress: "waitress",
+  bartender: "bartender",
+} as const;
+
 export interface StaffMember {
   id: number;
   name: string;
+}
+
+export interface AdminStaffMember {
+  id: number;
+  name: string;
+  role: StaffRole;
+}
+
+export interface CreateStaffBody {
+  name: string;
+  role: StaffRole;
+  /**
+   * @minLength 4
+   * @maxLength 4
+   */
+  pin: string;
+}
+
+export interface UpdateStaffBody {
+  name?: string;
+  role?: StaffRole;
+  /**
+   * @minLength 4
+   * @maxLength 4
+   */
+  pin?: string;
+}
+
+export interface ChangePinBody {
+  /**
+   * @minLength 4
+   * @maxLength 4
+   */
+  newPin: string;
 }
 
 export interface PinLoginBody {
@@ -33,7 +75,7 @@ export interface AuthUser {
   lastName: string | null;
   /** @nullable */
   profileImageUrl: string | null;
-  isAdmin?: boolean;
+  role?: StaffRole;
 }
 
 export interface AuthUserEnvelope {

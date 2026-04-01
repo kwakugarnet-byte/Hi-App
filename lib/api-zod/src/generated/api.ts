@@ -25,8 +25,6 @@ export const GetCurrentAuthUserHeader = zod.object({
     .describe("Opaque session token — `Bearer <sid>`."),
 });
 
-export const getCurrentAuthUserResponseUserOneIsAdminDefault = false;
-
 export const GetCurrentAuthUserResponse = zod.object({
   user: zod.union([
     zod.object({
@@ -35,9 +33,7 @@ export const GetCurrentAuthUserResponse = zod.object({
       firstName: zod.string().nullable(),
       lastName: zod.string().nullable(),
       profileImageUrl: zod.string().nullable(),
-      isAdmin: zod
-        .boolean()
-        .default(getCurrentAuthUserResponseUserOneIsAdminDefault),
+      role: zod.enum(["admin", "waitress", "bartender"]).optional(),
     }),
     zod.null(),
   ]),
@@ -94,8 +90,6 @@ export const PinLoginBody = zod.object({
   pin: zod.string().min(pinLoginBodyPinMin).max(pinLoginBodyPinMax),
 });
 
-export const pinLoginResponseUserOneIsAdminDefault = false;
-
 export const PinLoginResponse = zod.object({
   user: zod.union([
     zod.object({
@@ -104,10 +98,75 @@ export const PinLoginResponse = zod.object({
       firstName: zod.string().nullable(),
       lastName: zod.string().nullable(),
       profileImageUrl: zod.string().nullable(),
-      isAdmin: zod.boolean().default(pinLoginResponseUserOneIsAdminDefault),
+      role: zod.enum(["admin", "waitress", "bartender"]).optional(),
     }),
     zod.null(),
   ]),
+});
+
+/**
+ * @summary Change the current user's PIN
+ */
+export const changePinBodyNewPinMin = 4;
+export const changePinBodyNewPinMax = 4;
+
+export const ChangePinBody = zod.object({
+  newPin: zod.string().min(changePinBodyNewPinMin).max(changePinBodyNewPinMax),
+});
+
+/**
+ * @summary List all staff members with roles (admin only)
+ */
+export const GetAdminStaffResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  role: zod.enum(["admin", "waitress", "bartender"]),
+});
+export const GetAdminStaffResponse = zod.array(GetAdminStaffResponseItem);
+
+/**
+ * @summary Create a new staff member (admin only)
+ */
+export const createStaffBodyPinMin = 4;
+export const createStaffBodyPinMax = 4;
+
+export const CreateStaffBody = zod.object({
+  name: zod.string(),
+  role: zod.enum(["admin", "waitress", "bartender"]),
+  pin: zod.string().min(createStaffBodyPinMin).max(createStaffBodyPinMax),
+});
+
+/**
+ * @summary Update a staff member (admin only)
+ */
+export const UpdateStaffParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const updateStaffBodyPinMin = 4;
+export const updateStaffBodyPinMax = 4;
+
+export const UpdateStaffBody = zod.object({
+  name: zod.string().optional(),
+  role: zod.enum(["admin", "waitress", "bartender"]).optional(),
+  pin: zod
+    .string()
+    .min(updateStaffBodyPinMin)
+    .max(updateStaffBodyPinMax)
+    .optional(),
+});
+
+export const UpdateStaffResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  role: zod.enum(["admin", "waitress", "bartender"]),
+});
+
+/**
+ * @summary Delete a staff member (admin only)
+ */
+export const DeleteStaffParams = zod.object({
+  id: zod.coerce.number(),
 });
 
 /**

@@ -5,6 +5,7 @@
  * Bar Order Management API
  * OpenAPI spec version: 0.1.0
  */
+import type { StaffRole } from "./staffRole";
 
 export interface AuthUser {
   id: string;
@@ -16,5 +17,5 @@ export interface AuthUser {
   lastName: string | null;
   /** @nullable */
   profileImageUrl: string | null;
-  isAdmin?: boolean;
+  role?: StaffRole;
 }

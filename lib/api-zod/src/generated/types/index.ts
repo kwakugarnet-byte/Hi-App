@@ -6,12 +6,15 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./adminStaffMember";
 export * from "./authorizationSessionHeaderParameter";
 export * from "./authUser";
 export * from "./authUserEnvelope";
 export * from "./beginBrowserLoginParams";
+export * from "./changePinBody";
 export * from "./createOrderBatchBody";
 export * from "./createOrderItemBody";
+export * from "./createStaffBody";
 export * from "./handleBrowserLoginCallbackParams";
 export * from "./healthStatus";
 export * from "./menuItem";
@@ -21,3 +24,5 @@ export * from "./orderBatchStatus";
 export * from "./orderItem";
 export * from "./pinLoginBody";
 export * from "./staffMember";
+export * from "./staffRole";
+export * from "./updateStaffBody";
