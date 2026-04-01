@@ -1,5 +1,5 @@
 import { Link, Redirect } from "wouter";
-import { ArrowLeft, CheckCircle2, Clock, Banknote } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Banknote, User, UserCog } from "lucide-react";
 import {
   useGetOrderBatches,
   useCompleteOrderBatch,
@@ -127,14 +127,19 @@ export default function Bar() {
                     >
                       <CardContent className="p-0 flex flex-col h-full">
                         <div className="p-5 border-b border-border bg-secondary/50">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1 flex items-center gap-1">
+                            <User className="w-3 h-3" /> Customer
+                          </p>
                           <h2 className="text-3xl font-black uppercase tracking-tight text-foreground truncate" title={batch.customerName}>
                             {batch.customerName}
                           </h2>
-                          <div className="flex items-center gap-2 mt-2 text-muted-foreground font-bold tracking-wide text-sm">
-                            <span className="uppercase">{batch.waitressName}</span>
-                            <span>&bull;</span>
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-4 h-4" />
+                          <div className="flex items-center gap-3 mt-3 flex-wrap">
+                            <span className="flex items-center gap-1 text-xs font-bold text-amber-400 uppercase tracking-wide bg-amber-400/10 px-2 py-0.5 rounded-full">
+                              <UserCog className="w-3 h-3" />
+                              {batch.waitressName}
+                            </span>
+                            <span className="flex items-center gap-1 text-xs font-bold text-muted-foreground">
+                              <Clock className="w-3 h-3" />
                               {format(new Date(batch.createdAt), "h:mm a")}
                             </span>
                           </div>
@@ -183,14 +188,19 @@ export default function Bar() {
                     >
                       <CardContent className="p-0 flex flex-col h-full">
                         <div className="p-4 border-b border-border/40 bg-secondary/20">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 mb-0.5 flex items-center gap-1">
+                            <User className="w-2.5 h-2.5" /> Customer
+                          </p>
                           <h2 className="text-xl font-black uppercase tracking-tight text-foreground/70 truncate" title={batch.customerName}>
                             {batch.customerName}
                           </h2>
-                          <div className="flex items-center gap-2 mt-1 text-muted-foreground/70 font-bold tracking-wide text-xs">
-                            <span className="uppercase">{batch.waitressName}</span>
-                            <span>&bull;</span>
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-amber-400/70 uppercase tracking-wide bg-amber-400/10 px-1.5 py-0.5 rounded-full">
+                              <UserCog className="w-2.5 h-2.5" />
+                              {batch.waitressName}
+                            </span>
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground/60">
+                              <Clock className="w-2.5 h-2.5" />
                               {format(new Date(batch.createdAt), "h:mm a")}
                             </span>
                           </div>
