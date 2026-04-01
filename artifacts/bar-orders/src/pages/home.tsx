@@ -1,8 +1,14 @@
+import { useMemo } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { LogIn, Monitor, LogOut, Receipt, Settings, Users, KeyRound } from "lucide-react";
+import { LogIn, Monitor, LogOut, Receipt, Settings, Users, KeyRound, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import logo from "@/assets/logo.jpg";
+import { useGetOrderBatches, getGetOrderBatchesQueryKey } from "@workspace/api-client-react";
+
+function formatPrice(pence: number) {
+  return `₵${(pence / 100).toFixed(2)}`;
+}
 
 const ROLE_LABEL: Record<string, string> = {
   admin: "Admin",
@@ -23,6 +29,21 @@ export default function Home() {
     ? `${user.firstName}${user.lastName ? " " + user.lastName : ""}`
     : "Staff";
 
+  const { data: batches } = useGetOrderBatches({
+    query: {
+      queryKey: getGetOrderBatchesQueryKey(),
+      refetchInterval: 30000,
+      enabled: isWaitress,
+    },
+  });
+
+  const myOutstanding = useMemo(() => {
+    if (!batches || !isWaitress || !displayName) return 0;
+    return batches
+      .filter((b) => b.status !== "paid" && b.waitressName === displayName)
+      .reduce((sum, b) => sum + b.items.reduce((s, i) => s + i.pricePence * i.quantity, 0), 0);
+  }, [batches, isWaitress, displayName]);
+
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center p-4">
       <div className="max-w-md w-full space-y-8">
@@ -42,12 +63,38 @@ export default function Home() {
 
         <div className="grid gap-4">
           {isWaitress && (
-            <Link href="/waitress" className="w-full">
-              <Button size="lg" className="w-full h-24 text-xl font-bold uppercase tracking-wider flex items-center justify-center gap-3">
-                <LogIn className="w-6 h-6" />
-                Take Order
-              </Button>
-            </Link>
+            <>
+              {/* Outstanding credit accountability card */}
+              <Link href="/bills" className="w-full">
+                <div className={`rounded-xl border px-4 py-3 flex items-center gap-3 transition-colors ${
+                  myOutstanding > 0
+                    ? "bg-amber-500/10 border-amber-500/40 hover:bg-amber-500/15"
+                    : "bg-green-500/10 border-green-500/30 hover:bg-green-500/15"
+                }`}>
+                  {myOutstanding > 0
+                    ? <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+                    : <Receipt className="w-5 h-5 text-green-500 shrink-0" />
+                  }
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs font-black uppercase tracking-widest ${myOutstanding > 0 ? "text-amber-400" : "text-green-500"}`}>
+                      My Outstanding Credit
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {myOutstanding > 0 ? "Tap to see your unpaid bills" : "All your bills are settled"}
+                    </p>
+                  </div>
+                  <span className={`text-xl font-black tabular-nums shrink-0 ${myOutstanding > 0 ? "text-amber-400" : "text-green-500"}`}>
+                    {formatPrice(myOutstanding)}
+                  </span>
+                </div>
+              </Link>
+              <Link href="/waitress" className="w-full">
+                <Button size="lg" className="w-full h-24 text-xl font-bold uppercase tracking-wider flex items-center justify-center gap-3">
+                  <LogIn className="w-6 h-6" />
+                  Take Order
+                </Button>
+              </Link>
+            </>
           )}
 
           {isBartender && (

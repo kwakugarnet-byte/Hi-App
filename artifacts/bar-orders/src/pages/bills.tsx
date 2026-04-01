@@ -1,6 +1,6 @@
-import { useMemo, useEffect, useState } from "react";
-import { Link, useLocation } from "wouter";
-import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Link } from "wouter";
+import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle } from "lucide-react";
 import {
   useGetOrderBatches,
   getGetOrderBatchesQueryKey,
@@ -161,16 +161,16 @@ function printBill(customer: GroupedCustomer) {
 }
 
 export default function Bills() {
-  const { isWaitress, isAdmin, isBartender } = useAuth();
-  const [, setLocation] = useLocation();
+  const { user, isWaitress, isAdmin, isBartender } = useAuth();
   const [selectedWaiter, setSelectedWaiter] = useState<string | null>(null);
   const [tab, setTab] = useState<"active" | "history">("active");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (isWaitress) setLocation("/");
-  }, [isWaitress]);
+  // Build the current user's display name (matches waitressName stored on batches)
+  const myName = user
+    ? `${user.firstName ?? ""}${user.lastName ? " " + user.lastName : ""}`.trim()
+    : null;
 
   const { data: batches, isLoading } = useGetOrderBatches({
     query: {
@@ -189,17 +189,23 @@ export default function Bills() {
 
   const activeCustomers = useMemo(() => {
     if (!batches) return [];
-    const unpaid = batches.filter(
-      (b) => b.status !== "paid" && (!selectedWaiter || b.waitressName === selectedWaiter)
-    );
+    const unpaid = batches.filter((b) => {
+      if (b.status === "paid") return false;
+      if (isWaitress && myName) return b.waitressName === myName;
+      return !selectedWaiter || b.waitressName === selectedWaiter;
+    });
     return groupBatches(unpaid);
-  }, [batches, selectedWaiter]);
+  }, [batches, selectedWaiter, isWaitress, myName]);
 
   const historyCustomers = useMemo(() => {
     if (!batches) return [];
-    const paid = batches.filter((b) => b.status === "paid");
+    const paid = batches.filter((b) => {
+      if (b.status !== "paid") return false;
+      if (isWaitress && myName) return b.waitressName === myName;
+      return true;
+    });
     return groupBatches(paid).reverse();
-  }, [batches]);
+  }, [batches, isWaitress, myName]);
 
   const grandTotal = useMemo(
     () => activeCustomers.reduce((sum, c) => sum + c.total, 0),
@@ -249,19 +255,35 @@ export default function Bills() {
     }
   };
 
-  const activeSubtitle = selectedWaiter
-    ? `${activeCustomers.length} customer${activeCustomers.length !== 1 ? "s" : ""} — ${selectedWaiter}`
-    : `${activeCustomers.length} active customer${activeCustomers.length !== 1 ? "s" : ""}`;
+  const activeSubtitle = isWaitress
+    ? `Your outstanding credit`
+    : selectedWaiter
+      ? `${activeCustomers.length} customer${activeCustomers.length !== 1 ? "s" : ""} — ${selectedWaiter}`
+      : `${activeCustomers.length} active customer${activeCustomers.length !== 1 ? "s" : ""}`;
 
   const activeContent = activeCustomers.length === 0
     ? (
       <div className="h-64 flex flex-col items-center justify-center opacity-50 gap-4">
         <Receipt className="w-16 h-16 text-muted-foreground" />
-        <p className="text-muted-foreground font-bold uppercase tracking-widest text-sm">No outstanding bills</p>
+        <p className="text-muted-foreground font-bold uppercase tracking-widest text-sm">
+          {isWaitress ? "No outstanding bills — you're clear!" : "No outstanding bills"}
+        </p>
       </div>
     ) : (
       <>
-        {waiterCredits.length > 0 && (
+        {/* Waitress accountability banner */}
+        {isWaitress && grandTotal > 0 && (
+          <div className="bg-amber-500/10 border border-amber-500/40 rounded-xl px-4 py-3 flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-black uppercase tracking-widest text-amber-400">Your Outstanding Credit</p>
+              <p className="text-xs text-muted-foreground mt-0.5">You are responsible for collecting these bills</p>
+            </div>
+            <span className="text-2xl font-black text-amber-400 tabular-nums shrink-0">{formatPrice(grandTotal)}</span>
+          </div>
+        )}
+        {/* Credit by Waiter — admin/bartender only */}
+        {!isWaitress && waiterCredits.length > 0 && (
           <div className="bg-card border border-border rounded-xl overflow-hidden">
             <div className="px-4 py-2.5 border-b border-border flex items-center gap-2">
               <Users className="w-4 h-4 text-amber-400" />
@@ -434,9 +456,11 @@ export default function Bills() {
             </button>
           </Link>
           <div className="text-center">
-            <h1 className="text-xl font-bold uppercase tracking-wide text-primary">Sales & Bills</h1>
+            <h1 className="text-xl font-bold uppercase tracking-wide text-primary">
+              {isWaitress ? "My Bills" : "Sales & Bills"}
+            </h1>
             <p className="text-xs text-muted-foreground">
-              {tab === "active" ? activeSubtitle : `${historyCustomers.length} paid sales`}
+              {tab === "active" ? activeSubtitle : `${historyCustomers.length} ${isWaitress ? "my paid" : "paid"} sales`}
             </p>
           </div>
           <div className="w-10" />
@@ -466,8 +490,8 @@ export default function Bills() {
           </button>
         </div>
 
-        {/* Waiter filter chips — active tab only */}
-        {tab === "active" && waiterNames.length > 1 && (
+        {/* Waiter filter chips — active tab only, admin/bartender only */}
+        {!isWaitress && tab === "active" && waiterNames.length > 1 && (
           <div className="px-4 pb-3 flex items-center gap-2 overflow-x-auto">
             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground shrink-0">Filter:</span>
             <button
