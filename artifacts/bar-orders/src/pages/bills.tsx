@@ -161,7 +161,7 @@ function printBill(customer: GroupedCustomer) {
 }
 
 export default function Bills() {
-  const { isWaitress, isAdmin } = useAuth();
+  const { isWaitress, isAdmin, isBartender } = useAuth();
   const [, setLocation] = useLocation();
   const [selectedWaiter, setSelectedWaiter] = useState<string | null>(null);
   const [tab, setTab] = useState<"active" | "history">("active");
@@ -388,8 +388,8 @@ export default function Bills() {
                   </div>
                 ))}
 
-                {/* Admin-only Mark Paid */}
-                {isAdmin && customer.overallStatus === "completed" && (
+                {/* Mark Paid — admin or bartender */}
+                {(isAdmin || isBartender) && customer.overallStatus === "completed" && (
                   <div className="px-4 pb-4 pt-1 border-t border-border/50">
                     <Button
                       size="sm"
@@ -398,7 +398,7 @@ export default function Bills() {
                       disabled={payBatch.isPending}
                     >
                       <ShieldCheck className="w-4 h-4" />
-                      Mark Paid — Admin Clear
+                      {isAdmin ? "Mark Paid — Admin Clear" : "Mark Paid"}
                     </Button>
                   </div>
                 )}
