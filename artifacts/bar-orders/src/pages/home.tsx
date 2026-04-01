@@ -57,12 +57,21 @@ export default function Home() {
           )}
 
           {isBartender && (
-            <Link href="/bar" className="w-full">
-              <Button size="lg" className="w-full h-24 text-xl font-bold uppercase tracking-wider flex items-center justify-center gap-3">
-                <Monitor className="w-6 h-6" />
-                Bar Display
-              </Button>
-            </Link>
+            <>
+              <Link href="/bar" className="w-full">
+                <Button size="lg" className="w-full h-24 text-xl font-bold uppercase tracking-wider flex items-center justify-center gap-3">
+                  <Monitor className="w-6 h-6" />
+                  Bar Display
+                </Button>
+              </Link>
+
+              <Link href="/bills" className="w-full">
+                <Button size="lg" variant="outline" className="w-full h-20 text-lg font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/50 text-primary hover:bg-primary/10">
+                  <Receipt className="w-5 h-5" />
+                  All Active Bills
+                </Button>
+              </Link>
+            </>
           )}
 
           {isAdmin && (
@@ -78,6 +87,13 @@ export default function Home() {
                 <Button size="lg" variant="outline" className="w-full h-20 text-lg font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/50 text-primary hover:bg-primary/10">
                   <Users className="w-5 h-5" />
                   Manage Staff
+                </Button>
+              </Link>
+
+              <Link href="/bills" className="w-full">
+                <Button size="lg" variant="outline" className="w-full h-16 text-base font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/50 text-primary hover:bg-primary/10">
+                  <Receipt className="w-5 h-5" />
+                  All Active Bills
                 </Button>
               </Link>
 
