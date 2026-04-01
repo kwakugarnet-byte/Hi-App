@@ -1,6 +1,6 @@
 import { useMemo, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users } from "lucide-react";
 import {
   useGetOrderBatches,
   getGetOrderBatchesQueryKey,
@@ -211,6 +211,33 @@ export default function Bills() {
     [historyCustomers]
   );
 
+  // Credit owed per waiter (active/unpaid, no filter applied)
+  const waiterCredits = useMemo(() => {
+    if (!batches) return [];
+    const unpaid = batches.filter((b) => b.status !== "paid");
+    const all = groupBatches(unpaid);
+    const map = new Map<string, { name: string; customers: number; total: number }>();
+    for (const c of all) {
+      if (!map.has(c.waitressName)) map.set(c.waitressName, { name: c.waitressName, customers: 0, total: 0 });
+      const entry = map.get(c.waitressName)!;
+      entry.customers += 1;
+      entry.total += c.total;
+    }
+    return [...map.values()].sort((a, b) => b.total - a.total);
+  }, [batches]);
+
+  // Sales per waiter from history (paid bills)
+  const waiterSales = useMemo(() => {
+    const map = new Map<string, { name: string; customers: number; total: number }>();
+    for (const c of historyCustomers) {
+      if (!map.has(c.waitressName)) map.set(c.waitressName, { name: c.waitressName, customers: 0, total: 0 });
+      const entry = map.get(c.waitressName)!;
+      entry.customers += 1;
+      entry.total += c.total;
+    }
+    return [...map.values()].sort((a, b) => b.total - a.total);
+  }, [historyCustomers]);
+
   const handleMarkPaid = async (customer: GroupedCustomer) => {
     const ids = customer.rounds.map((r) => r.id);
     try {
@@ -225,6 +252,177 @@ export default function Bills() {
   const activeSubtitle = selectedWaiter
     ? `${activeCustomers.length} customer${activeCustomers.length !== 1 ? "s" : ""} — ${selectedWaiter}`
     : `${activeCustomers.length} active customer${activeCustomers.length !== 1 ? "s" : ""}`;
+
+  const activeContent = activeCustomers.length === 0
+    ? (
+      <div className="h-64 flex flex-col items-center justify-center opacity-50 gap-4">
+        <Receipt className="w-16 h-16 text-muted-foreground" />
+        <p className="text-muted-foreground font-bold uppercase tracking-widest text-sm">No outstanding bills</p>
+      </div>
+    ) : (
+      <>
+        {waiterCredits.length > 0 && (
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-border flex items-center gap-2">
+              <Users className="w-4 h-4 text-amber-400" />
+              <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Credit by Waiter</span>
+            </div>
+            <div className="divide-y divide-border/50">
+              {waiterCredits.map((w) => (
+                <div key={w.name} className="px-4 py-2.5 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm font-bold uppercase tracking-wide truncate">{w.name}</span>
+                    <span className="text-[10px] text-muted-foreground font-bold bg-muted px-1.5 py-0.5 rounded-full shrink-0">
+                      {w.customers} {w.customers === 1 ? "customer" : "customers"}
+                    </span>
+                  </div>
+                  <span className="text-lg font-black text-amber-400 tabular-nums shrink-0">{formatPrice(w.total)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {activeCustomers.map((customer) => (
+          <div key={`${customer.waitressName}|||${customer.customerName}`} className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-border flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-xl font-black uppercase tracking-tight truncate">{customer.customerName}</h2>
+                <div className={`flex items-center gap-1 text-xs font-bold mt-0.5 ${customer.overallStatus === "pending" ? "text-yellow-500" : "text-green-500"}`}>
+                  {customer.overallStatus === "pending"
+                    ? <><Hourglass className="w-3 h-3" /><span className="uppercase tracking-wide">Being prepared</span></>
+                    : <><CheckCircle2 className="w-3 h-3" /><span className="uppercase tracking-wide">Drinks served</span></>
+                  }
+                </div>
+                <p className="text-xs text-amber-400/80 font-semibold mt-1 uppercase tracking-wide">by {customer.waitressName}</p>
+              </div>
+              <div className="text-right shrink-0 flex flex-col items-end gap-2">
+                <p className="text-2xl font-black text-primary">{formatPrice(customer.total)}</p>
+                <p className="text-xs text-muted-foreground flex items-center justify-end gap-1">
+                  <Clock className="w-3 h-3" />
+                  {format(new Date(customer.firstOrderAt), "h:mm a")}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => printBill(customer)}
+                    className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground hover:text-primary transition-colors border border-border hover:border-primary/50 rounded-lg px-2.5 py-1.5"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    Print
+                  </button>
+                </div>
+              </div>
+            </div>
+            {customer.rounds.map((round, idx) => (
+              <div key={round.id} className={idx > 0 ? "border-t border-border/50" : ""}>
+                <div className="px-4 pt-2.5 pb-1 flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70">Round {idx + 1}</span>
+                  <span className="text-[10px] text-muted-foreground/60 flex items-center gap-1">
+                    <Clock className="w-2.5 h-2.5" />
+                    {format(new Date(round.createdAt), "h:mm a")}
+                  </span>
+                </div>
+                <div className="px-4 pb-2.5 space-y-1.5">
+                  {round.items.map((item, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm">
+                      <span className="text-foreground font-medium flex-1 min-w-0 truncate">
+                        <span className="text-muted-foreground font-bold mr-1">{item.quantity}×</span>
+                        {item.menuItemName}
+                      </span>
+                      <span className="text-muted-foreground/60 text-xs tabular-nums shrink-0">@{formatPrice(item.pricePence)}</span>
+                      <span className="text-foreground font-bold tabular-nums shrink-0 w-16 text-right">{formatPrice(item.pricePence * item.quantity)}</span>
+                    </div>
+                  ))}
+                  {customer.rounds.length > 1 && (
+                    <div className="flex items-center justify-between text-xs pt-1 border-t border-border/40">
+                      <span className="text-muted-foreground/60 uppercase tracking-wide font-bold">Subtotal</span>
+                      <span className="text-muted-foreground font-bold tabular-nums">{formatPrice(round.subtotal)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            {(isAdmin || isBartender) && customer.overallStatus === "completed" && (
+              <div className="px-4 pb-4 pt-1 border-t border-border/50">
+                <Button
+                  size="sm"
+                  className="w-full gap-2 bg-green-700 hover:bg-green-600 text-white font-black uppercase tracking-widest"
+                  onClick={() => handleMarkPaid(customer)}
+                  disabled={payBatch.isPending}
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  {isAdmin ? "Mark Paid — Admin Clear" : "Mark Paid"}
+                </Button>
+              </div>
+            )}
+          </div>
+        ))}
+      </>
+    );
+
+  const historyContent = historyCustomers.length === 0
+    ? (
+      <div className="h-64 flex flex-col items-center justify-center opacity-50 gap-4">
+        <TrendingUp className="w-16 h-16 text-muted-foreground" />
+        <p className="text-muted-foreground font-bold uppercase tracking-widest text-sm">No sales yet today</p>
+      </div>
+    ) : (
+      <>
+        {waiterSales.length > 0 && (
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-border flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-green-500" />
+              <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Sales by Waiter</span>
+            </div>
+            <div className="divide-y divide-border/50">
+              {waiterSales.map((w) => (
+                <div key={w.name} className="px-4 py-2.5 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm font-bold uppercase tracking-wide truncate">{w.name}</span>
+                    <span className="text-[10px] text-muted-foreground font-bold bg-muted px-1.5 py-0.5 rounded-full shrink-0">
+                      {w.customers} {w.customers === 1 ? "sale" : "sales"}
+                    </span>
+                  </div>
+                  <span className="text-lg font-black text-green-500 tabular-nums shrink-0">{formatPrice(w.total)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {historyCustomers.map((customer) => (
+          <div key={`history|||${customer.waitressName}|||${customer.customerName}|||${customer.firstOrderAt}`} className="bg-card/60 border border-border/60 rounded-xl overflow-hidden opacity-80">
+            <div className="px-4 py-3 border-b border-border/40 flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-lg font-black uppercase tracking-tight truncate">{customer.customerName}</h2>
+                <div className="flex items-center gap-1 text-xs font-bold mt-0.5 text-green-500">
+                  <Banknote className="w-3 h-3" />
+                  <span className="uppercase tracking-wide">Paid</span>
+                </div>
+                <p className="text-xs text-amber-400/70 font-semibold mt-1 uppercase tracking-wide">by {customer.waitressName}</p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-xl font-black text-primary/80">{formatPrice(customer.total)}</p>
+                <p className="text-xs text-muted-foreground/60 flex items-center justify-end gap-1 mt-1">
+                  <Clock className="w-3 h-3" />
+                  {format(new Date(customer.firstOrderAt), "h:mm a")}
+                </p>
+              </div>
+            </div>
+            <div className="px-4 py-2.5 space-y-1.5">
+              {customer.rounds.flatMap((r) => r.items).map((item, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground/80">
+                  <span className="flex-1 min-w-0 truncate">
+                    <span className="font-bold mr-1">{item.quantity}×</span>
+                    {item.menuItemName}
+                  </span>
+                  <span className="text-xs tabular-nums shrink-0 text-muted-foreground/50">@{formatPrice(item.pricePence)}</span>
+                  <span className="font-bold tabular-nums shrink-0 w-16 text-right">{formatPrice(item.pricePence * item.quantity)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </>
+    );
 
   return (
     <div className="min-h-[100dvh] bg-background text-foreground flex flex-col">
@@ -306,157 +504,7 @@ export default function Bills() {
               <Skeleton key={n} className="h-36 w-full bg-card rounded-xl" />
             ))}
           </div>
-        ) : tab === "active" ? (
-          /* ── ACTIVE BILLS ── */
-          activeCustomers.length === 0 ? (
-            <div className="h-64 flex flex-col items-center justify-center opacity-50 gap-4">
-              <Receipt className="w-16 h-16 text-muted-foreground" />
-              <p className="text-muted-foreground font-bold uppercase tracking-widest text-sm">No outstanding bills</p>
-            </div>
-          ) : (
-            activeCustomers.map((customer) => (
-              <div
-                key={`${customer.waitressName}|||${customer.customerName}`}
-                className="bg-card border border-border rounded-xl overflow-hidden"
-              >
-                {/* Customer header */}
-                <div className="px-4 py-3 border-b border-border flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <h2 className="text-xl font-black uppercase tracking-tight truncate">{customer.customerName}</h2>
-                    <div className={`flex items-center gap-1 text-xs font-bold mt-0.5 ${customer.overallStatus === "pending" ? "text-yellow-500" : "text-green-500"}`}>
-                      {customer.overallStatus === "pending"
-                        ? <><Hourglass className="w-3 h-3" /><span className="uppercase tracking-wide">Being prepared</span></>
-                        : <><CheckCircle2 className="w-3 h-3" /><span className="uppercase tracking-wide">Drinks served</span></>
-                      }
-                    </div>
-                    <p className="text-xs text-amber-400/80 font-semibold mt-1 uppercase tracking-wide">
-                      by {customer.waitressName}
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0 flex flex-col items-end gap-2">
-                    <p className="text-2xl font-black text-primary">{formatPrice(customer.total)}</p>
-                    <p className="text-xs text-muted-foreground flex items-center justify-end gap-1">
-                      <Clock className="w-3 h-3" />
-                      {format(new Date(customer.firstOrderAt), "h:mm a")}
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => printBill(customer)}
-                        className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground hover:text-primary transition-colors border border-border hover:border-primary/50 rounded-lg px-2.5 py-1.5"
-                      >
-                        <Printer className="w-3.5 h-3.5" />
-                        Print
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Rounds */}
-                {customer.rounds.map((round, idx) => (
-                  <div key={round.id} className={idx > 0 ? "border-t border-border/50" : ""}>
-                    <div className="px-4 pt-2.5 pb-1 flex items-center justify-between">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70">
-                        Round {idx + 1}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground/60 flex items-center gap-1">
-                        <Clock className="w-2.5 h-2.5" />
-                        {format(new Date(round.createdAt), "h:mm a")}
-                      </span>
-                    </div>
-                    <div className="px-4 pb-2.5 space-y-1.5">
-                      {round.items.map((item, i) => (
-                        <div key={i} className="flex items-center gap-2 text-sm">
-                          <span className="text-foreground font-medium flex-1 min-w-0 truncate">
-                            <span className="text-muted-foreground font-bold mr-1">{item.quantity}×</span>
-                            {item.menuItemName}
-                          </span>
-                          <span className="text-muted-foreground/60 text-xs tabular-nums shrink-0">
-                            @{formatPrice(item.pricePence)}
-                          </span>
-                          <span className="text-foreground font-bold tabular-nums shrink-0 w-16 text-right">
-                            {formatPrice(item.pricePence * item.quantity)}
-                          </span>
-                        </div>
-                      ))}
-                      {customer.rounds.length > 1 && (
-                        <div className="flex items-center justify-between text-xs pt-1 border-t border-border/40">
-                          <span className="text-muted-foreground/60 uppercase tracking-wide font-bold">Subtotal</span>
-                          <span className="text-muted-foreground font-bold tabular-nums">{formatPrice(round.subtotal)}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-                {/* Mark Paid — admin or bartender */}
-                {(isAdmin || isBartender) && customer.overallStatus === "completed" && (
-                  <div className="px-4 pb-4 pt-1 border-t border-border/50">
-                    <Button
-                      size="sm"
-                      className="w-full gap-2 bg-green-700 hover:bg-green-600 text-white font-black uppercase tracking-widest"
-                      onClick={() => handleMarkPaid(customer)}
-                      disabled={payBatch.isPending}
-                    >
-                      <ShieldCheck className="w-4 h-4" />
-                      {isAdmin ? "Mark Paid — Admin Clear" : "Mark Paid"}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ))
-          )
-        ) : (
-          /* ── SALES HISTORY ── */
-          historyCustomers.length === 0 ? (
-            <div className="h-64 flex flex-col items-center justify-center opacity-50 gap-4">
-              <TrendingUp className="w-16 h-16 text-muted-foreground" />
-              <p className="text-muted-foreground font-bold uppercase tracking-widest text-sm">No sales yet today</p>
-            </div>
-          ) : (
-            historyCustomers.map((customer) => (
-              <div
-                key={`history|||${customer.waitressName}|||${customer.customerName}|||${customer.firstOrderAt}`}
-                className="bg-card/60 border border-border/60 rounded-xl overflow-hidden opacity-80"
-              >
-                <div className="px-4 py-3 border-b border-border/40 flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <h2 className="text-lg font-black uppercase tracking-tight truncate">{customer.customerName}</h2>
-                    <div className="flex items-center gap-1 text-xs font-bold mt-0.5 text-green-500">
-                      <Banknote className="w-3 h-3" />
-                      <span className="uppercase tracking-wide">Paid</span>
-                    </div>
-                    <p className="text-xs text-amber-400/70 font-semibold mt-1 uppercase tracking-wide">
-                      by {customer.waitressName}
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-xl font-black text-primary/80">{formatPrice(customer.total)}</p>
-                    <p className="text-xs text-muted-foreground/60 flex items-center justify-end gap-1 mt-1">
-                      <Clock className="w-3 h-3" />
-                      {format(new Date(customer.firstOrderAt), "h:mm a")}
-                    </p>
-                  </div>
-                </div>
-                <div className="px-4 py-2.5 space-y-1.5">
-                  {customer.rounds.flatMap((r) => r.items).map((item, i) => (
-                    <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground/80">
-                      <span className="flex-1 min-w-0 truncate">
-                        <span className="font-bold mr-1">{item.quantity}×</span>
-                        {item.menuItemName}
-                      </span>
-                      <span className="text-xs tabular-nums shrink-0 text-muted-foreground/50">
-                        @{formatPrice(item.pricePence)}
-                      </span>
-                      <span className="font-bold tabular-nums shrink-0 w-16 text-right">
-                        {formatPrice(item.pricePence * item.quantity)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))
-          )
-        )}
+        ) : tab === "active" ? activeContent : historyContent}
       </main>
 
       {/* Footer totals */}
