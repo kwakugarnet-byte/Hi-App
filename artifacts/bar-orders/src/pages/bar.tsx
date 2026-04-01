@@ -1,9 +1,8 @@
 import { Link, Redirect } from "wouter";
-import { ArrowLeft, CheckCircle2, Clock, Banknote, User, UserCog } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, User, UserCog } from "lucide-react";
 import {
   useGetOrderBatches,
   useCompleteOrderBatch,
-  usePayOrderBatch,
   getGetOrderBatchesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -84,7 +83,6 @@ export default function Bar() {
   });
 
   const completeBatch = useCompleteOrderBatch();
-  const payBatch = usePayOrderBatch();
 
   const waiterNames = useMemo(() => {
     if (!batches) return [];
@@ -101,31 +99,19 @@ export default function Bar() {
   }, [batches, selectedWaiter]);
 
   const preparingGroups = useMemo(() => allGroups.filter((g) => g.hasPending), [allGroups]);
-  const awaitingGroups = useMemo(() => allGroups.filter((g) => !g.hasPending), [allGroups]);
 
   const handleCompleteGroup = async (group: CustomerGroup) => {
     const pendingIds = group.rounds.filter((r) => r.status === "pending").map((r) => r.id);
     try {
       await Promise.all(pendingIds.map((id) => completeBatch.mutateAsync({ id })));
       await queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
-      toast({ title: "Drinks Ready", description: `${group.customerName}'s order is served.` });
+      toast({ title: "Drinks Ready", description: `${group.customerName}'s order is served — bill sent.` });
     } catch {
       toast({ title: "Error", description: "Could not mark order as done.", variant: "destructive" });
     }
   };
 
-  const handlePayGroup = async (group: CustomerGroup) => {
-    const ids = group.rounds.map((r) => r.id);
-    try {
-      await Promise.all(ids.map((id) => payBatch.mutateAsync({ id })));
-      await queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
-      toast({ title: "Paid & Cleared", description: `${group.customerName}'s bill has been settled.` });
-    } catch {
-      toast({ title: "Error", description: "Could not mark as paid.", variant: "destructive" });
-    }
-  };
-
-  const allClear = preparingGroups.length === 0 && awaitingGroups.length === 0;
+  const allClear = preparingGroups.length === 0;
 
   return (
     <div className="min-h-[100dvh] bg-background text-foreground flex flex-col">
@@ -140,7 +126,7 @@ export default function Bar() {
             <div>
               <h1 className="text-2xl font-black uppercase tracking-widest text-primary leading-none">Bar Display</h1>
               <p className="text-sm font-bold text-muted-foreground tracking-widest uppercase mt-1">
-                {preparingGroups.length} Preparing &bull; {awaitingGroups.length} Awaiting Payment
+                {preparingGroups.length} Order{preparingGroups.length !== 1 ? "s" : ""} Preparing
               </p>
             </div>
           </div>
@@ -253,64 +239,6 @@ export default function Bar() {
               </section>
             )}
 
-            {/* Awaiting payment section */}
-            {awaitingGroups.length > 0 && (
-              <section>
-                <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4 px-1 flex items-center gap-2">
-                  <Banknote className="w-4 h-4" />
-                  Awaiting Payment
-                </h2>
-                <div className="flex gap-6 items-start overflow-x-auto pb-2">
-                  {awaitingGroups.map((group) => (
-                    <Card
-                      key={`${group.waitressName}|||${group.customerName}`}
-                      className="w-72 shrink-0 bg-card/60 border-border/50 shadow-md flex flex-col overflow-hidden rounded-xl border-t-4 border-t-green-600/60"
-                    >
-                      <CardContent className="p-0 flex flex-col h-full">
-                        {/* Customer header */}
-                        <div className="p-4 border-b border-border/40 bg-secondary/20">
-                          <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 mb-0.5 flex items-center gap-1">
-                            <User className="w-2.5 h-2.5" /> Customer
-                          </p>
-                          <h2 className="text-xl font-black uppercase tracking-tight text-foreground/70 truncate" title={group.customerName}>
-                            {group.customerName}
-                          </h2>
-                          <div className="flex items-center gap-2 mt-2 flex-wrap">
-                            <span className="flex items-center gap-1 text-[10px] font-bold text-amber-400/70 uppercase tracking-wide bg-amber-400/10 px-1.5 py-0.5 rounded-full">
-                              <UserCog className="w-2.5 h-2.5" />
-                              {group.waitressName}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* All items flat */}
-                        <div className="px-4 py-3 flex-1 bg-card/40 space-y-1">
-                          {group.rounds.flatMap((round) => round.items).map((item, i) => (
-                            <div key={i} className="flex justify-between items-center text-muted-foreground/80">
-                              <span className="text-sm font-semibold">{item.menuItemName}</span>
-                              <span className="text-sm font-black">x{item.quantity}</span>
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="p-4 pt-0 mt-auto">
-                          <Button
-                            size="lg"
-                            variant="outline"
-                            className="w-full h-12 text-base font-black uppercase tracking-widest border-green-600/60 text-green-500 hover:bg-green-600 hover:text-white hover:border-green-600 active:scale-[0.98] transition-all gap-2"
-                            onClick={() => handlePayGroup(group)}
-                            disabled={payBatch.isPending}
-                          >
-                            <Banknote className="w-4 h-4" />
-                            Paid — Clear
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </section>
-            )}
           </>
         )}
       </main>
