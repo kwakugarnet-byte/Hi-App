@@ -224,27 +224,14 @@ export default function Bar() {
                           </div>
                         </div>
 
-                        {/* Rounds */}
-                        <div className="flex-1 bg-card divide-y divide-border/50">
-                          {group.rounds.map((round, idx) => (
-                            <div key={round.id} className="p-5">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 flex items-center justify-between">
-                                <span>Round {idx + 1}</span>
-                                <span className="flex items-center gap-1 font-normal normal-case tracking-normal">
-                                  <Clock className="w-2.5 h-2.5" />
-                                  {format(new Date(round.createdAt), "h:mm a")}
-                                </span>
-                              </p>
-                              <div className="space-y-2">
-                                {round.items.map((item, i) => (
-                                  <div key={i} className="flex justify-between items-center">
-                                    <span className="text-lg font-bold tracking-tight">{item.menuItemName}</span>
-                                    <span className="text-xl font-black text-primary px-2.5 py-0.5 bg-primary/10 rounded-md">
-                                      x{item.quantity}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
+                        {/* All items flat */}
+                        <div className="p-5 flex-1 bg-card space-y-3">
+                          {group.rounds.flatMap((round) => round.items).map((item, i) => (
+                            <div key={i} className="flex justify-between items-center py-2 border-b border-border/50 last:border-0">
+                              <span className="text-xl font-bold tracking-tight">{item.menuItemName}</span>
+                              <span className="text-2xl font-black text-primary px-3 py-1 bg-primary/10 rounded-md">
+                                x{item.quantity}
+                              </span>
                             </div>
                           ))}
                         </div>
@@ -296,21 +283,12 @@ export default function Bar() {
                           </div>
                         </div>
 
-                        {/* Rounds */}
-                        <div className="flex-1 bg-card/40 divide-y divide-border/30">
-                          {group.rounds.map((round, idx) => (
-                            <div key={round.id} className="px-4 py-3">
-                              <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 mb-1.5">
-                                Round {idx + 1}
-                              </p>
-                              <div className="space-y-1">
-                                {round.items.map((item, i) => (
-                                  <div key={i} className="flex justify-between items-center text-muted-foreground/80">
-                                    <span className="text-sm font-semibold">{item.menuItemName}</span>
-                                    <span className="text-sm font-black">x{item.quantity}</span>
-                                  </div>
-                                ))}
-                              </div>
+                        {/* All items flat */}
+                        <div className="px-4 py-3 flex-1 bg-card/40 space-y-1">
+                          {group.rounds.flatMap((round) => round.items).map((item, i) => (
+                            <div key={i} className="flex justify-between items-center text-muted-foreground/80">
+                              <span className="text-sm font-semibold">{item.menuItemName}</span>
+                              <span className="text-sm font-black">x{item.quantity}</span>
                             </div>
                           ))}
                         </div>
