@@ -49,10 +49,10 @@ export default function Waitress() {
   const activeCustomers = useMemo(() => {
     if (!batches) return [];
     const names = batches
-      .filter((b) => b.status !== "paid")
+      .filter((b) => b.status !== "paid" && b.waitressName === waitressName)
       .map((b) => b.customerName);
     return Array.from(new Set(names)).sort();
-  }, [batches]);
+  }, [batches, waitressName]);
 
   const categories = useMemo(() => {
     if (!menuItems) return [];
