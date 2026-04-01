@@ -12,17 +12,25 @@ function formatPrice(pence: number) {
 
 type BatchItem = { menuItemName: string; menuItemId: number; quantity: number; pricePence: number };
 
+type Round = {
+  id: number;
+  status: string;
+  createdAt: string;
+  items: BatchItem[];
+  subtotal: number;
+};
+
 type GroupedCustomer = {
   customerName: string;
   waitressName: string;
-  status: "pending" | "completed";
+  overallStatus: "pending" | "completed";
   firstOrderAt: string;
-  items: BatchItem[];
+  rounds: Round[];
   total: number;
 };
 
 function groupBatches(
-  batches: { customerName: string; waitressName: string; status: string; createdAt: string; items: BatchItem[] }[]
+  batches: { id: number; customerName: string; waitressName: string; status: string; createdAt: string; items: BatchItem[] }[]
 ): GroupedCustomer[] {
   const map = new Map<string, GroupedCustomer>();
 
@@ -32,32 +40,27 @@ function groupBatches(
       map.set(key, {
         customerName: batch.customerName,
         waitressName: batch.waitressName,
-        status: "completed",
+        overallStatus: "completed",
         firstOrderAt: batch.createdAt,
-        items: [],
+        rounds: [],
         total: 0,
       });
     }
     const group = map.get(key)!;
 
-    if (batch.status === "pending") group.status = "pending";
+    if (batch.status === "pending") group.overallStatus = "pending";
 
     if (new Date(batch.createdAt) < new Date(group.firstOrderAt)) {
       group.firstOrderAt = batch.createdAt;
     }
 
-    for (const item of batch.items) {
-      const existing = group.items.find((i) => i.menuItemId === item.menuItemId);
-      if (existing) {
-        existing.quantity += item.quantity;
-      } else {
-        group.items.push({ ...item });
-      }
-    }
+    const subtotal = batch.items.reduce((s, i) => s + i.pricePence * i.quantity, 0);
+    group.rounds.push({ id: batch.id, status: batch.status, createdAt: batch.createdAt, items: batch.items, subtotal });
   }
 
   for (const group of map.values()) {
-    group.total = group.items.reduce((sum, i) => sum + i.pricePence * i.quantity, 0);
+    group.rounds.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    group.total = group.rounds.reduce((s, r) => s + r.subtotal, 0);
   }
 
   return [...map.values()].sort(
@@ -66,14 +69,27 @@ function groupBatches(
 }
 
 function printBill(customer: GroupedCustomer) {
-  const rows = customer.items
+  const roundRows = customer.rounds
     .map(
-      (item) => `
-      <tr>
-        <td>${item.quantity}&times;</td>
-        <td>${item.menuItemName}</td>
-        <td class="price">${formatPrice(item.pricePence * item.quantity)}</td>
-      </tr>`
+      (round, idx) => {
+        const itemRows = round.items
+          .map((item) => `
+          <tr>
+            <td>${item.quantity}&times;</td>
+            <td>${item.menuItemName}</td>
+            <td class="price">${formatPrice(item.pricePence * item.quantity)}</td>
+          </tr>`)
+          .join("");
+        return `
+        <tr class="round-header"><td colspan="3">Round ${idx + 1} &mdash; ${format(new Date(round.createdAt), "h:mm a")}</td></tr>
+        ${itemRows}
+        <tr class="subtotal-row">
+          <td colspan="2">Subtotal</td>
+          <td class="price">${formatPrice(round.subtotal)}</td>
+        </tr>
+        ${idx < customer.rounds.length - 1 ? '<tr class="gap-row"><td colspan="3"></td></tr>' : ""}
+        `;
+      }
     )
     .join("");
 
@@ -92,10 +108,13 @@ function printBill(customer: GroupedCustomer) {
     .customer { font-size: 18px; font-weight: bold; text-transform: uppercase; margin: 4px 0; }
     .meta { font-size: 11px; color: #555; margin-bottom: 4px; }
     table { width: 100%; border-collapse: collapse; margin: 4px 0; }
-    td { padding: 3px 2px; vertical-align: top; }
+    td { padding: 2px 2px; vertical-align: top; }
     td:first-child { width: 28px; }
     td.price { text-align: right; white-space: nowrap; }
-    .total-row { border-top: 1px solid #000; margin-top: 8px; padding-top: 8px; display: flex; justify-content: space-between; align-items: baseline; }
+    .round-header td { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #555; padding-top: 6px; padding-bottom: 2px; }
+    .subtotal-row td { font-size: 11px; color: #555; border-top: 1px dotted #ccc; padding-top: 2px; }
+    .gap-row td { height: 6px; }
+    .total-row { border-top: 2px solid #000; margin-top: 8px; padding-top: 8px; display: flex; justify-content: space-between; align-items: baseline; }
     .total-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
     .total-amount { font-size: 22px; font-weight: bold; }
     .footer { font-size: 11px; color: #777; margin-top: 12px; }
@@ -111,10 +130,10 @@ function printBill(customer: GroupedCustomer) {
   <div class="label">Customer</div>
   <div class="customer">${customer.customerName}</div>
   <div class="meta">Served by: ${customer.waitressName}</div>
-  <div class="meta">Date: ${format(new Date(customer.firstOrderAt), "dd MMM yyyy, h:mm a")}</div>
+  <div class="meta">Date: ${format(new Date(customer.firstOrderAt), "dd MMM yyyy")}</div>
   <div class="divider"></div>
   <table>
-    ${rows}
+    ${roundRows}
   </table>
   <div class="divider"></div>
   <div class="total-row">
@@ -242,8 +261,8 @@ export default function Bills() {
               <div className="px-4 py-3 border-b border-border flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <h2 className="text-xl font-black uppercase tracking-tight truncate">{customer.customerName}</h2>
-                  <div className={`flex items-center gap-1 text-xs font-bold mt-0.5 ${customer.status === "pending" ? "text-yellow-500" : "text-green-500"}`}>
-                    {customer.status === "pending"
+                  <div className={`flex items-center gap-1 text-xs font-bold mt-0.5 ${customer.overallStatus === "pending" ? "text-yellow-500" : "text-green-500"}`}>
+                    {customer.overallStatus === "pending"
                       ? <><Hourglass className="w-3 h-3" /><span className="uppercase tracking-wide">Being prepared</span></>
                       : <><CheckCircle2 className="w-3 h-3" /><span className="uppercase tracking-wide">Drinks served</span></>
                     }
@@ -268,20 +287,42 @@ export default function Bills() {
                 </div>
               </div>
 
-              {/* Items */}
-              <div className="px-4 py-3 space-y-2">
-                {customer.items.map((item, i) => (
-                  <div key={i} className="flex items-center justify-between text-sm">
-                    <span className="text-foreground font-medium">
-                      <span className="text-muted-foreground font-bold mr-2">{item.quantity}×</span>
-                      {item.menuItemName}
+              {/* Rounds */}
+              {customer.rounds.map((round, idx) => (
+                <div key={round.id} className={idx > 0 ? "border-t border-border/50" : ""}>
+                  {/* Round label */}
+                  <div className="px-4 pt-2.5 pb-1 flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70">
+                      Round {idx + 1}
                     </span>
-                    <span className="text-muted-foreground font-semibold tabular-nums">
-                      {formatPrice(item.pricePence * item.quantity)}
+                    <span className="text-[10px] text-muted-foreground/60 flex items-center gap-1">
+                      <Clock className="w-2.5 h-2.5" />
+                      {format(new Date(round.createdAt), "h:mm a")}
                     </span>
                   </div>
-                ))}
-              </div>
+
+                  {/* Items */}
+                  <div className="px-4 pb-2.5 space-y-1.5">
+                    {round.items.map((item, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm">
+                        <span className="text-foreground font-medium">
+                          <span className="text-muted-foreground font-bold mr-2">{item.quantity}×</span>
+                          {item.menuItemName}
+                        </span>
+                        <span className="text-muted-foreground font-semibold tabular-nums">
+                          {formatPrice(item.pricePence * item.quantity)}
+                        </span>
+                      </div>
+                    ))}
+                    {customer.rounds.length > 1 && (
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-border/40">
+                        <span className="text-muted-foreground/60 uppercase tracking-wide font-bold">Subtotal</span>
+                        <span className="text-muted-foreground font-bold tabular-nums">{formatPrice(round.subtotal)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           ))
         )}
