@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle, CircleDashed, ChevronRight } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle, CircleDashed, ChevronRight, Eye, X } from "lucide-react";
 import {
   useGetOrderBatches,
   getGetOrderBatchesQueryKey,
@@ -164,6 +164,7 @@ export default function Bills() {
   const { user, isWaitress, isAdmin, isBartender } = useAuth();
   const [selectedWaiter, setSelectedWaiter] = useState<string | null>(null);
   const [tab, setTab] = useState<"active" | "history">("active");
+  const [showBillFor, setShowBillFor] = useState<GroupedCustomer | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -365,6 +366,13 @@ export default function Bills() {
                 </p>
                 <div className="flex gap-2">
                   <button
+                    onClick={() => setShowBillFor(customer)}
+                    className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-primary border border-primary/50 hover:bg-primary/10 rounded-lg px-2.5 py-1.5 transition-colors"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    Show
+                  </button>
+                  <button
                     onClick={() => printBill(customer)}
                     className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground hover:text-primary transition-colors border border-border hover:border-primary/50 rounded-lg px-2.5 py-1.5"
                   >
@@ -487,6 +495,87 @@ export default function Bills() {
     );
 
   return (
+    <div>
+    {showBillFor && (
+      <div className="fixed inset-0 z-50 bg-white flex flex-col overflow-y-auto">
+        {/* Close bar */}
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shrink-0">
+          <button
+            onClick={() => setShowBillFor(null)}
+            className="flex items-center gap-2 text-sm font-black uppercase tracking-widest text-gray-500 hover:text-gray-900 transition-colors"
+          >
+            <X className="w-5 h-5" />
+            Done
+          </button>
+          <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Customer Bill</span>
+          <div className="w-16" />
+        </div>
+
+        <div className="flex-1 px-6 py-8 max-w-sm mx-auto w-full">
+          {/* Bar name */}
+          <p className="text-center text-xs font-black uppercase tracking-[0.3em] text-gray-400 mb-1">Trendy</p>
+          <div className="border-t border-dashed border-gray-300 my-3" />
+
+          {/* Customer */}
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Customer</p>
+          <h1 className="text-4xl font-black uppercase tracking-tight text-gray-900 leading-none mb-1">
+            {showBillFor.customerName}
+          </h1>
+          <p className="text-xs text-gray-400 mb-1">
+            Served by <span className="font-bold text-gray-600">{showBillFor.waitressName}</span>
+          </p>
+          <p className="text-xs text-gray-400 mb-4">
+            {format(new Date(showBillFor.firstOrderAt), "dd MMM yyyy · h:mm a")}
+          </p>
+
+          <div className="border-t border-dashed border-gray-300 my-3" />
+
+          {/* Items */}
+          <div className="space-y-4">
+            {showBillFor.rounds.map((round, idx) => (
+              <div key={round.id}>
+                {showBillFor.rounds.length > 1 && (
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">
+                    Round {idx + 1} · {format(new Date(round.createdAt), "h:mm a")}
+                  </p>
+                )}
+                <div className="space-y-2">
+                  {round.items.map((item, i) => (
+                    <div key={i} className="flex items-baseline justify-between gap-2">
+                      <div className="flex items-baseline gap-2 min-w-0">
+                        <span className="text-lg font-black text-gray-500 shrink-0">{item.quantity}×</span>
+                        <span className="text-lg font-bold text-gray-900 truncate">{item.menuItemName}</span>
+                      </div>
+                      <span className="text-lg font-black text-gray-900 tabular-nums shrink-0">
+                        {formatPrice(item.pricePence * item.quantity)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {showBillFor.rounds.length > 1 && (
+                  <div className="flex justify-between mt-2 pt-2 border-t border-dotted border-gray-200">
+                    <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Subtotal</span>
+                    <span className="text-sm font-bold text-gray-500 tabular-nums">{formatPrice(round.subtotal)}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="border-t-2 border-gray-900 my-4" />
+
+          {/* Total */}
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-black uppercase tracking-widest text-gray-600">Total</span>
+            <span className="text-5xl font-black text-gray-900 tabular-nums">{formatPrice(showBillFor.total)}</span>
+          </div>
+
+          <div className="border-t border-dashed border-gray-300 my-6" />
+          <p className="text-center text-xs text-gray-400 font-medium">Thank you for visiting Trendy!</p>
+        </div>
+      </div>
+    )}
+
     <div className="min-h-[100dvh] bg-background text-foreground flex flex-col">
       <header className="sticky top-0 z-10 bg-card border-b border-border shrink-0">
         <div className="px-4 py-3 flex items-center justify-between">
@@ -598,6 +687,7 @@ export default function Bills() {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }
