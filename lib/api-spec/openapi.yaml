@@ -156,6 +156,61 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/MenuItem"
+    post:
+      operationId: createMenuItem
+      tags: [menu]
+      summary: Create a new menu item (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MenuItemBody"
+      responses:
+        "201":
+          description: Menu item created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MenuItem"
+
+  /menu-items/{id}:
+    patch:
+      operationId: updateMenuItem
+      tags: [menu]
+      summary: Update a menu item (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MenuItemBody"
+      responses:
+        "200":
+          description: Menu item updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MenuItem"
+    delete:
+      operationId: deleteMenuItem
+      tags: [menu]
+      summary: Delete a menu item (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted successfully
 
   /order-batches:
     get:
@@ -288,6 +343,9 @@ components:
           type: [string, 'null']
         profileImageUrl:
           type: [string, 'null']
+        isAdmin:
+          type: boolean
+          default: false
     AuthUserEnvelope:
       type: object
       required: [user]
@@ -296,6 +354,18 @@ components:
           oneOf:
             - $ref: '#/components/schemas/AuthUser'
             - type: 'null'
+
+    MenuItemBody:
+      type: object
+      required: [name, category, pricePence]
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+        pricePence:
+          type: integer
+          minimum: 0
 
     MenuItem:
       type: object

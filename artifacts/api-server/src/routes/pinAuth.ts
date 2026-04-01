@@ -72,6 +72,7 @@ router.post("/pin-login", async (req: Request, res: Response): Promise<void> => 
       firstName,
       lastName,
       profileImageUrl: null,
+      isAdmin: staff.isAdmin,
     },
     access_token: "staff",
   };

@@ -25,6 +25,8 @@ export const GetCurrentAuthUserHeader = zod.object({
     .describe("Opaque session token — `Bearer <sid>`."),
 });
 
+export const getCurrentAuthUserResponseUserOneIsAdminDefault = false;
+
 export const GetCurrentAuthUserResponse = zod.object({
   user: zod.union([
     zod.object({
@@ -33,6 +35,9 @@ export const GetCurrentAuthUserResponse = zod.object({
       firstName: zod.string().nullable(),
       lastName: zod.string().nullable(),
       profileImageUrl: zod.string().nullable(),
+      isAdmin: zod
+        .boolean()
+        .default(getCurrentAuthUserResponseUserOneIsAdminDefault),
     }),
     zod.null(),
   ]),
@@ -89,6 +94,8 @@ export const PinLoginBody = zod.object({
   pin: zod.string().min(pinLoginBodyPinMin).max(pinLoginBodyPinMax),
 });
 
+export const pinLoginResponseUserOneIsAdminDefault = false;
+
 export const PinLoginResponse = zod.object({
   user: zod.union([
     zod.object({
@@ -97,6 +104,7 @@ export const PinLoginResponse = zod.object({
       firstName: zod.string().nullable(),
       lastName: zod.string().nullable(),
       profileImageUrl: zod.string().nullable(),
+      isAdmin: zod.boolean().default(pinLoginResponseUserOneIsAdminDefault),
     }),
     zod.null(),
   ]),
@@ -112,6 +120,46 @@ export const GetMenuItemsResponseItem = zod.object({
   pricePence: zod.number(),
 });
 export const GetMenuItemsResponse = zod.array(GetMenuItemsResponseItem);
+
+/**
+ * @summary Create a new menu item (admin only)
+ */
+export const createMenuItemBodyPricePenceMin = 0;
+
+export const CreateMenuItemBody = zod.object({
+  name: zod.string(),
+  category: zod.string(),
+  pricePence: zod.number().min(createMenuItemBodyPricePenceMin),
+});
+
+/**
+ * @summary Update a menu item (admin only)
+ */
+export const UpdateMenuItemParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const updateMenuItemBodyPricePenceMin = 0;
+
+export const UpdateMenuItemBody = zod.object({
+  name: zod.string(),
+  category: zod.string(),
+  pricePence: zod.number().min(updateMenuItemBodyPricePenceMin),
+});
+
+export const UpdateMenuItemResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  category: zod.string(),
+  pricePence: zod.number(),
+});
+
+/**
+ * @summary Delete a menu item (admin only)
+ */
+export const DeleteMenuItemParams = zod.object({
+  id: zod.coerce.number(),
+});
 
 /**
  * @summary Get all order batches

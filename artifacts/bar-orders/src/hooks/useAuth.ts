@@ -13,6 +13,7 @@ export function useAuth() {
 
   const user = data?.user ?? null;
   const isAuthenticated = user != null;
+  const isAdmin = user?.isAdmin === true;
 
   function logout() {
     logoutMutation.mutate(undefined, {
@@ -23,5 +24,5 @@ export function useAuth() {
     });
   }
 
-  return { user, isLoading, isAuthenticated, logout };
+  return { user, isLoading, isAuthenticated, isAdmin, logout };
 }

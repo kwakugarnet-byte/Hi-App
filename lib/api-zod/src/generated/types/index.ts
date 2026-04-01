@@ -15,6 +15,7 @@ export * from "./createOrderItemBody";
 export * from "./handleBrowserLoginCallbackParams";
 export * from "./healthStatus";
 export * from "./menuItem";
+export * from "./menuItemBody";
 export * from "./orderBatch";
 export * from "./orderBatchStatus";
 export * from "./orderItem";

@@ -8,6 +8,7 @@ import Home from "@/pages/home";
 import Waitress from "@/pages/waitress";
 import Bar from "@/pages/bar";
 import Bills from "@/pages/bills";
+import Admin from "@/pages/admin";
 import { useAuth } from "@/hooks/useAuth";
 import { useGetStaff, usePinLogin } from "@workspace/api-client-react";
 import { Delete } from "lucide-react";
@@ -196,6 +197,7 @@ function Router() {
       <Route path="/waitress" component={Waitress} />
       <Route path="/bar" component={Bar} />
       <Route path="/bills" component={Bills} />
+      <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
     </Switch>
   );

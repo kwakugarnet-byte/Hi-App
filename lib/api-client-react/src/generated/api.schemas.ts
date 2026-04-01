@@ -33,10 +33,18 @@ export interface AuthUser {
   lastName: string | null;
   /** @nullable */
   profileImageUrl: string | null;
+  isAdmin?: boolean;
 }
 
 export interface AuthUserEnvelope {
   user: AuthUser | null;
+}
+
+export interface MenuItemBody {
+  name: string;
+  category: string;
+  /** @minimum 0 */
+  pricePence: number;
 }
 
 export interface MenuItem {
