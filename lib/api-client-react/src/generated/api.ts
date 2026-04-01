@@ -698,7 +698,7 @@ export const useCreateOrderBatch = <
 };
 
 /**
- * @summary Mark an order batch as completed
+ * @summary Mark an order batch as served (drinks ready)
  */
 export const getCompleteOrderBatchUrl = (id: number) => {
   return `/api/order-batches/${id}/complete`;
@@ -759,7 +759,7 @@ export type CompleteOrderBatchMutationResult = NonNullable<
 export type CompleteOrderBatchMutationError = ErrorType<unknown>;
 
 /**
- * @summary Mark an order batch as completed
+ * @summary Mark an order batch as served (drinks ready)
  */
 export const useCompleteOrderBatch = <
   TError = ErrorType<unknown>,
@@ -779,4 +779,88 @@ export const useCompleteOrderBatch = <
   TContext
 > => {
   return useMutation(getCompleteOrderBatchMutationOptions(options));
+};
+
+/**
+ * @summary Mark an order batch as paid and clear it
+ */
+export const getPayOrderBatchUrl = (id: number) => {
+  return `/api/order-batches/${id}/pay`;
+};
+
+export const payOrderBatch = async (
+  id: number,
+  options?: RequestInit,
+): Promise<OrderBatch> => {
+  return customFetch<OrderBatch>(getPayOrderBatchUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getPayOrderBatchMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof payOrderBatch>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof payOrderBatch>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["payOrderBatch"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof payOrderBatch>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return payOrderBatch(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PayOrderBatchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof payOrderBatch>>
+>;
+
+export type PayOrderBatchMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Mark an order batch as paid and clear it
+ */
+export const usePayOrderBatch = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof payOrderBatch>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof payOrderBatch>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getPayOrderBatchMutationOptions(options));
 };

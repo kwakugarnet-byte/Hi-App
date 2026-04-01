@@ -148,7 +148,7 @@ paths:
     post:
       operationId: completeOrderBatch
       tags: [orders]
-      summary: Mark an order batch as completed
+      summary: Mark an order batch as served (drinks ready)
       parameters:
         - name: id
           in: path
@@ -157,7 +157,26 @@ paths:
             type: integer
       responses:
         "200":
-          description: Order batch completed
+          description: Order batch marked as served
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderBatch"
+
+  /order-batches/{id}/pay:
+    post:
+      operationId: payOrderBatch
+      tags: [orders]
+      summary: Mark an order batch as paid and clear it
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Order batch marked as paid
           content:
             application/json:
               schema:

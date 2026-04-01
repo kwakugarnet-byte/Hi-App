@@ -7,6 +7,8 @@ import {
   CreateOrderBatchBody,
   CompleteOrderBatchParams,
   CompleteOrderBatchResponse,
+  PayOrderBatchParams,
+  PayOrderBatchResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -142,6 +144,52 @@ router.post("/order-batches/:id/complete", async (req, res): Promise<void> => {
   };
 
   res.json(CompleteOrderBatchResponse.parse(result));
+});
+
+router.post("/order-batches/:id/pay", async (req, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const params = PayOrderBatchParams.safeParse({ id: parseInt(rawId, 10) });
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [batch] = await db
+    .update(orderBatchesTable)
+    .set({ status: "paid" })
+    .where(eq(orderBatchesTable.id, params.data.id))
+    .returning();
+
+  if (!batch) {
+    res.status(404).json({ error: "Order batch not found" });
+    return;
+  }
+
+  const orderItems = await db
+    .select({
+      id: orderItemsTable.id,
+      batchId: orderItemsTable.batchId,
+      menuItemId: orderItemsTable.menuItemId,
+      menuItemName: menuItemsTable.name,
+      quantity: orderItemsTable.quantity,
+    })
+    .from(orderItemsTable)
+    .innerJoin(menuItemsTable, eq(orderItemsTable.menuItemId, menuItemsTable.id))
+    .where(eq(orderItemsTable.batchId, batch.id));
+
+  const result = {
+    ...batch,
+    createdAt: batch.createdAt.toISOString(),
+    completedAt: batch.completedAt ? batch.completedAt.toISOString() : null,
+    items: orderItems.map((item) => ({
+      id: item.id,
+      menuItemId: item.menuItemId,
+      menuItemName: item.menuItemName,
+      quantity: item.quantity,
+    })),
+  };
+
+  res.json(PayOrderBatchResponse.parse(result));
 });
 
 export default router;

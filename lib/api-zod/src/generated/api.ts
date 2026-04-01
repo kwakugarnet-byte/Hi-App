@@ -115,13 +115,37 @@ export const CreateOrderBatchBody = zod.object({
 });
 
 /**
- * @summary Mark an order batch as completed
+ * @summary Mark an order batch as served (drinks ready)
  */
 export const CompleteOrderBatchParams = zod.object({
   id: zod.coerce.number(),
 });
 
 export const CompleteOrderBatchResponse = zod.object({
+  id: zod.number(),
+  customerName: zod.string(),
+  waitressName: zod.string(),
+  createdAt: zod.string(),
+  completedAt: zod.string().nullish(),
+  status: zod.enum(["pending", "completed"]),
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      menuItemId: zod.number(),
+      menuItemName: zod.string(),
+      quantity: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Mark an order batch as paid and clear it
+ */
+export const PayOrderBatchParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const PayOrderBatchResponse = zod.object({
   id: zod.number(),
   customerName: zod.string(),
   waitressName: zod.string(),
