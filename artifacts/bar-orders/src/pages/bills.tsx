@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle, CircleDashed, ChevronRight } from "lucide-react";
 import {
   useGetOrderBatches,
   getGetOrderBatchesQueryKey,
@@ -280,6 +280,46 @@ export default function Bills() {
               <p className="text-xs text-muted-foreground mt-0.5">You are responsible for collecting these bills</p>
             </div>
             <span className="text-2xl font-black text-amber-400 tabular-nums shrink-0">{formatPrice(grandTotal)}</span>
+          </div>
+        )}
+
+        {/* Collect From — quick-glance list for waitress */}
+        {isWaitress && activeCustomers.length > 0 && (
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-border flex items-center gap-2">
+              <ChevronRight className="w-4 h-4 text-primary" />
+              <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Collect From</span>
+            </div>
+            <div className="divide-y divide-border/50">
+              {activeCustomers
+                .sort((a, b) => {
+                  // Ready-to-collect first
+                  if (a.overallStatus === "completed" && b.overallStatus !== "completed") return -1;
+                  if (a.overallStatus !== "completed" && b.overallStatus === "completed") return 1;
+                  return 0;
+                })
+                .map((c) => {
+                  const ready = c.overallStatus === "completed";
+                  return (
+                    <div key={c.customerName} className={`px-4 py-3 flex items-center gap-3 ${ready ? "" : "opacity-50"}`}>
+                      {ready
+                        ? <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
+                        : <CircleDashed className="w-5 h-5 text-muted-foreground shrink-0" />
+                      }
+                      <div className="flex-1 min-w-0">
+                        <p className="text-base font-black uppercase tracking-tight truncate">{c.customerName}</p>
+                        <p className={`text-xs font-bold mt-0.5 ${ready ? "text-green-500" : "text-yellow-500"}`}>
+                          {ready ? "Drinks served — collect now" : "Still being prepared"}
+                        </p>
+                      </div>
+                      <span className={`text-lg font-black tabular-nums shrink-0 ${ready ? "text-primary" : "text-muted-foreground"}`}>
+                        {formatPrice(c.total)}
+                      </span>
+                    </div>
+                  );
+                })
+              }
+            </div>
           </div>
         )}
         {/* Credit by Waiter — admin/bartender only */}
