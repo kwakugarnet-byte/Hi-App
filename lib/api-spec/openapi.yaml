@@ -1,15 +1,18 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Bar Order Management API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: orders
+    description: Order batch operations
+  - name: menu
+    description: Menu item operations
 paths:
   /healthz:
     get:
@@ -24,6 +27,73 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /menu-items:
+    get:
+      operationId: getMenuItems
+      tags: [menu]
+      summary: Get all menu items
+      responses:
+        "200":
+          description: List of menu items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MenuItem"
+
+  /order-batches:
+    get:
+      operationId: getOrderBatches
+      tags: [orders]
+      summary: Get all order batches
+      responses:
+        "200":
+          description: List of order batches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OrderBatch"
+    post:
+      operationId: createOrderBatch
+      tags: [orders]
+      summary: Create a new order batch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderBatchBody"
+      responses:
+        "201":
+          description: Order batch created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderBatch"
+
+  /order-batches/{id}/complete:
+    post:
+      operationId: completeOrderBatch
+      tags: [orders]
+      summary: Mark an order batch as completed
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Order batch completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderBatch"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +104,89 @@ components:
       required:
         - status
 
+    MenuItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+      required:
+        - id
+        - name
+        - category
+
+    OrderItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        menuItemId:
+          type: integer
+        menuItemName:
+          type: string
+        quantity:
+          type: integer
+      required:
+        - id
+        - menuItemId
+        - menuItemName
+        - quantity
+
+    OrderBatch:
+      type: object
+      properties:
+        id:
+          type: integer
+        customerName:
+          type: string
+        waitressName:
+          type: string
+        createdAt:
+          type: string
+        completedAt:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, completed]
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+      required:
+        - id
+        - customerName
+        - waitressName
+        - createdAt
+        - status
+        - items
+
+    CreateOrderItemBody:
+      type: object
+      properties:
+        menuItemId:
+          type: integer
+        quantity:
+          type: integer
+      required:
+        - menuItemId
+        - quantity
+
+    CreateOrderBatchBody:
+      type: object
+      properties:
+        customerName:
+          type: string
+        waitressName:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateOrderItemBody"
+      required:
+        - customerName
+        - waitressName
+        - items

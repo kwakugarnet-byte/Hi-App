@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Bar Order System"
+version = "1.0.0"
+id = "artifacts/bar-orders"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18519
+
+[services.development]
+run = "pnpm --filter @workspace/bar-orders run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/bar-orders", "run", "build" ]
+publicDir = "artifacts/bar-orders/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18519"
+BASE_PATH = "/"
