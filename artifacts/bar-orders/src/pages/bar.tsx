@@ -13,13 +13,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Bar() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { role, isLoading: authLoading } = useAuth();
+  const [selectedWaiter, setSelectedWaiter] = useState<string | null>(null);
 
   if (!authLoading && role !== "bartender" && role !== "admin") {
     return <Redirect to="/" />;
@@ -35,19 +36,25 @@ export default function Bar() {
   const completeBatch = useCompleteOrderBatch();
   const payBatch = usePayOrderBatch();
 
+  const waiterNames = useMemo(() => {
+    if (!batches) return [];
+    const active = batches.filter((b) => b.status !== "paid");
+    return [...new Set(active.map((b) => b.waitressName))].sort();
+  }, [batches]);
+
   const pendingBatches = useMemo(() => {
     if (!batches) return [];
     return batches
-      .filter((b) => b.status === "pending")
+      .filter((b) => b.status === "pending" && (!selectedWaiter || b.waitressName === selectedWaiter))
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  }, [batches]);
+  }, [batches, selectedWaiter]);
 
   const servedBatches = useMemo(() => {
     if (!batches) return [];
     return batches
-      .filter((b) => b.status === "completed")
+      .filter((b) => b.status === "completed" && (!selectedWaiter || b.waitressName === selectedWaiter))
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  }, [batches]);
+  }, [batches, selectedWaiter]);
 
   const handleComplete = (id: number, customerName: string) => {
     completeBatch.mutate(
@@ -83,20 +90,52 @@ export default function Bar() {
 
   return (
     <div className="min-h-[100dvh] bg-background text-foreground flex flex-col">
-      <header className="sticky top-0 z-10 bg-card border-b border-border px-6 py-4 flex items-center justify-between shadow-md shrink-0">
-        <div className="flex items-center gap-4">
-          <Link href="/">
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="w-6 h-6" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-2xl font-black uppercase tracking-widest text-primary leading-none">Bar Display</h1>
-            <p className="text-sm font-bold text-muted-foreground tracking-widest uppercase mt-1">
-              {pendingBatches.length} Pending &bull; {servedBatches.length} Awaiting Payment
-            </p>
+      <header className="sticky top-0 z-10 bg-card border-b border-border shadow-md shrink-0">
+        <div className="px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link href="/">
+              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+                <ArrowLeft className="w-6 h-6" />
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-2xl font-black uppercase tracking-widest text-primary leading-none">Bar Display</h1>
+              <p className="text-sm font-bold text-muted-foreground tracking-widest uppercase mt-1">
+                {pendingBatches.length} Pending &bull; {servedBatches.length} Awaiting Payment
+              </p>
+            </div>
           </div>
         </div>
+
+        {/* Waiter filter chips */}
+        {waiterNames.length > 1 && (
+          <div className="px-6 pb-3 flex items-center gap-2 overflow-x-auto">
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground shrink-0">Filter:</span>
+            <button
+              onClick={() => setSelectedWaiter(null)}
+              className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border transition-colors ${
+                selectedWaiter === null
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+              }`}
+            >
+              All
+            </button>
+            {waiterNames.map((name) => (
+              <button
+                key={name}
+                onClick={() => setSelectedWaiter(selectedWaiter === name ? null : name)}
+                className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border transition-colors ${
+                  selectedWaiter === name
+                    ? "bg-amber-500 text-black border-amber-500"
+                    : "border-border text-muted-foreground hover:border-amber-500/50 hover:text-amber-400"
+                }`}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        )}
       </header>
 
       <main className="flex-1 overflow-y-auto p-6 space-y-10">
