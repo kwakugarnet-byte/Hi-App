@@ -1,14 +1,12 @@
 import { useState, useMemo } from "react";
 import { Link, Redirect } from "wouter";
-import { ArrowLeft, Send, Plus, Minus, Trash2, ChevronDown } from "lucide-react";
+import { ArrowLeft, Send, Plus, Minus, Trash2 } from "lucide-react";
 import {
   useGetMenuItems,
   useGetOrderBatches,
   useCreateOrderBatch,
-  useGetStaff,
   getGetMenuItemsQueryKey,
   getGetOrderBatchesQueryKey,
-  getGetStaffQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -29,18 +27,9 @@ export default function Waitress() {
     return <Redirect to="/" />;
   }
 
-  const myName = user?.firstName
+  const waitressName = user?.firstName
     ? `${user.firstName}${user.lastName ? " " + user.lastName : ""}`
     : user?.email ?? "Staff";
-
-  const canPickStaff = role === "bartender" || role === "admin";
-
-  const { data: staffList } = useGetStaff({
-    query: { queryKey: getGetStaffQueryKey(), enabled: canPickStaff },
-  });
-
-  const [staffOverride, setStaffOverride] = useState<string>("");
-  const waitressName = canPickStaff && staffOverride ? staffOverride : myName;
 
   const { data: menuItems, isLoading: menuLoading } = useGetMenuItems({
     query: { queryKey: getGetMenuItemsQueryKey() },
@@ -141,39 +130,17 @@ export default function Waitress() {
   return (
     <div className="min-h-[100dvh] bg-background text-foreground flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-card border-b border-border shrink-0">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <Link href="/">
-            <Button variant="ghost" size="icon" className="text-muted-foreground">
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-          </Link>
-          <div className="text-center">
-            <h1 className="text-xl font-bold uppercase tracking-wide text-primary">New Order</h1>
-            <p className="text-xs text-muted-foreground">{waitressName}</p>
-          </div>
-          <div className="w-10" />
+      <header className="sticky top-0 z-20 bg-card border-b border-border px-4 py-3 flex items-center justify-between shrink-0">
+        <Link href="/">
+          <Button variant="ghost" size="icon" className="text-muted-foreground">
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+        </Link>
+        <div className="text-center">
+          <h1 className="text-xl font-bold uppercase tracking-wide text-primary">New Order</h1>
+          <p className="text-xs text-muted-foreground">{waitressName}</p>
         </div>
-
-        {/* Staff picker — bartenders and admins only */}
-        {canPickStaff && staffList && staffList.length > 0 && (
-          <div className="px-4 pb-3 flex items-center gap-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground shrink-0">Staff:</span>
-            <div className="relative flex-1">
-              <select
-                value={staffOverride}
-                onChange={(e) => setStaffOverride(e.target.value)}
-                className="w-full appearance-none bg-background border border-border rounded-lg px-3 py-1.5 pr-8 text-sm font-bold uppercase tracking-wide text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-              >
-                <option value="">— My name ({myName}) —</option>
-                {staffList.map((s) => (
-                  <option key={s.id} value={s.name}>{s.name}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            </div>
-          </div>
-        )}
+        <div className="w-10" />
       </header>
 
       {/* Customer name */}
