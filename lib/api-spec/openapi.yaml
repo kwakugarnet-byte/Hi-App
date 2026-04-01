@@ -97,6 +97,51 @@ paths:
         '302':
           description: Redirect to the OIDC provider logout URL.
 
+  /staff:
+    get:
+      tags: [Auth]
+      operationId: getStaff
+      summary: Get list of all staff members (names only, no PINs)
+      responses:
+        "200":
+          description: List of staff members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StaffMember"
+
+  /pin-login:
+    post:
+      tags: [Auth]
+      operationId: pinLogin
+      summary: Log in with a staff PIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PinLoginBody"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUserEnvelope"
+        "401":
+          description: Invalid PIN
+
+  /pin-logout:
+    post:
+      tags: [Auth]
+      operationId: pinLogout
+      summary: Log out the current staff session
+      responses:
+        "200":
+          description: Logged out successfully
+
   /menu-items:
     get:
       operationId: getMenuItems
@@ -207,6 +252,26 @@ components:
           type: string
       required:
         - status
+
+    StaffMember:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+
+    PinLoginBody:
+      type: object
+      required: [staffId, pin]
+      properties:
+        staffId:
+          type: integer
+        pin:
+          type: string
+          minLength: 4
+          maxLength: 4
 
     AuthUser:
       type: object

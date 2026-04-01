@@ -1,24 +1,177 @@
+import { useState } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Waitress from "@/pages/waitress";
 import Bar from "@/pages/bar";
-import { useAuth } from "@workspace/replit-auth-web";
+import { useAuth } from "@/hooks/useAuth";
+import { useGetStaff, usePinLogin } from "@workspace/api-client-react";
+import { Delete } from "lucide-react";
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: {
-      retry: false,
-      refetchOnWindowFocus: false,
-    },
+    queries: { retry: false, refetchOnWindowFocus: false },
   },
 });
 
+type LoginStep = "select" | "pin";
+
+function PinLogin() {
+  const qc = useQueryClient();
+  const [step, setStep] = useState<LoginStep>("select");
+  const [selectedStaff, setSelectedStaff] = useState<{ id: number; name: string } | null>(null);
+  const [digits, setDigits] = useState<string[]>([]);
+  const [error, setError] = useState(false);
+  const [shake, setShake] = useState(false);
+
+  const { data: staff, isLoading } = useGetStaff({ query: { queryKey: ["staff"] } });
+  const pinLogin = usePinLogin();
+
+  function selectStaff(s: { id: number; name: string }) {
+    setSelectedStaff(s);
+    setDigits([]);
+    setError(false);
+    setStep("pin");
+  }
+
+  function pressDigit(d: string) {
+    if (digits.length >= 4 || pinLogin.isPending) return;
+    const next = [...digits, d];
+    setDigits(next);
+    setError(false);
+
+    if (next.length === 4) {
+      pinLogin.mutate(
+        { data: { staffId: selectedStaff!.id, pin: next.join("") } },
+        {
+          onSuccess: (data) => {
+            qc.setQueryData(["auth", "user"], data);
+          },
+          onError: () => {
+            setShake(true);
+            setError(true);
+            setDigits([]);
+            setTimeout(() => setShake(false), 600);
+          },
+        }
+      );
+    }
+  }
+
+  function backspace() {
+    setDigits((prev) => prev.slice(0, -1));
+    setError(false);
+  }
+
+  function goBack() {
+    setStep("select");
+    setSelectedStaff(null);
+    setDigits([]);
+    setError(false);
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center">
+        <div className="text-muted-foreground text-sm uppercase tracking-widest animate-pulse">Loading...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-[100dvh] w-full flex items-center justify-center p-4 bg-background">
+      <div className="w-full max-w-sm space-y-8">
+        <div className="text-center">
+          <h1 className="text-4xl font-black tracking-tight text-primary uppercase">The Bar</h1>
+        </div>
+
+        {step === "select" ? (
+          <>
+            <p className="text-center text-muted-foreground text-sm uppercase tracking-widest">Who are you?</p>
+            <div className="grid grid-cols-2 gap-3">
+              {staff?.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => selectStaff(s)}
+                  className="h-20 rounded-xl border border-border bg-card text-foreground text-xl font-bold uppercase tracking-wide hover:border-primary hover:bg-primary/10 hover:text-primary transition-all active:scale-95"
+                >
+                  {s.name}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="text-center space-y-1">
+              <p className="text-muted-foreground text-sm uppercase tracking-widest">Enter PIN for</p>
+              <p className="text-2xl font-black uppercase text-foreground">{selectedStaff?.name}</p>
+            </div>
+
+            {/* PIN dots */}
+            <div className={`flex justify-center gap-5 transition-all ${shake ? "animate-[shake_0.5s_ease-in-out]" : ""}`}>
+              {[0, 1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className={`w-5 h-5 rounded-full border-2 transition-all ${
+                    digits.length > i
+                      ? error
+                        ? "bg-destructive border-destructive"
+                        : "bg-primary border-primary"
+                      : "border-border bg-transparent"
+                  }`}
+                />
+              ))}
+            </div>
+
+            {error && (
+              <p className="text-center text-destructive text-sm font-bold">Incorrect PIN. Try again.</p>
+            )}
+
+            {/* Numpad */}
+            <div className="grid grid-cols-3 gap-3">
+              {["1","2","3","4","5","6","7","8","9"].map((d) => (
+                <button
+                  key={d}
+                  onClick={() => pressDigit(d)}
+                  disabled={pinLogin.isPending}
+                  className="h-20 rounded-xl bg-card border border-border text-3xl font-bold text-foreground hover:border-primary hover:bg-primary/10 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  {d}
+                </button>
+              ))}
+              <button
+                onClick={goBack}
+                className="h-20 rounded-xl bg-transparent border border-border text-sm font-bold text-muted-foreground hover:text-foreground hover:border-foreground active:scale-95 transition-all uppercase tracking-wide"
+              >
+                Back
+              </button>
+              <button
+                onClick={() => pressDigit("0")}
+                disabled={pinLogin.isPending}
+                className="h-20 rounded-xl bg-card border border-border text-3xl font-bold text-foreground hover:border-primary hover:bg-primary/10 active:scale-95 transition-all disabled:opacity-50"
+              >
+                0
+              </button>
+              <button
+                onClick={backspace}
+                disabled={digits.length === 0 || pinLogin.isPending}
+                className="h-20 rounded-xl bg-transparent border border-border text-muted-foreground hover:text-foreground hover:border-foreground active:scale-95 transition-all flex items-center justify-center disabled:opacity-30"
+              >
+                <Delete className="w-6 h-6" />
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const { isLoading, isAuthenticated, login } = useAuth();
+  const { isLoading, isAuthenticated } = useAuth();
 
   if (isLoading) {
     return (
@@ -29,22 +182,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-[100dvh] w-full flex items-center justify-center p-4">
-        <div className="max-w-sm w-full text-center space-y-8">
-          <div className="space-y-2">
-            <h1 className="text-4xl font-black tracking-tight text-primary uppercase">The Bar</h1>
-            <p className="text-muted-foreground">Staff access only. Please log in to continue.</p>
-          </div>
-          <button
-            onClick={login}
-            className="w-full h-16 text-xl font-bold uppercase tracking-wider bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
-          >
-            Log In
-          </button>
-        </div>
-      </div>
-    );
+    return <PinLogin />;
   }
 
   return <>{children}</>;

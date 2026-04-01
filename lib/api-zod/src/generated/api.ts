@@ -70,6 +70,39 @@ export const LogoutBrowserSessionHeader = zod.object({
 });
 
 /**
+ * @summary Get list of all staff members (names only, no PINs)
+ */
+export const GetStaffResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+});
+export const GetStaffResponse = zod.array(GetStaffResponseItem);
+
+/**
+ * @summary Log in with a staff PIN
+ */
+export const pinLoginBodyPinMin = 4;
+export const pinLoginBodyPinMax = 4;
+
+export const PinLoginBody = zod.object({
+  staffId: zod.number(),
+  pin: zod.string().min(pinLoginBodyPinMin).max(pinLoginBodyPinMax),
+});
+
+export const PinLoginResponse = zod.object({
+  user: zod.union([
+    zod.object({
+      id: zod.string(),
+      email: zod.string().email().nullable(),
+      firstName: zod.string().nullable(),
+      lastName: zod.string().nullable(),
+      profileImageUrl: zod.string().nullable(),
+    }),
+    zod.null(),
+  ]),
+});
+
+/**
  * @summary Get all menu items
  */
 export const GetMenuItemsResponseItem = zod.object({

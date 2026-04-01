@@ -1,14 +1,14 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { LogIn, Monitor, LogOut } from "lucide-react";
-import { useAuth } from "@workspace/replit-auth-web";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Home() {
   const { user, logout } = useAuth();
 
   const displayName = user?.firstName
     ? `${user.firstName}${user.lastName ? " " + user.lastName : ""}`
-    : user?.email ?? "Staff";
+    : "Staff";
 
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center p-4">

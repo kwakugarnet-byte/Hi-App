@@ -18,3 +18,5 @@ export * from "./menuItem";
 export * from "./orderBatch";
 export * from "./orderBatchStatus";
 export * from "./orderItem";
+export * from "./pinLoginBody";
+export * from "./staffMember";

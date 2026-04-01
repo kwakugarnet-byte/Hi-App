@@ -9,6 +9,20 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface StaffMember {
+  id: number;
+  name: string;
+}
+
+export interface PinLoginBody {
+  staffId: number;
+  /**
+   * @minLength 4
+   * @maxLength 4
+   */
+  pin: string;
+}
+
 export interface AuthUser {
   id: string;
   /** @nullable */
