@@ -7,7 +7,7 @@ import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function formatPrice(pence: number) {
-  return `R${(pence / 100).toFixed(2)}`;
+  return `₵${(pence / 100).toFixed(2)}`;
 }
 
 function batchTotal(items: { pricePence: number; quantity: number }[]) {

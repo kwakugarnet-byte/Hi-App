@@ -17,7 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 const CATEGORIES = ["Beer", "Cider", "Spirits", "Whiskey", "Wine", "Soft Drinks"];
 
 function formatPrice(pence: number) {
-  return `R${(pence / 100).toFixed(2)}`;
+  return `₵${(pence / 100).toFixed(2)}`;
 }
 
 type EditState = { id: number; name: string; category: string; pricePence: number } | null;
@@ -174,7 +174,7 @@ export default function Admin() {
                 ))}
               </select>
               <div className="relative w-32">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">R</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">₵</span>
                 <Input
                   type="number"
                   min="0"
@@ -230,7 +230,7 @@ export default function Admin() {
                         ))}
                       </select>
                       <div className="relative w-32">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">R</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">₵</span>
                         <Input
                           type="number"
                           min="0"
