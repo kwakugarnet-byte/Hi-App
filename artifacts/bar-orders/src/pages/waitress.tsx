@@ -1,10 +1,11 @@
 import { useState, useMemo } from "react";
 import { Link, Redirect } from "wouter";
-import { ArrowLeft, Send, Plus, Minus, Trash2 } from "lucide-react";
+import { ArrowLeft, Send, Plus, Minus, Trash2, AlertTriangle, RotateCcw, CheckCircle2 } from "lucide-react";
 import {
   useGetMenuItems,
   useGetOrderBatches,
   useCreateOrderBatch,
+  useResubmitOrderBatch,
   getGetMenuItemsQueryKey,
   getGetOrderBatchesQueryKey,
 } from "@workspace/api-client-react";
@@ -40,11 +41,78 @@ export default function Waitress() {
   });
 
   const createOrder = useCreateOrderBatch();
+  const resubmitOrder = useResubmitOrderBatch();
 
   const [customerName, setCustomerName] = useState("");
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [selected, setSelected] = useState<Record<number, SelectedItem>>({});
   const [nameError, setNameError] = useState(false);
+
+  // Returned batches for this waitress (need correction)
+  const returnedBatches = useMemo(() => {
+    if (!batches) return [];
+    return batches.filter((b) => b.status === "returned" && b.waitressName === waitressName);
+  }, [batches, waitressName]);
+
+  // State for editing a returned batch's items inline
+  const [editingReturn, setEditingReturn] = useState<{
+    batchId: number;
+    customerName: string;
+    items: Record<number, SelectedItem>;
+  } | null>(null);
+
+  function startEditing(batch: typeof returnedBatches[number]) {
+    const itemMap: Record<number, SelectedItem> = {};
+    for (const item of batch.items) {
+      itemMap[item.menuItemId] = {
+        menuItemId: item.menuItemId,
+        menuItemName: item.menuItemName,
+        quantity: item.quantity,
+      };
+    }
+    setEditingReturn({ batchId: batch.id, customerName: batch.customerName, items: itemMap });
+  }
+
+  function editQty(id: number, name: string, delta: number) {
+    if (!editingReturn) return;
+    setEditingReturn((prev) => {
+      if (!prev) return prev;
+      const existing = prev.items[id];
+      const newQty = (existing?.quantity ?? 0) + delta;
+      if (newQty <= 0) {
+        const next = { ...prev.items };
+        delete next[id];
+        return { ...prev, items: next };
+      }
+      return { ...prev, items: { ...prev.items, [id]: { menuItemId: id, menuItemName: name, quantity: newQty } } };
+    });
+  }
+
+  function addEditItem(id: number, name: string) {
+    editQty(id, name, 1);
+  }
+
+  function handleResubmit() {
+    if (!editingReturn) return;
+    const items = Object.values(editingReturn.items).map((i) => ({ menuItemId: i.menuItemId, quantity: i.quantity }));
+    if (items.length === 0) {
+      toast({ title: "No items", description: "Add at least one drink.", variant: "destructive" });
+      return;
+    }
+    resubmitOrder.mutate(
+      { id: editingReturn.batchId, data: { items } },
+      {
+        onSuccess: () => {
+          toast({ title: "Order Resubmitted", description: `Corrected order for ${editingReturn.customerName} sent back to the bar.` });
+          queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
+          setEditingReturn(null);
+        },
+        onError: () => {
+          toast({ title: "Failed to resubmit", variant: "destructive" });
+        },
+      }
+    );
+  }
 
   const activeCustomers = useMemo(() => {
     if (!batches) return [];
@@ -127,6 +195,117 @@ export default function Waitress() {
     );
   }
 
+  // === Correction overlay ===
+  if (editingReturn && menuItems) {
+    const editList = Object.values(editingReturn.items);
+    const totalEditItems = editList.reduce((s, i) => s + i.quantity, 0);
+    return (
+      <div className="min-h-[100dvh] bg-background text-foreground flex flex-col">
+        <header className="sticky top-0 z-20 bg-orange-500/10 border-b border-orange-500/40 px-4 py-3 flex items-center justify-between shrink-0">
+          <button onClick={() => setEditingReturn(null)} className="p-2 text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="text-center">
+            <h1 className="text-sm font-black uppercase tracking-wide text-orange-400">Correcting Order</h1>
+            <p className="text-xs text-muted-foreground font-bold uppercase tracking-wide">{editingReturn.customerName}</p>
+          </div>
+          <div className="w-10" />
+        </header>
+
+        {/* Category tabs */}
+        <div className="shrink-0 overflow-x-auto border-b border-border bg-card">
+          <div className="flex gap-1 px-4 py-2 min-w-max">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setActiveTab(cat)}
+                className={`px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-all ${
+                  currentTab === cat
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Drink grid */}
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-4">
+            {itemsInTab.map((item) => {
+              const qty = editingReturn.items[item.id]?.quantity ?? 0;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => addEditItem(item.id, item.name)}
+                  className={`relative rounded-xl border p-4 text-left transition-all active:scale-95 ${
+                    qty > 0
+                      ? "border-orange-500 bg-orange-500/10 text-foreground"
+                      : "border-border bg-card text-muted-foreground hover:border-orange-500/50 hover:text-foreground"
+                  }`}
+                >
+                  <span className="block font-semibold text-sm leading-snug">{item.name}</span>
+                  {qty > 0 && (
+                    <span className="absolute top-2 right-2 bg-orange-500 text-white text-xs font-black w-6 h-6 flex items-center justify-center rounded-full">
+                      {qty}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Correction summary + send back */}
+        <div className="shrink-0 border-t border-border bg-card">
+          {editList.length > 0 && (
+            <div className="px-4 pt-3 pb-2 space-y-2 max-h-48 overflow-y-auto">
+              <p className="text-xs font-bold uppercase tracking-widest text-orange-400">
+                Corrected Order ({totalEditItems} item{totalEditItems !== 1 ? "s" : ""})
+              </p>
+              {editList.map((item) => (
+                <div key={item.menuItemId} className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium flex-1 truncate">{item.menuItemName}</span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => editQty(item.menuItemId, item.menuItemName, -1)}
+                      className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive transition-colors"
+                    >
+                      {item.quantity === 1 ? <Trash2 className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+                    </button>
+                    <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => editQty(item.menuItemId, item.menuItemName, 1)}
+                      className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary transition-colors"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="p-4">
+            <Button
+              onClick={handleResubmit}
+              size="lg"
+              className="w-full h-16 text-xl font-bold uppercase tracking-wider gap-3 bg-orange-500 hover:bg-orange-400 text-white"
+              disabled={resubmitOrder.isPending}
+            >
+              <CheckCircle2 className="w-6 h-6" />
+              {resubmitOrder.isPending ? "Sending..." : `Send ${totalEditItems} Item${totalEditItems !== 1 ? "s" : ""} Back to Bar`}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-[100dvh] bg-background text-foreground flex flex-col">
       {/* Header */}
@@ -142,6 +321,37 @@ export default function Waitress() {
         </div>
         <div className="w-10" />
       </header>
+
+      {/* Returned orders alert */}
+      {returnedBatches.length > 0 && (
+        <div className="bg-orange-500/10 border-b border-orange-500/30 px-4 py-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-orange-400 shrink-0" />
+            <p className="text-xs font-black uppercase tracking-widest text-orange-400">
+              {returnedBatches.length} Order{returnedBatches.length !== 1 ? "s" : ""} Need{returnedBatches.length === 1 ? "s" : ""} Correction
+            </p>
+          </div>
+          <div className="space-y-2">
+            {returnedBatches.map((batch) => (
+              <div key={batch.id} className="bg-card rounded-xl border border-orange-500/30 px-3 py-2.5 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-black uppercase tracking-tight text-foreground truncate">{batch.customerName}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                    {batch.items.map((i) => `${i.quantity}× ${i.menuItemName}`).join(", ")}
+                  </p>
+                </div>
+                <button
+                  onClick={() => startEditing(batch)}
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-orange-500 hover:bg-orange-400 text-white text-xs font-black uppercase tracking-wide transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Correct
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Customer name */}
       <div className="px-4 pt-4 pb-3 shrink-0 border-b border-border bg-card space-y-3">

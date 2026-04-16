@@ -270,6 +270,65 @@ export const SettleWaiterAccountResponse = zod.object({
 });
 
 /**
+ * @summary Return a batch to the waitress for correction
+ */
+export const ReturnOrderBatchParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ReturnOrderBatchResponse = zod.object({
+  id: zod.number(),
+  customerName: zod.string(),
+  waitressName: zod.string(),
+  createdAt: zod.string(),
+  completedAt: zod.string().nullish(),
+  status: zod.enum(["pending", "completed", "paid"]),
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      menuItemId: zod.number(),
+      menuItemName: zod.string(),
+      quantity: zod.number(),
+      pricePence: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Resubmit a returned batch with corrected items
+ */
+export const ResubmitOrderBatchParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ResubmitOrderBatchBody = zod.object({
+  items: zod.array(
+    zod.object({
+      menuItemId: zod.number(),
+      quantity: zod.number(),
+    }),
+  ),
+});
+
+export const ResubmitOrderBatchResponse = zod.object({
+  id: zod.number(),
+  customerName: zod.string(),
+  waitressName: zod.string(),
+  createdAt: zod.string(),
+  completedAt: zod.string().nullish(),
+  status: zod.enum(["pending", "completed", "paid"]),
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      menuItemId: zod.number(),
+      menuItemName: zod.string(),
+      quantity: zod.number(),
+      pricePence: zod.number(),
+    }),
+  ),
+});
+
+/**
  * @summary Mark an order batch as served (drinks ready)
  */
 export const CompleteOrderBatchParams = zod.object({

@@ -146,6 +146,10 @@ export interface ShiftEnvelope {
   shift: Shift | null;
 }
 
+export interface ResubmitOrderBatchBody {
+  items: CreateOrderItemBody[];
+}
+
 export interface SettleWaiterBody {
   waitressName: string;
 }

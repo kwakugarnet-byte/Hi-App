@@ -11,6 +11,11 @@ import {
   PayOrderBatchResponse,
   SettleWaiterAccountBody,
   SettleWaiterAccountResponse,
+  ReturnOrderBatchParams,
+  ReturnOrderBatchResponse,
+  ResubmitOrderBatchParams,
+  ResubmitOrderBatchBody,
+  ResubmitOrderBatchResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -200,6 +205,119 @@ router.post("/order-batches/:id/pay", async (req, res): Promise<void> => {
   };
 
   res.json(PayOrderBatchResponse.parse(result));
+});
+
+router.post("/order-batches/:id/return", async (req, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const params = ReturnOrderBatchParams.safeParse({ id: parseInt(rawId, 10) });
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [batch] = await db
+    .update(orderBatchesTable)
+    .set({ status: "returned" })
+    .where(eq(orderBatchesTable.id, params.data.id))
+    .returning();
+
+  if (!batch) {
+    res.status(404).json({ error: "Order batch not found" });
+    return;
+  }
+
+  const orderItems = await db
+    .select({
+      id: orderItemsTable.id,
+      batchId: orderItemsTable.batchId,
+      menuItemId: orderItemsTable.menuItemId,
+      menuItemName: menuItemsTable.name,
+      pricePence: menuItemsTable.pricePence,
+      quantity: orderItemsTable.quantity,
+    })
+    .from(orderItemsTable)
+    .innerJoin(menuItemsTable, eq(orderItemsTable.menuItemId, menuItemsTable.id))
+    .where(eq(orderItemsTable.batchId, batch.id));
+
+  res.json(ReturnOrderBatchResponse.parse({
+    ...batch,
+    createdAt: batch.createdAt.toISOString(),
+    completedAt: batch.completedAt ? batch.completedAt.toISOString() : null,
+    items: orderItems.map((item) => ({
+      id: item.id,
+      menuItemId: item.menuItemId,
+      menuItemName: item.menuItemName,
+      pricePence: item.pricePence,
+      quantity: item.quantity,
+    })),
+  }));
+});
+
+router.post("/order-batches/:id/resubmit", async (req, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const params = ResubmitOrderBatchParams.safeParse({ id: parseInt(rawId, 10) });
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const body = ResubmitOrderBatchBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  const batchId = params.data.id;
+
+  // Replace all items
+  await db.delete(orderItemsTable).where(eq(orderItemsTable.batchId, batchId));
+
+  if (body.data.items.length > 0) {
+    await db.insert(orderItemsTable).values(
+      body.data.items.map((item) => ({
+        batchId,
+        menuItemId: item.menuItemId,
+        quantity: item.quantity,
+      }))
+    );
+  }
+
+  const [batch] = await db
+    .update(orderBatchesTable)
+    .set({ status: "pending", completedAt: null })
+    .where(eq(orderBatchesTable.id, batchId))
+    .returning();
+
+  if (!batch) {
+    res.status(404).json({ error: "Order batch not found" });
+    return;
+  }
+
+  const orderItems = await db
+    .select({
+      id: orderItemsTable.id,
+      batchId: orderItemsTable.batchId,
+      menuItemId: orderItemsTable.menuItemId,
+      menuItemName: menuItemsTable.name,
+      pricePence: menuItemsTable.pricePence,
+      quantity: orderItemsTable.quantity,
+    })
+    .from(orderItemsTable)
+    .innerJoin(menuItemsTable, eq(orderItemsTable.menuItemId, menuItemsTable.id))
+    .where(eq(orderItemsTable.batchId, batchId));
+
+  res.json(ResubmitOrderBatchResponse.parse({
+    ...batch,
+    createdAt: batch.createdAt.toISOString(),
+    completedAt: null,
+    items: orderItems.map((item) => ({
+      id: item.id,
+      menuItemId: item.menuItemId,
+      menuItemName: item.menuItemName,
+      pricePence: item.pricePence,
+      quantity: item.quantity,
+    })),
+  }));
 });
 
 router.post("/order-batches/settle-waiter", async (req, res): Promise<void> => {

@@ -30,6 +30,7 @@ import type {
   MenuItemBody,
   OrderBatch,
   PinLoginBody,
+  ResubmitOrderBatchBody,
   SettleWaiterBody,
   SettleWaiterResult,
   Shift,
@@ -1700,6 +1701,177 @@ export const useSettleWaiterAccount = <
   TContext
 > => {
   return useMutation(getSettleWaiterAccountMutationOptions(options));
+};
+
+/**
+ * @summary Return a batch to the waitress for correction
+ */
+export const getReturnOrderBatchUrl = (id: number) => {
+  return `/api/order-batches/${id}/return`;
+};
+
+export const returnOrderBatch = async (
+  id: number,
+  options?: RequestInit,
+): Promise<OrderBatch> => {
+  return customFetch<OrderBatch>(getReturnOrderBatchUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getReturnOrderBatchMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof returnOrderBatch>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof returnOrderBatch>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["returnOrderBatch"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof returnOrderBatch>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return returnOrderBatch(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReturnOrderBatchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof returnOrderBatch>>
+>;
+
+export type ReturnOrderBatchMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Return a batch to the waitress for correction
+ */
+export const useReturnOrderBatch = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof returnOrderBatch>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof returnOrderBatch>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getReturnOrderBatchMutationOptions(options));
+};
+
+/**
+ * @summary Resubmit a returned batch with corrected items
+ */
+export const getResubmitOrderBatchUrl = (id: number) => {
+  return `/api/order-batches/${id}/resubmit`;
+};
+
+export const resubmitOrderBatch = async (
+  id: number,
+  resubmitOrderBatchBody: ResubmitOrderBatchBody,
+  options?: RequestInit,
+): Promise<OrderBatch> => {
+  return customFetch<OrderBatch>(getResubmitOrderBatchUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(resubmitOrderBatchBody),
+  });
+};
+
+export const getResubmitOrderBatchMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resubmitOrderBatch>>,
+    TError,
+    { id: number; data: BodyType<ResubmitOrderBatchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resubmitOrderBatch>>,
+  TError,
+  { id: number; data: BodyType<ResubmitOrderBatchBody> },
+  TContext
+> => {
+  const mutationKey = ["resubmitOrderBatch"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resubmitOrderBatch>>,
+    { id: number; data: BodyType<ResubmitOrderBatchBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return resubmitOrderBatch(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResubmitOrderBatchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resubmitOrderBatch>>
+>;
+export type ResubmitOrderBatchMutationBody = BodyType<ResubmitOrderBatchBody>;
+export type ResubmitOrderBatchMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Resubmit a returned batch with corrected items
+ */
+export const useResubmitOrderBatch = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resubmitOrderBatch>>,
+    TError,
+    { id: number; data: BodyType<ResubmitOrderBatchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof resubmitOrderBatch>>,
+  TError,
+  { id: number; data: BodyType<ResubmitOrderBatchBody> },
+  TContext
+> => {
+  return useMutation(getResubmitOrderBatchMutationOptions(options));
 };
 
 /**

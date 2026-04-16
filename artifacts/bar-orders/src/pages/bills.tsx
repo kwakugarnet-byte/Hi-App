@@ -56,7 +56,7 @@ function groupBatches(
     }
     const group = map.get(key)!;
 
-    if (batch.status === "pending") group.overallStatus = "pending";
+    if (batch.status === "pending" || batch.status === "returned") group.overallStatus = "pending";
 
     if (new Date(batch.createdAt) < new Date(group.firstOrderAt)) {
       group.firstOrderAt = batch.createdAt;
