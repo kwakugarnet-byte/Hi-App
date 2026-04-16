@@ -23,12 +23,15 @@ import type {
   ChangePinBody,
   CreateOrderBatchBody,
   CreateStaffBody,
+  GetShiftsParams,
   HandleBrowserLoginCallbackParams,
   HealthStatus,
   MenuItem,
   MenuItemBody,
   OrderBatch,
   PinLoginBody,
+  Shift,
+  ShiftEnvelope,
   StaffMember,
   UpdateStaffBody,
 } from "./api.schemas";
@@ -1694,6 +1697,333 @@ export const useCompleteOrderBatch = <
 > => {
   return useMutation(getCompleteOrderBatchMutationOptions(options));
 };
+
+/**
+ * @summary Get the current user's active shift (null if none started today)
+ */
+export const getGetMyShiftUrl = () => {
+  return `/api/shifts/me`;
+};
+
+export const getMyShift = async (
+  options?: RequestInit,
+): Promise<ShiftEnvelope> => {
+  return customFetch<ShiftEnvelope>(getGetMyShiftUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMyShiftQueryKey = () => {
+  return [`/api/shifts/me`] as const;
+};
+
+export const getGetMyShiftQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyShift>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyShift>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMyShiftQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyShift>>> = ({
+    signal,
+  }) => getMyShift({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyShift>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyShiftQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyShift>>
+>;
+export type GetMyShiftQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get the current user's active shift (null if none started today)
+ */
+
+export function useGetMyShift<
+  TData = Awaited<ReturnType<typeof getMyShift>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyShift>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyShiftQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Clock in — start the work day
+ */
+export const getStartShiftUrl = () => {
+  return `/api/shifts/start`;
+};
+
+export const startShift = async (options?: RequestInit): Promise<Shift> => {
+  return customFetch<Shift>(getStartShiftUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getStartShiftMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startShift>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof startShift>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["startShift"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof startShift>>,
+    void
+  > = () => {
+    return startShift(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type StartShiftMutationResult = NonNullable<
+  Awaited<ReturnType<typeof startShift>>
+>;
+
+export type StartShiftMutationError = ErrorType<void>;
+
+/**
+ * @summary Clock in — start the work day
+ */
+export const useStartShift = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startShift>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof startShift>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getStartShiftMutationOptions(options));
+};
+
+/**
+ * @summary Clock out — end the work day
+ */
+export const getEndShiftUrl = () => {
+  return `/api/shifts/end`;
+};
+
+export const endShift = async (options?: RequestInit): Promise<Shift> => {
+  return customFetch<Shift>(getEndShiftUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getEndShiftMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof endShift>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof endShift>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["endShift"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof endShift>>,
+    void
+  > = () => {
+    return endShift(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type EndShiftMutationResult = NonNullable<
+  Awaited<ReturnType<typeof endShift>>
+>;
+
+export type EndShiftMutationError = ErrorType<void>;
+
+/**
+ * @summary Clock out — end the work day
+ */
+export const useEndShift = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof endShift>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof endShift>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getEndShiftMutationOptions(options));
+};
+
+/**
+ * @summary Get all shifts (admin sees all, others see own)
+ */
+export const getGetShiftsUrl = (params?: GetShiftsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/shifts?${stringifiedParams}`
+    : `/api/shifts`;
+};
+
+export const getShifts = async (
+  params?: GetShiftsParams,
+  options?: RequestInit,
+): Promise<Shift[]> => {
+  return customFetch<Shift[]>(getGetShiftsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetShiftsQueryKey = (params?: GetShiftsParams) => {
+  return [`/api/shifts`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetShiftsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getShifts>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetShiftsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getShifts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetShiftsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getShifts>>> = ({
+    signal,
+  }) => getShifts(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getShifts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetShiftsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getShifts>>
+>;
+export type GetShiftsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get all shifts (admin sees all, others see own)
+ */
+
+export function useGetShifts<
+  TData = Awaited<ReturnType<typeof getShifts>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetShiftsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getShifts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetShiftsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Mark an order batch as paid and clear it

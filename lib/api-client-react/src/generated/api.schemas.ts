@@ -134,6 +134,18 @@ export interface CreateOrderBatchBody {
   items: CreateOrderItemBody[];
 }
 
+export interface Shift {
+  id: number;
+  staffId: number;
+  staffName: string;
+  startedAt: string;
+  endedAt?: string | null;
+}
+
+export interface ShiftEnvelope {
+  shift: Shift | null;
+}
+
 /**
  * Opaque session token — `Bearer <sid>`.
  */
@@ -150,4 +162,11 @@ export type HandleBrowserLoginCallbackParams = {
   code?: string;
   state?: string;
   iss?: string;
+};
+
+export type GetShiftsParams = {
+  /**
+   * Filter by date (YYYY-MM-DD). Defaults to today.
+   */
+  date?: string;
 };

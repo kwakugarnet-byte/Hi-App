@@ -282,6 +282,52 @@ export const CompleteOrderBatchResponse = zod.object({
 });
 
 /**
+ * @summary Get the current user's active shift (null if none started today)
+ */
+export const GetMyShiftResponse = zod.object({
+  shift: zod.union([
+    zod.object({
+      id: zod.number(),
+      staffId: zod.number(),
+      staffName: zod.string(),
+      startedAt: zod.coerce.date(),
+      endedAt: zod.coerce.date().nullish(),
+    }),
+    zod.null(),
+  ]),
+});
+
+/**
+ * @summary Clock out — end the work day
+ */
+export const EndShiftResponse = zod.object({
+  id: zod.number(),
+  staffId: zod.number(),
+  staffName: zod.string(),
+  startedAt: zod.coerce.date(),
+  endedAt: zod.coerce.date().nullish(),
+});
+
+/**
+ * @summary Get all shifts (admin sees all, others see own)
+ */
+export const GetShiftsQueryParams = zod.object({
+  date: zod.coerce
+    .string()
+    .optional()
+    .describe("Filter by date (YYYY-MM-DD). Defaults to today."),
+});
+
+export const GetShiftsResponseItem = zod.object({
+  id: zod.number(),
+  staffId: zod.number(),
+  staffName: zod.string(),
+  startedAt: zod.coerce.date(),
+  endedAt: zod.coerce.date().nullish(),
+});
+export const GetShiftsResponse = zod.array(GetShiftsResponseItem);
+
+/**
  * @summary Mark an order batch as paid and clear it
  */
 export const PayOrderBatchParams = zod.object({

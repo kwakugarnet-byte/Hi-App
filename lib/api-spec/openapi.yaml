@@ -352,6 +352,71 @@ paths:
               schema:
                 $ref: "#/components/schemas/OrderBatch"
 
+  /shifts/me:
+    get:
+      operationId: getMyShift
+      tags: [shifts]
+      summary: Get the current user's active shift (null if none started today)
+      responses:
+        "200":
+          description: Current shift status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShiftEnvelope"
+
+  /shifts/start:
+    post:
+      operationId: startShift
+      tags: [shifts]
+      summary: Clock in — start the work day
+      responses:
+        "201":
+          description: Shift started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shift"
+        "409":
+          description: Shift already active
+
+  /shifts/end:
+    post:
+      operationId: endShift
+      tags: [shifts]
+      summary: Clock out — end the work day
+      responses:
+        "200":
+          description: Shift ended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shift"
+        "404":
+          description: No active shift found
+
+  /shifts:
+    get:
+      operationId: getShifts
+      tags: [shifts]
+      summary: Get all shifts (admin sees all, others see own)
+      parameters:
+        - name: date
+          in: query
+          required: false
+          description: Filter by date (YYYY-MM-DD). Defaults to today.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of shifts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Shift"
+
   /order-batches/{id}/pay:
     post:
       operationId: payOrderBatch
@@ -596,3 +661,30 @@ components:
         - customerName
         - waitressName
         - items
+
+    Shift:
+      type: object
+      required: [id, staffId, staffName, startedAt]
+      properties:
+        id:
+          type: integer
+        staffId:
+          type: integer
+        staffName:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ShiftEnvelope:
+      type: object
+      required: [shift]
+      properties:
+        shift:
+          oneOf:
+            - $ref: "#/components/schemas/Shift"
+            - type: "null"
