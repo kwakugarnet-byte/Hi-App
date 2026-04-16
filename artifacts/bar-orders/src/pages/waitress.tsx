@@ -6,8 +6,10 @@ import {
   useGetOrderBatches,
   useCreateOrderBatch,
   useResubmitOrderBatch,
+  useGetMyShift,
   getGetMenuItemsQueryKey,
   getGetOrderBatchesQueryKey,
+  getGetMyShiftQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -31,6 +33,14 @@ export default function Waitress() {
   const waitressName = user?.firstName
     ? `${user.firstName}${user.lastName ? " " + user.lastName : ""}`
     : user?.email ?? "Staff";
+
+  const { data: shiftData, isLoading: shiftLoading } = useGetMyShift({
+    query: { queryKey: getGetMyShiftQueryKey(), refetchInterval: 30000 },
+  });
+
+  // Day is "started" if there is an active (not ended) shift
+  const dayStarted = !shiftLoading && !!shiftData?.shift && !shiftData.shift.endedAt;
+  const dayEnded = !shiftLoading && !!shiftData?.shift && !!shiftData.shift.endedAt;
 
   const { data: menuItems, isLoading: menuLoading } = useGetMenuItems({
     query: { queryKey: getGetMenuItemsQueryKey() },
@@ -353,151 +363,183 @@ export default function Waitress() {
         </div>
       )}
 
-      {/* Customer name */}
-      <div className="px-4 pt-4 pb-3 shrink-0 border-b border-border bg-card space-y-3">
-        {activeCustomers.length > 0 && (
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
-              Active Customers
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {activeCustomers.map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  onClick={() => { setCustomerName(name); setNameError(false); }}
-                  className={`px-3 py-1.5 rounded-full text-sm font-bold uppercase tracking-wide border transition-all ${
-                    customerName === name
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-card border-border text-muted-foreground hover:border-primary/60 hover:text-foreground"
-                  }`}
-                >
-                  {name}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
-            {activeCustomers.length > 0 ? "Or New Customer" : "Customer Name"}
-          </label>
-          <Input
-            value={customerName}
-            onChange={(e) => { setCustomerName(e.target.value); setNameError(false); }}
-            placeholder="E.g. Table 4 / John"
-            className={`h-12 text-lg bg-background border-border focus-visible:ring-primary ${nameError ? "border-destructive" : ""}`}
-          />
-          {nameError && <p className="text-destructive text-xs mt-1">Customer name is required</p>}
+      {/* ── Order form — blocked if day not started ── */}
+      {shiftLoading ? (
+        <div className="flex-1 flex items-center justify-center opacity-40">
+          <Skeleton className="w-48 h-8 bg-card rounded-lg" />
         </div>
-      </div>
-
-      {/* Category tabs */}
-      {menuLoading ? (
-        <div className="p-4 space-y-3">
-          <div className="flex gap-2">
-            {[1, 2, 3, 4].map((n) => <Skeleton key={n} className="h-10 w-20 bg-card rounded-lg" />)}
+      ) : !dayStarted ? (
+        /* Blocked state */
+        <div className="flex-1 flex flex-col items-center justify-center px-8 gap-5 text-center">
+          <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center">
+            <Send className="w-8 h-8 text-muted-foreground opacity-40" />
           </div>
-          <div className="grid grid-cols-2 gap-3 mt-4">
-            {[1, 2, 3, 4, 5, 6].map((n) => <Skeleton key={n} className="h-16 w-full bg-card rounded-lg" />)}
+          <div>
+            <p className="text-base font-black uppercase tracking-widest text-foreground">
+              {dayEnded ? "Your Shift Has Ended" : "Day Not Started"}
+            </p>
+            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+              {dayEnded
+                ? "Your shift is over for today. Orders cannot be taken after the day is ended."
+                : "You need to start your day before taking orders. Go to the Home screen and tap Start Day."}
+            </p>
           </div>
+          <Link href="/">
+            <button className="mt-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-black uppercase tracking-widest text-sm hover:bg-primary/90 transition-colors">
+              Go to Home
+            </button>
+          </Link>
         </div>
       ) : (
-        <div className="flex flex-col flex-1 min-h-0">
-          {/* Tab strip */}
-          <div className="shrink-0 overflow-x-auto border-b border-border bg-card">
-            <div className="flex gap-1 px-4 py-2 min-w-max">
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setActiveTab(cat)}
-                  className={`px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-all ${
-                    currentTab === cat
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Drink grid */}
-          <div className="flex-1 overflow-y-auto p-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-4">
-              {itemsInTab.map((item) => {
-                const qty = selected[item.id]?.quantity ?? 0;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => addItem(item.id, item.name)}
-                    className={`relative rounded-xl border p-4 text-left transition-all active:scale-95 ${
-                      qty > 0
-                        ? "border-primary bg-primary/10 text-foreground"
-                        : "border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground"
-                    }`}
-                  >
-                    <span className="block font-semibold text-sm leading-snug">{item.name}</span>
-                    {qty > 0 && (
-                      <span className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs font-black w-6 h-6 flex items-center justify-center rounded-full">
-                        {qty}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Order summary + send */}
-      <div className="shrink-0 border-t border-border bg-card">
-        {selectedList.length > 0 && (
-          <div className="px-4 pt-3 pb-2 space-y-2 max-h-48 overflow-y-auto">
-            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-              Order ({totalItems} item{totalItems !== 1 ? "s" : ""})
-            </p>
-            {selectedList.map((item) => (
-              <div key={item.menuItemId} className="flex items-center justify-between gap-2">
-                <span className="text-sm font-medium flex-1 truncate">{item.menuItemName}</span>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => changeQty(item.menuItemId, -1)}
-                    className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive transition-colors"
-                  >
-                    {item.quantity === 1 ? <Trash2 className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
-                  </button>
-                  <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
-                  <button
-                    type="button"
-                    onClick={() => changeQty(item.menuItemId, 1)}
-                    className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary transition-colors"
-                  >
-                    <Plus className="w-3 h-3" />
-                  </button>
+        /* Normal order form */
+        <>
+          {/* Customer name */}
+          <div className="px-4 pt-4 pb-3 shrink-0 border-b border-border bg-card space-y-3">
+            {activeCustomers.length > 0 && (
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                  Active Customers
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {activeCustomers.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => { setCustomerName(name); setNameError(false); }}
+                      className={`px-3 py-1.5 rounded-full text-sm font-bold uppercase tracking-wide border transition-all ${
+                        customerName === name
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-card border-border text-muted-foreground hover:border-primary/60 hover:text-foreground"
+                      }`}
+                    >
+                      {name}
+                    </button>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            )}
 
-        <div className="p-4">
-          <Button
-            onClick={handleSend}
-            size="lg"
-            className="w-full h-16 text-xl font-bold uppercase tracking-wider gap-3"
-            disabled={createOrder.isPending}
-          >
-            <Send className="w-6 h-6" />
-            {createOrder.isPending ? "Sending..." : selectedList.length === 0 ? "Send to Bar" : `Send ${totalItems} Item${totalItems !== 1 ? "s" : ""} to Bar`}
-          </Button>
-        </div>
-      </div>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                {activeCustomers.length > 0 ? "Or New Customer" : "Customer Name"}
+              </label>
+              <Input
+                value={customerName}
+                onChange={(e) => { setCustomerName(e.target.value); setNameError(false); }}
+                placeholder="E.g. Table 4 / John"
+                className={`h-12 text-lg bg-background border-border focus-visible:ring-primary ${nameError ? "border-destructive" : ""}`}
+              />
+              {nameError && <p className="text-destructive text-xs mt-1">Customer name is required</p>}
+            </div>
+          </div>
+
+          {/* Category tabs */}
+          {menuLoading ? (
+            <div className="p-4 space-y-3">
+              <div className="flex gap-2">
+                {[1, 2, 3, 4].map((n) => <Skeleton key={n} className="h-10 w-20 bg-card rounded-lg" />)}
+              </div>
+              <div className="grid grid-cols-2 gap-3 mt-4">
+                {[1, 2, 3, 4, 5, 6].map((n) => <Skeleton key={n} className="h-16 w-full bg-card rounded-lg" />)}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col flex-1 min-h-0">
+              {/* Tab strip */}
+              <div className="shrink-0 overflow-x-auto border-b border-border bg-card">
+                <div className="flex gap-1 px-4 py-2 min-w-max">
+                  {categories.map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setActiveTab(cat)}
+                      className={`px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-all ${
+                        currentTab === cat
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Drink grid */}
+              <div className="flex-1 overflow-y-auto p-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-4">
+                  {itemsInTab.map((item) => {
+                    const qty = selected[item.id]?.quantity ?? 0;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => addItem(item.id, item.name)}
+                        className={`relative rounded-xl border p-4 text-left transition-all active:scale-95 ${
+                          qty > 0
+                            ? "border-primary bg-primary/10 text-foreground"
+                            : "border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                        }`}
+                      >
+                        <span className="block font-semibold text-sm leading-snug">{item.name}</span>
+                        {qty > 0 && (
+                          <span className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs font-black w-6 h-6 flex items-center justify-center rounded-full">
+                            {qty}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Order summary + send */}
+          <div className="shrink-0 border-t border-border bg-card">
+            {selectedList.length > 0 && (
+              <div className="px-4 pt-3 pb-2 space-y-2 max-h-48 overflow-y-auto">
+                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  Order ({totalItems} item{totalItems !== 1 ? "s" : ""})
+                </p>
+                {selectedList.map((item) => (
+                  <div key={item.menuItemId} className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium flex-1 truncate">{item.menuItemName}</span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => changeQty(item.menuItemId, -1)}
+                        className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive transition-colors"
+                      >
+                        {item.quantity === 1 ? <Trash2 className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+                      </button>
+                      <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
+                      <button
+                        type="button"
+                        onClick={() => changeQty(item.menuItemId, 1)}
+                        className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary transition-colors"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="p-4">
+              <Button
+                onClick={handleSend}
+                size="lg"
+                className="w-full h-16 text-xl font-bold uppercase tracking-wider gap-3"
+                disabled={createOrder.isPending}
+              >
+                <Send className="w-6 h-6" />
+                {createOrder.isPending ? "Sending..." : selectedList.length === 0 ? "Send to Bar" : `Send ${totalItems} Item${totalItems !== 1 ? "s" : ""} to Bar`}
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
