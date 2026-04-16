@@ -333,6 +333,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/OrderBatch"
 
+  /order-batches/settle-waiter:
+    post:
+      operationId: settleWaiterAccount
+      tags: [orders]
+      summary: Settle all outstanding bills for a specific waiter (bulk mark paid)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettleWaiterBody"
+      responses:
+        "200":
+          description: Account settled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettleWaiterResult"
+
   /order-batches/{id}/complete:
     post:
       operationId: completeOrderBatch
@@ -688,3 +707,21 @@ components:
           oneOf:
             - $ref: "#/components/schemas/Shift"
             - type: "null"
+
+    SettleWaiterBody:
+      type: object
+      required: [waitressName]
+      properties:
+        waitressName:
+          type: string
+
+    SettleWaiterResult:
+      type: object
+      required: [waitressName, count, totalPence]
+      properties:
+        waitressName:
+          type: string
+        count:
+          type: integer
+        totalPence:
+          type: integer

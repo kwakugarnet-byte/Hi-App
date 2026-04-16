@@ -146,6 +146,16 @@ export interface ShiftEnvelope {
   shift: Shift | null;
 }
 
+export interface SettleWaiterBody {
+  waitressName: string;
+}
+
+export interface SettleWaiterResult {
+  waitressName: string;
+  count: number;
+  totalPence: number;
+}
+
 /**
  * Opaque session token — `Bearer <sid>`.
  */

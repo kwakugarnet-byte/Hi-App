@@ -24,6 +24,8 @@ export * from "./orderBatch";
 export * from "./orderBatchStatus";
 export * from "./orderItem";
 export * from "./pinLoginBody";
+export * from "./settleWaiterBody";
+export * from "./settleWaiterResult";
 export * from "./shift";
 export * from "./shiftEnvelope";
 export * from "./staffMember";

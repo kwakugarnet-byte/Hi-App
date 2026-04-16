@@ -30,6 +30,8 @@ import type {
   MenuItemBody,
   OrderBatch,
   PinLoginBody,
+  SettleWaiterBody,
+  SettleWaiterResult,
   Shift,
   ShiftEnvelope,
   StaffMember,
@@ -1612,6 +1614,92 @@ export const useCreateOrderBatch = <
   TContext
 > => {
   return useMutation(getCreateOrderBatchMutationOptions(options));
+};
+
+/**
+ * @summary Settle all outstanding bills for a specific waiter (bulk mark paid)
+ */
+export const getSettleWaiterAccountUrl = () => {
+  return `/api/order-batches/settle-waiter`;
+};
+
+export const settleWaiterAccount = async (
+  settleWaiterBody: SettleWaiterBody,
+  options?: RequestInit,
+): Promise<SettleWaiterResult> => {
+  return customFetch<SettleWaiterResult>(getSettleWaiterAccountUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(settleWaiterBody),
+  });
+};
+
+export const getSettleWaiterAccountMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof settleWaiterAccount>>,
+    TError,
+    { data: BodyType<SettleWaiterBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof settleWaiterAccount>>,
+  TError,
+  { data: BodyType<SettleWaiterBody> },
+  TContext
+> => {
+  const mutationKey = ["settleWaiterAccount"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof settleWaiterAccount>>,
+    { data: BodyType<SettleWaiterBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return settleWaiterAccount(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SettleWaiterAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof settleWaiterAccount>>
+>;
+export type SettleWaiterAccountMutationBody = BodyType<SettleWaiterBody>;
+export type SettleWaiterAccountMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Settle all outstanding bills for a specific waiter (bulk mark paid)
+ */
+export const useSettleWaiterAccount = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof settleWaiterAccount>>,
+    TError,
+    { data: BodyType<SettleWaiterBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof settleWaiterAccount>>,
+  TError,
+  { data: BodyType<SettleWaiterBody> },
+  TContext
+> => {
+  return useMutation(getSettleWaiterAccountMutationOptions(options));
 };
 
 /**

@@ -257,6 +257,19 @@ export const CreateOrderBatchBody = zod.object({
 });
 
 /**
+ * @summary Settle all outstanding bills for a specific waiter (bulk mark paid)
+ */
+export const SettleWaiterAccountBody = zod.object({
+  waitressName: zod.string(),
+});
+
+export const SettleWaiterAccountResponse = zod.object({
+  waitressName: zod.string(),
+  count: zod.number(),
+  totalPence: zod.number(),
+});
+
+/**
  * @summary Mark an order batch as served (drinks ready)
  */
 export const CompleteOrderBatchParams = zod.object({

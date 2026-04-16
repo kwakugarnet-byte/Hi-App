@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { db, menuItemsTable, orderBatchesTable, orderItemsTable } from "@workspace/db";
 import {
   GetMenuItemsResponse,
@@ -9,6 +9,8 @@ import {
   CompleteOrderBatchResponse,
   PayOrderBatchParams,
   PayOrderBatchResponse,
+  SettleWaiterAccountBody,
+  SettleWaiterAccountResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -198,6 +200,48 @@ router.post("/order-batches/:id/pay", async (req, res): Promise<void> => {
   };
 
   res.json(PayOrderBatchResponse.parse(result));
+});
+
+router.post("/order-batches/settle-waiter", async (req, res): Promise<void> => {
+  const parsed = SettleWaiterAccountBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const { waitressName } = parsed.data;
+
+  const unpaidBatches = await db
+    .select()
+    .from(orderBatchesTable)
+    .where(
+      and(
+        eq(orderBatchesTable.waitressName, waitressName),
+        ne(orderBatchesTable.status, "paid")
+      )
+    );
+
+  if (unpaidBatches.length === 0) {
+    res.json(SettleWaiterAccountResponse.parse({ waitressName, count: 0, totalPence: 0 }));
+    return;
+  }
+
+  const batchIds = unpaidBatches.map((b) => b.id);
+
+  await db
+    .update(orderBatchesTable)
+    .set({ status: "paid" })
+    .where(inArray(orderBatchesTable.id, batchIds));
+
+  const allItems = await db
+    .select({ pricePence: menuItemsTable.pricePence, quantity: orderItemsTable.quantity })
+    .from(orderItemsTable)
+    .innerJoin(menuItemsTable, eq(orderItemsTable.menuItemId, menuItemsTable.id))
+    .where(inArray(orderItemsTable.batchId, batchIds));
+
+  const totalPence = allItems.reduce((sum, i) => sum + i.pricePence * i.quantity, 0);
+
+  res.json(SettleWaiterAccountResponse.parse({ waitressName, count: unpaidBatches.length, totalPence }));
 });
 
 export default router;

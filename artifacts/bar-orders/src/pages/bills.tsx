@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle, CircleDashed, ChevronRight, Eye, X } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle, CircleDashed, ChevronRight, Eye, X, CreditCard } from "lucide-react";
 import {
   useGetOrderBatches,
   getGetOrderBatchesQueryKey,
   usePayOrderBatch,
+  useSettleWaiterAccount,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -165,6 +166,7 @@ export default function Bills() {
   const [selectedWaiter, setSelectedWaiter] = useState<string | null>(null);
   const [tab, setTab] = useState<"active" | "history">("active");
   const [showBillFor, setShowBillFor] = useState<GroupedCustomer | null>(null);
+  const [settleConfirm, setSettleConfirm] = useState<{ name: string; total: number; count: number } | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -181,6 +183,24 @@ export default function Bills() {
   });
 
   const payBatch = usePayOrderBatch();
+  const settleWaiter = useSettleWaiterAccount();
+
+  const handleSettleConfirmed = () => {
+    if (!settleConfirm) return;
+    settleWaiter.mutate({ waitressName: settleConfirm.name }, {
+      onSuccess: (result) => {
+        queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
+        setSettleConfirm(null);
+        toast({
+          title: "Account settled",
+          description: `${result.count} bill${result.count === 1 ? "" : "s"} cleared — ${formatPrice(result.totalPence)} collected from ${result.waitressName}`,
+        });
+      },
+      onError: () => {
+        toast({ title: "Failed to settle account", variant: "destructive" });
+      },
+    });
+  };
 
   const waiterNames = useMemo(() => {
     if (!batches) return [];
@@ -329,17 +349,64 @@ export default function Bills() {
             <div className="px-4 py-2.5 border-b border-border flex items-center gap-2">
               <Users className="w-4 h-4 text-amber-400" />
               <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Credit by Waiter</span>
+              <span className="ml-auto text-[10px] text-muted-foreground font-bold">Tap to settle</span>
             </div>
             <div className="divide-y divide-border/50">
               {waiterCredits.map((w) => (
-                <div key={w.name} className="px-4 py-2.5 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-sm font-bold uppercase tracking-wide truncate">{w.name}</span>
-                    <span className="text-[10px] text-muted-foreground font-bold bg-muted px-1.5 py-0.5 rounded-full shrink-0">
-                      {w.customers} {w.customers === 1 ? "customer" : "customers"}
-                    </span>
+                <div key={w.name}>
+                  <div className="px-4 py-2.5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm font-bold uppercase tracking-wide truncate">{w.name}</span>
+                      <span className="text-[10px] text-muted-foreground font-bold bg-muted px-1.5 py-0.5 rounded-full shrink-0">
+                        {w.customers} {w.customers === 1 ? "customer" : "customers"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-lg font-black text-amber-400 tabular-nums">{formatPrice(w.total)}</span>
+                      {isAdmin && (
+                        <button
+                          onClick={() =>
+                            settleConfirm?.name === w.name
+                              ? setSettleConfirm(null)
+                              : setSettleConfirm({ name: w.name, total: w.total, count: w.customers })
+                          }
+                          className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide px-2 py-1 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 transition-colors"
+                        >
+                          <CreditCard className="w-3 h-3" />
+                          Settle
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <span className="text-lg font-black text-amber-400 tabular-nums shrink-0">{formatPrice(w.total)}</span>
+                  {/* Inline confirm panel */}
+                  {settleConfirm?.name === w.name && (
+                    <div className="px-4 py-3 bg-green-500/5 border-t border-green-500/20 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-green-400 uppercase tracking-wide">
+                          Settle {w.name}'s account?
+                        </p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {w.customers} outstanding bill{w.customers === 1 ? "" : "s"} · {formatPrice(w.total)} total will be marked paid
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => setSettleConfirm(null)}
+                          className="text-[10px] font-bold text-muted-foreground hover:text-foreground uppercase tracking-wide px-2 py-1 rounded-lg border border-border hover:border-muted-foreground/50 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleSettleConfirmed}
+                          disabled={settleWaiter.isPending}
+                          className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-500 text-white transition-colors disabled:opacity-50"
+                        >
+                          <CheckCircle2 className="w-3 h-3" />
+                          {settleWaiter.isPending ? "Settling…" : "Confirm"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
