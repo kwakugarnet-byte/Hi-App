@@ -580,16 +580,20 @@ export default function Bills() {
                   </div>
                 </div>
                 <div className="px-4 pb-2.5 space-y-1.5">
-                  {round.items.map((item, i) => (
-                    <div key={i} className="flex items-center gap-2 text-sm">
-                      <span className="text-foreground font-medium flex-1 min-w-0 truncate">
-                        <span className="text-muted-foreground font-bold mr-1">{item.quantity}×</span>
+                  {round.items.map((item, i) => {
+                    const isFlagged = round.status === "returned" && !!round.correctionItemIds?.includes(item.id);
+                    return (
+                    <div key={i} className={`flex items-center gap-2 text-sm ${isFlagged ? "rounded-lg bg-orange-500/10 px-2 py-0.5 -mx-2" : ""}`}>
+                      <span className={`font-medium flex-1 min-w-0 truncate ${isFlagged ? "text-orange-300" : "text-foreground"}`}>
+                        <span className={`font-bold mr-1 ${isFlagged ? "text-orange-400" : "text-muted-foreground"}`}>{item.quantity}×</span>
                         {item.menuItemName}
                       </span>
-                      <span className="text-muted-foreground/60 text-xs tabular-nums shrink-0">@{formatPrice(item.pricePence)}</span>
-                      <span className="text-foreground font-bold tabular-nums shrink-0 w-16 text-right">{formatPrice(item.pricePence * item.quantity)}</span>
+                      {isFlagged && <RotateCcw className="w-3 h-3 text-orange-400 shrink-0" />}
+                      {!isWaitress && <span className="text-muted-foreground/60 text-xs tabular-nums shrink-0">@{formatPrice(item.pricePence)}</span>}
+                      {!isWaitress && <span className="text-foreground font-bold tabular-nums shrink-0 w-16 text-right">{formatPrice(item.pricePence * item.quantity)}</span>}
                     </div>
-                  ))}
+                    );
+                  })}
                   {customer.rounds.length > 1 && (
                     <div className="flex items-center justify-between text-xs pt-1 border-t border-border/40">
                       <span className="text-muted-foreground/60 uppercase tracking-wide font-bold">Subtotal</span>

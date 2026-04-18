@@ -360,8 +360,11 @@ export default function Waitress() {
               <div key={batch.id} className="bg-card rounded-xl border border-orange-500/30 px-3 py-2.5 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-black uppercase tracking-tight text-foreground truncate">{batch.customerName}</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                    {batch.items.map((i) => `${i.quantity}× ${i.menuItemName}`).join(", ")}
+                  <p className="text-[11px] text-orange-400/80 mt-0.5 truncate">
+                    {(batch.correctionItemIds && (batch.correctionItemIds as number[]).length > 0
+                      ? batch.items.filter((i) => (batch.correctionItemIds as number[]).includes(i.id))
+                      : batch.items
+                    ).map((i) => `${i.quantity}× ${i.menuItemName}`).join(", ")}
                   </p>
                 </div>
                 <button
