@@ -333,6 +333,52 @@ paths:
               schema:
                 $ref: "#/components/schemas/OrderBatch"
 
+  /order-batches/direct:
+    post:
+      operationId: createDirectSale
+      tags: [orders]
+      summary: Create a sale directly as completed (bartender/admin, no bar display needed)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderBatchBody"
+      responses:
+        "201":
+          description: Direct sale created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderBatch"
+
+  /order-batches/{id}/edit:
+    put:
+      operationId: editOrderBatch
+      tags: [orders]
+      summary: Edit items in an existing order batch (bartender/admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EditOrderBatchBody"
+      responses:
+        "200":
+          description: Batch updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderBatch"
+        "404":
+          description: Not found
+
   /order-batches/settle-waiter:
     post:
       operationId: settleWaiterAccount
@@ -753,6 +799,15 @@ components:
             - type: "null"
 
     ResubmitOrderBatchBody:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateOrderItemBody"
+
+    EditOrderBatchBody:
       type: object
       required: [items]
       properties:

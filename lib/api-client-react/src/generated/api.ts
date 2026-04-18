@@ -23,6 +23,7 @@ import type {
   ChangePinBody,
   CreateOrderBatchBody,
   CreateStaffBody,
+  EditOrderBatchBody,
   GetShiftsParams,
   HandleBrowserLoginCallbackParams,
   HealthStatus,
@@ -1615,6 +1616,179 @@ export const useCreateOrderBatch = <
   TContext
 > => {
   return useMutation(getCreateOrderBatchMutationOptions(options));
+};
+
+/**
+ * @summary Create a sale directly as completed (bartender/admin, no bar display needed)
+ */
+export const getCreateDirectSaleUrl = () => {
+  return `/api/order-batches/direct`;
+};
+
+export const createDirectSale = async (
+  createOrderBatchBody: CreateOrderBatchBody,
+  options?: RequestInit,
+): Promise<OrderBatch> => {
+  return customFetch<OrderBatch>(getCreateDirectSaleUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createOrderBatchBody),
+  });
+};
+
+export const getCreateDirectSaleMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createDirectSale>>,
+    TError,
+    { data: BodyType<CreateOrderBatchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createDirectSale>>,
+  TError,
+  { data: BodyType<CreateOrderBatchBody> },
+  TContext
+> => {
+  const mutationKey = ["createDirectSale"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createDirectSale>>,
+    { data: BodyType<CreateOrderBatchBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createDirectSale(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateDirectSaleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createDirectSale>>
+>;
+export type CreateDirectSaleMutationBody = BodyType<CreateOrderBatchBody>;
+export type CreateDirectSaleMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a sale directly as completed (bartender/admin, no bar display needed)
+ */
+export const useCreateDirectSale = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createDirectSale>>,
+    TError,
+    { data: BodyType<CreateOrderBatchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createDirectSale>>,
+  TError,
+  { data: BodyType<CreateOrderBatchBody> },
+  TContext
+> => {
+  return useMutation(getCreateDirectSaleMutationOptions(options));
+};
+
+/**
+ * @summary Edit items in an existing order batch (bartender/admin)
+ */
+export const getEditOrderBatchUrl = (id: number) => {
+  return `/api/order-batches/${id}/edit`;
+};
+
+export const editOrderBatch = async (
+  id: number,
+  editOrderBatchBody: EditOrderBatchBody,
+  options?: RequestInit,
+): Promise<OrderBatch> => {
+  return customFetch<OrderBatch>(getEditOrderBatchUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(editOrderBatchBody),
+  });
+};
+
+export const getEditOrderBatchMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof editOrderBatch>>,
+    TError,
+    { id: number; data: BodyType<EditOrderBatchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof editOrderBatch>>,
+  TError,
+  { id: number; data: BodyType<EditOrderBatchBody> },
+  TContext
+> => {
+  const mutationKey = ["editOrderBatch"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof editOrderBatch>>,
+    { id: number; data: BodyType<EditOrderBatchBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return editOrderBatch(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type EditOrderBatchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof editOrderBatch>>
+>;
+export type EditOrderBatchMutationBody = BodyType<EditOrderBatchBody>;
+export type EditOrderBatchMutationError = ErrorType<void>;
+
+/**
+ * @summary Edit items in an existing order batch (bartender/admin)
+ */
+export const useEditOrderBatch = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof editOrderBatch>>,
+    TError,
+    { id: number; data: BodyType<EditOrderBatchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof editOrderBatch>>,
+  TError,
+  { id: number; data: BodyType<EditOrderBatchBody> },
+  TContext
+> => {
+  return useMutation(getEditOrderBatchMutationOptions(options));
 };
 
 /**

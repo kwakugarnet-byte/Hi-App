@@ -1,11 +1,14 @@
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle, CircleDashed, ChevronRight, Eye, X, CreditCard } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle, CircleDashed, ChevronRight, Eye, X, CreditCard, Pencil, Plus, Minus, Trash2 } from "lucide-react";
 import {
   useGetOrderBatches,
+  useGetMenuItems,
   getGetOrderBatchesQueryKey,
+  getGetMenuItemsQueryKey,
   usePayOrderBatch,
   useSettleWaiterAccount,
+  useEditOrderBatch,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -161,12 +164,20 @@ function printBill(customer: GroupedCustomer) {
   }
 }
 
+type EditingRound = {
+  batchId: number;
+  customerName: string;
+  items: Record<number, { menuItemId: number; menuItemName: string; quantity: number }>;
+  activeTab: string | null;
+};
+
 export default function Bills() {
   const { user, isWaitress, isAdmin, isBartender } = useAuth();
   const [selectedWaiter, setSelectedWaiter] = useState<string | null>(null);
   const [tab, setTab] = useState<"active" | "history">("active");
   const [showBillFor, setShowBillFor] = useState<GroupedCustomer | null>(null);
   const [settleConfirm, setSettleConfirm] = useState<{ name: string; total: number; count: number } | null>(null);
+  const [editingRound, setEditingRound] = useState<EditingRound | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -182,8 +193,69 @@ export default function Bills() {
     },
   });
 
+  const { data: menuItems } = useGetMenuItems({
+    query: { queryKey: getGetMenuItemsQueryKey(), enabled: !!(isAdmin || isBartender) },
+  });
+
   const payBatch = usePayOrderBatch();
   const settleWaiter = useSettleWaiterAccount();
+  const editBatch = useEditOrderBatch();
+
+  const editCategories = useMemo(() => {
+    if (!menuItems) return [];
+    return Array.from(new Set(menuItems.map((i) => i.category)));
+  }, [menuItems]);
+
+  const editCurrentTab = editingRound?.activeTab ?? editCategories[0] ?? null;
+
+  const editItemsInTab = useMemo(() => {
+    if (!menuItems || !editCurrentTab) return [];
+    return menuItems.filter((i) => i.category === editCurrentTab);
+  }, [menuItems, editCurrentTab]);
+
+  function startEditRound(round: Round, customerName: string) {
+    const itemMap: Record<number, { menuItemId: number; menuItemName: string; quantity: number }> = {};
+    for (const item of round.items) {
+      itemMap[item.menuItemId] = { menuItemId: item.menuItemId, menuItemName: item.menuItemName, quantity: item.quantity };
+    }
+    setEditingRound({ batchId: round.id, customerName, items: itemMap, activeTab: null });
+  }
+
+  function editChangeQty(id: number, name: string, delta: number) {
+    setEditingRound((prev) => {
+      if (!prev) return prev;
+      const existing = prev.items[id];
+      const newQty = (existing?.quantity ?? 0) + delta;
+      if (newQty <= 0) {
+        const next = { ...prev.items };
+        delete next[id];
+        return { ...prev, items: next };
+      }
+      return { ...prev, items: { ...prev.items, [id]: { menuItemId: id, menuItemName: name, quantity: newQty } } };
+    });
+  }
+
+  function handleSaveEdit() {
+    if (!editingRound) return;
+    const items = Object.values(editingRound.items).map((i) => ({ menuItemId: i.menuItemId, quantity: i.quantity }));
+    if (items.length === 0) {
+      toast({ title: "No items", description: "Add at least one drink.", variant: "destructive" });
+      return;
+    }
+    editBatch.mutate(
+      { id: editingRound.batchId, data: { items } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
+          toast({ title: "Bill Updated", description: `${editingRound.customerName}'s order has been updated.` });
+          setEditingRound(null);
+        },
+        onError: () => {
+          toast({ title: "Failed to update bill", variant: "destructive" });
+        },
+      }
+    );
+  }
 
   const handleSettleConfirmed = () => {
     if (!settleConfirm) return;
@@ -453,10 +525,21 @@ export default function Bills() {
               <div key={round.id} className={idx > 0 ? "border-t border-border/50" : ""}>
                 <div className="px-4 pt-2.5 pb-1 flex items-center justify-between">
                   <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70">Round {idx + 1}</span>
-                  <span className="text-[10px] text-muted-foreground/60 flex items-center gap-1">
-                    <Clock className="w-2.5 h-2.5" />
-                    {format(new Date(round.createdAt), "h:mm a")}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {(isAdmin || isBartender) && (
+                      <button
+                        onClick={() => startEditRound(round, customer.customerName)}
+                        className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <Pencil className="w-2.5 h-2.5" />
+                        Edit
+                      </button>
+                    )}
+                    <span className="text-[10px] text-muted-foreground/60 flex items-center gap-1">
+                      <Clock className="w-2.5 h-2.5" />
+                      {format(new Date(round.createdAt), "h:mm a")}
+                    </span>
+                  </div>
                 </div>
                 <div className="px-4 pb-2.5 space-y-1.5">
                   {round.items.map((item, i) => (
@@ -563,6 +646,113 @@ export default function Bills() {
 
   return (
     <div>
+    {/* Edit Round Overlay — bartender/admin only */}
+    {editingRound && menuItems && (
+      <div className="fixed inset-0 z-50 bg-background flex flex-col">
+        <header className="sticky top-0 z-20 bg-card border-b border-border px-4 py-3 flex items-center justify-between shrink-0">
+          <button onClick={() => setEditingRound(null)} className="p-2 text-muted-foreground hover:text-foreground">
+            <X className="w-5 h-5" />
+          </button>
+          <div className="text-center">
+            <h1 className="text-sm font-black uppercase tracking-wide text-primary">Edit Order</h1>
+            <p className="text-xs text-muted-foreground font-bold uppercase tracking-wide">{editingRound.customerName}</p>
+          </div>
+          <div className="w-10" />
+        </header>
+
+        {/* Category tabs */}
+        <div className="shrink-0 overflow-x-auto border-b border-border bg-card">
+          <div className="flex gap-1 px-4 py-2 min-w-max">
+            {editCategories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setEditingRound((prev) => prev ? { ...prev, activeTab: cat } : prev)}
+                className={`px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-all ${
+                  editCurrentTab === cat
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Drink grid */}
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-4">
+            {editItemsInTab.map((item) => {
+              const qty = editingRound.items[item.id]?.quantity ?? 0;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => editChangeQty(item.id, item.name, 1)}
+                  className={`relative rounded-xl border p-4 text-left transition-all active:scale-95 ${
+                    qty > 0
+                      ? "border-primary bg-primary/10 text-foreground"
+                      : "border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                  }`}
+                >
+                  <span className="block font-semibold text-sm leading-snug">{item.name}</span>
+                  {qty > 0 && (
+                    <span className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs font-black w-6 h-6 flex items-center justify-center rounded-full">
+                      {qty}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Summary + save */}
+        <div className="shrink-0 border-t border-border bg-card">
+          {Object.values(editingRound.items).length > 0 && (
+            <div className="px-4 pt-3 pb-2 space-y-2 max-h-40 overflow-y-auto">
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                Updated Order ({Object.values(editingRound.items).reduce((s, i) => s + i.quantity, 0)} items)
+              </p>
+              {Object.values(editingRound.items).map((item) => (
+                <div key={item.menuItemId} className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium flex-1 truncate">{item.menuItemName}</span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => editChangeQty(item.menuItemId, item.menuItemName, -1)}
+                      className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive transition-colors"
+                    >
+                      {item.quantity === 1 ? <Trash2 className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+                    </button>
+                    <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => editChangeQty(item.menuItemId, item.menuItemName, 1)}
+                      className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary transition-colors"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="p-4">
+            <Button
+              onClick={handleSaveEdit}
+              size="lg"
+              className="w-full h-16 text-xl font-bold uppercase tracking-wider gap-3 bg-primary hover:bg-primary/90"
+              disabled={editBatch.isPending}
+            >
+              <CheckCircle2 className="w-6 h-6" />
+              {editBatch.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
+
     {showBillFor && (
       <div className="fixed inset-0 z-50 bg-white flex flex-col overflow-y-auto">
         {/* Close bar */}

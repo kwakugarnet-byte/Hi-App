@@ -150,6 +150,10 @@ export interface ResubmitOrderBatchBody {
   items: CreateOrderItemBody[];
 }
 
+export interface EditOrderBatchBody {
+  items: CreateOrderItemBody[];
+}
+
 export interface SettleWaiterBody {
   waitressName: string;
 }

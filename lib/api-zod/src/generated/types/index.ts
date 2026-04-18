@@ -15,6 +15,7 @@ export * from "./changePinBody";
 export * from "./createOrderBatchBody";
 export * from "./createOrderItemBody";
 export * from "./createStaffBody";
+export * from "./editOrderBatchBody";
 export * from "./getShiftsParams";
 export * from "./handleBrowserLoginCallbackParams";
 export * from "./healthStatus";

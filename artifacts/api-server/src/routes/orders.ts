@@ -16,6 +16,7 @@ import {
   ResubmitOrderBatchParams,
   ResubmitOrderBatchBody,
   ResubmitOrderBatchResponse,
+  EditOrderBatchBody,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -109,6 +110,119 @@ router.post("/order-batches", async (req, res): Promise<void> => {
   };
 
   res.status(201).json(result);
+});
+
+router.post("/order-batches/direct", async (req, res): Promise<void> => {
+  const parsed = CreateOrderBatchBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const { customerName, waitressName, items } = parsed.data;
+
+  const [batch] = await db
+    .insert(orderBatchesTable)
+    .values({ customerName, waitressName, status: "completed", completedAt: new Date() })
+    .returning();
+
+  if (items.length > 0) {
+    await db.insert(orderItemsTable).values(
+      items.map((item) => ({
+        batchId: batch.id,
+        menuItemId: item.menuItemId,
+        quantity: item.quantity,
+      }))
+    );
+  }
+
+  const orderItems = await db
+    .select({
+      id: orderItemsTable.id,
+      batchId: orderItemsTable.batchId,
+      menuItemId: orderItemsTable.menuItemId,
+      menuItemName: menuItemsTable.name,
+      pricePence: menuItemsTable.pricePence,
+      quantity: orderItemsTable.quantity,
+    })
+    .from(orderItemsTable)
+    .innerJoin(menuItemsTable, eq(orderItemsTable.menuItemId, menuItemsTable.id))
+    .where(eq(orderItemsTable.batchId, batch.id));
+
+  res.status(201).json({
+    ...batch,
+    createdAt: batch.createdAt.toISOString(),
+    completedAt: batch.completedAt ? batch.completedAt.toISOString() : null,
+    items: orderItems.map((item) => ({
+      id: item.id,
+      menuItemId: item.menuItemId,
+      menuItemName: item.menuItemName,
+      pricePence: item.pricePence,
+      quantity: item.quantity,
+    })),
+  });
+});
+
+router.put("/order-batches/:id/edit", async (req, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(rawId, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+
+  const body = EditOrderBatchBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  // Verify batch exists
+  const existing = await db.select().from(orderBatchesTable).where(eq(orderBatchesTable.id, id));
+  if (existing.length === 0) {
+    res.status(404).json({ error: "Order batch not found" });
+    return;
+  }
+
+  await db.delete(orderItemsTable).where(eq(orderItemsTable.batchId, id));
+
+  if (body.data.items.length > 0) {
+    await db.insert(orderItemsTable).values(
+      body.data.items.map((item) => ({
+        batchId: id,
+        menuItemId: item.menuItemId,
+        quantity: item.quantity,
+      }))
+    );
+  }
+
+  const [batch] = await db.select().from(orderBatchesTable).where(eq(orderBatchesTable.id, id));
+
+  const orderItems = await db
+    .select({
+      id: orderItemsTable.id,
+      batchId: orderItemsTable.batchId,
+      menuItemId: orderItemsTable.menuItemId,
+      menuItemName: menuItemsTable.name,
+      pricePence: menuItemsTable.pricePence,
+      quantity: orderItemsTable.quantity,
+    })
+    .from(orderItemsTable)
+    .innerJoin(menuItemsTable, eq(orderItemsTable.menuItemId, menuItemsTable.id))
+    .where(eq(orderItemsTable.batchId, id));
+
+  res.json({
+    ...batch,
+    createdAt: batch.createdAt.toISOString(),
+    completedAt: batch.completedAt ? batch.completedAt.toISOString() : null,
+    items: orderItems.map((item) => ({
+      id: item.id,
+      menuItemId: item.menuItemId,
+      menuItemName: item.menuItemName,
+      pricePence: item.pricePence,
+      quantity: item.quantity,
+    })),
+  });
 });
 
 router.post("/order-batches/:id/complete", async (req, res): Promise<void> => {

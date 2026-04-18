@@ -257,6 +257,54 @@ export const CreateOrderBatchBody = zod.object({
 });
 
 /**
+ * @summary Create a sale directly as completed (bartender/admin, no bar display needed)
+ */
+export const CreateDirectSaleBody = zod.object({
+  customerName: zod.string(),
+  waitressName: zod.string(),
+  items: zod.array(
+    zod.object({
+      menuItemId: zod.number(),
+      quantity: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Edit items in an existing order batch (bartender/admin)
+ */
+export const EditOrderBatchParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const EditOrderBatchBody = zod.object({
+  items: zod.array(
+    zod.object({
+      menuItemId: zod.number(),
+      quantity: zod.number(),
+    }),
+  ),
+});
+
+export const EditOrderBatchResponse = zod.object({
+  id: zod.number(),
+  customerName: zod.string(),
+  waitressName: zod.string(),
+  createdAt: zod.string(),
+  completedAt: zod.string().nullish(),
+  status: zod.enum(["pending", "completed", "paid"]),
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      menuItemId: zod.number(),
+      menuItemName: zod.string(),
+      quantity: zod.number(),
+      pricePence: zod.number(),
+    }),
+  ),
+});
+
+/**
  * @summary Settle all outstanding bills for a specific waiter (bulk mark paid)
  */
 export const SettleWaiterAccountBody = zod.object({
