@@ -1,9 +1,8 @@
 import { Link, Redirect } from "wouter";
-import { ArrowLeft, CheckCircle2, Clock, User, UserCog, RotateCcw, Plus, Minus, Trash2, Send, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, User, UserCog, Plus, Minus, Trash2, Send, X } from "lucide-react";
 import {
   useGetOrderBatches,
   useCompleteOrderBatch,
-  useReturnOrderBatch,
   useCreateDirectSale,
   useGetMenuItems,
   getGetOrderBatchesQueryKey,
@@ -109,7 +108,6 @@ export default function Bar() {
   }, [refetch]);
 
   const completeBatch = useCompleteOrderBatch();
-  const returnBatch = useReturnOrderBatch();
   const createDirectSale = useCreateDirectSale();
 
   const bartenderName = user?.firstName
@@ -221,17 +219,6 @@ export default function Bar() {
       toast({ title: "Drinks Ready", description: `${group.customerName}'s order is served — bill sent.` });
     } catch {
       toast({ title: "Error", description: "Could not mark order as done.", variant: "destructive" });
-    }
-  };
-
-  const handleReturnGroup = async (group: CustomerGroup) => {
-    const pendingIds = group.rounds.filter((r) => r.status === "pending").map((r) => r.id);
-    try {
-      await Promise.all(pendingIds.map((id) => returnBatch.mutateAsync({ id })));
-      await queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
-      toast({ title: "Returned to Waitress", description: `${group.customerName}'s order sent back to ${group.waitressName} for correction.` });
-    } catch {
-      toast({ title: "Error", description: "Could not return order.", variant: "destructive" });
     }
   };
 
@@ -509,23 +496,15 @@ export default function Bar() {
                           ))}
                         </div>
 
-                        <div className="p-5 pt-0 mt-auto space-y-2">
+                        <div className="p-5 pt-0 mt-auto">
                           <Button
                             size="lg"
                             className="w-full h-16 text-xl font-black uppercase tracking-widest active:scale-[0.98] transition-transform"
                             onClick={() => handleCompleteGroup(group)}
-                            disabled={completeBatch.isPending || returnBatch.isPending}
+                            disabled={completeBatch.isPending}
                           >
                             Done
                           </Button>
-                          <button
-                            onClick={() => handleReturnGroup(group)}
-                            disabled={returnBatch.isPending || completeBatch.isPending}
-                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-orange-500/40 text-orange-400 bg-orange-500/5 hover:bg-orange-500/15 transition-colors text-xs font-black uppercase tracking-widest disabled:opacity-50"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                            Return to Waitress
-                          </button>
                         </div>
                       </CardContent>
                     </Card>

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle, CircleDashed, ChevronRight, Eye, X, CreditCard, Pencil, Plus, Minus, Trash2 } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle, CircleDashed, ChevronRight, Eye, X, CreditCard, Pencil, Plus, Minus, Trash2, RotateCcw } from "lucide-react";
 import {
   useGetOrderBatches,
   useGetMenuItems,
@@ -9,6 +9,7 @@ import {
   usePayOrderBatch,
   useSettleWaiterAccount,
   useEditOrderBatch,
+  useReturnOrderBatch,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -200,6 +201,17 @@ export default function Bills() {
   const payBatch = usePayOrderBatch();
   const settleWaiter = useSettleWaiterAccount();
   const editBatch = useEditOrderBatch();
+  const returnBatch = useReturnOrderBatch();
+
+  async function handleReturnRound(round: Round, waitressName: string) {
+    try {
+      await returnBatch.mutateAsync({ id: round.id });
+      await queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
+      toast({ title: "Returned to Waitress", description: `Order sent back to ${waitressName} for correction.` });
+    } catch {
+      toast({ title: "Failed to return order", variant: "destructive" });
+    }
+  }
 
   const editCategories = useMemo(() => {
     if (!menuItems) return [];
@@ -525,15 +537,25 @@ export default function Bills() {
               <div key={round.id} className={idx > 0 ? "border-t border-border/50" : ""}>
                 <div className="px-4 pt-2.5 pb-1 flex items-center justify-between">
                   <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70">Round {idx + 1}</span>
-                  <div className="flex items-center gap-2">
-                    {(isAdmin || isBartender) && (
-                      <button
-                        onClick={() => startEditRound(round, customer.customerName)}
-                        className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-muted-foreground hover:text-primary transition-colors"
-                      >
-                        <Pencil className="w-2.5 h-2.5" />
-                        Edit
-                      </button>
+                  <div className="flex items-center gap-3">
+                    {(isAdmin || isBartender) && round.status !== "returned" && (
+                      <>
+                        <button
+                          onClick={() => startEditRound(round, customer.customerName)}
+                          className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-muted-foreground hover:text-primary transition-colors"
+                        >
+                          <Pencil className="w-2.5 h-2.5" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleReturnRound(round, customer.waitressName)}
+                          disabled={returnBatch.isPending}
+                          className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-orange-400 hover:text-orange-300 transition-colors disabled:opacity-50"
+                        >
+                          <RotateCcw className="w-2.5 h-2.5" />
+                          Return
+                        </button>
+                      </>
                     )}
                     <span className="text-[10px] text-muted-foreground/60 flex items-center gap-1">
                       <Clock className="w-2.5 h-2.5" />

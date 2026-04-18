@@ -229,7 +229,7 @@ export const GetOrderBatchesResponseItem = zod.object({
   waitressName: zod.string(),
   createdAt: zod.string(),
   completedAt: zod.string().nullish(),
-  status: zod.enum(["pending", "completed", "paid"]),
+  status: zod.enum(["pending", "completed", "paid", "returned"]),
   items: zod.array(
     zod.object({
       id: zod.number(),
@@ -292,7 +292,7 @@ export const EditOrderBatchResponse = zod.object({
   waitressName: zod.string(),
   createdAt: zod.string(),
   completedAt: zod.string().nullish(),
-  status: zod.enum(["pending", "completed", "paid"]),
+  status: zod.enum(["pending", "completed", "paid", "returned"]),
   items: zod.array(
     zod.object({
       id: zod.number(),
@@ -330,7 +330,7 @@ export const ReturnOrderBatchResponse = zod.object({
   waitressName: zod.string(),
   createdAt: zod.string(),
   completedAt: zod.string().nullish(),
-  status: zod.enum(["pending", "completed", "paid"]),
+  status: zod.enum(["pending", "completed", "paid", "returned"]),
   items: zod.array(
     zod.object({
       id: zod.number(),
@@ -364,7 +364,7 @@ export const ResubmitOrderBatchResponse = zod.object({
   waitressName: zod.string(),
   createdAt: zod.string(),
   completedAt: zod.string().nullish(),
-  status: zod.enum(["pending", "completed", "paid"]),
+  status: zod.enum(["pending", "completed", "paid", "returned"]),
   items: zod.array(
     zod.object({
       id: zod.number(),
@@ -389,7 +389,7 @@ export const CompleteOrderBatchResponse = zod.object({
   waitressName: zod.string(),
   createdAt: zod.string(),
   completedAt: zod.string().nullish(),
-  status: zod.enum(["pending", "completed", "paid"]),
+  status: zod.enum(["pending", "completed", "paid", "returned"]),
   items: zod.array(
     zod.object({
       id: zod.number(),
@@ -460,7 +460,7 @@ export const PayOrderBatchResponse = zod.object({
   waitressName: zod.string(),
   createdAt: zod.string(),
   completedAt: zod.string().nullish(),
-  status: zod.enum(["pending", "completed", "paid"]),
+  status: zod.enum(["pending", "completed", "paid", "returned"]),
   items: zod.array(
     zod.object({
       id: zod.number(),

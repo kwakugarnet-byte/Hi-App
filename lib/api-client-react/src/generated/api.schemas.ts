@@ -111,6 +111,7 @@ export const OrderBatchStatus = {
   pending: "pending",
   completed: "completed",
   paid: "paid",
+  returned: "returned",
 } as const;
 
 export interface OrderBatch {
