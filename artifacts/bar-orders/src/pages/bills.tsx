@@ -519,7 +519,7 @@ export default function Bills() {
                       {w.customers} {w.customers === 1 ? "sale" : "sales"}
                     </span>
                   </div>
-                  <span className="text-lg font-black text-green-500 tabular-nums shrink-0">{formatPrice(w.total)}</span>
+                  {!isWaitress && <span className="text-lg font-black text-green-500 tabular-nums shrink-0">{formatPrice(w.total)}</span>}
                 </div>
               ))}
             </div>
@@ -537,7 +537,7 @@ export default function Bills() {
                 <p className="text-xs text-amber-400/70 font-semibold mt-1 uppercase tracking-wide">by {customer.waitressName}</p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-xl font-black text-primary/80">{formatPrice(customer.total)}</p>
+                {!isWaitress && <p className="text-xl font-black text-primary/80">{formatPrice(customer.total)}</p>}
                 <p className="text-xs text-muted-foreground/60 flex items-center justify-end gap-1 mt-1">
                   <Clock className="w-3 h-3" />
                   {format(new Date(customer.firstOrderAt), "h:mm a")}
@@ -551,8 +551,8 @@ export default function Bills() {
                     <span className="font-bold mr-1">{item.quantity}×</span>
                     {item.menuItemName}
                   </span>
-                  <span className="text-xs tabular-nums shrink-0 text-muted-foreground/50">@{formatPrice(item.pricePence)}</span>
-                  <span className="font-bold tabular-nums shrink-0 w-16 text-right">{formatPrice(item.pricePence * item.quantity)}</span>
+                  {!isWaitress && <span className="text-xs tabular-nums shrink-0 text-muted-foreground/50">@{formatPrice(item.pricePence)}</span>}
+                  {!isWaitress && <span className="font-bold tabular-nums shrink-0 w-16 text-right">{formatPrice(item.pricePence * item.quantity)}</span>}
                 </div>
               ))}
             </div>
@@ -741,7 +741,7 @@ export default function Bills() {
           </div>
         </div>
       )}
-      {tab === "history" && historyCustomers.length > 0 && (
+      {tab === "history" && historyCustomers.length > 0 && !isWaitress && (
         <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border px-4 py-4">
           <div className="max-w-2xl mx-auto flex items-center justify-between">
             <div>
