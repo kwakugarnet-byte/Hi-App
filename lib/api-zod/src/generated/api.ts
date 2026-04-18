@@ -230,6 +230,7 @@ export const GetOrderBatchesResponseItem = zod.object({
   createdAt: zod.string(),
   completedAt: zod.string().nullish(),
   status: zod.enum(["pending", "completed", "paid", "returned"]),
+  correctionItemIds: zod.array(zod.number()).nullish(),
   items: zod.array(
     zod.object({
       id: zod.number(),
@@ -293,6 +294,7 @@ export const EditOrderBatchResponse = zod.object({
   createdAt: zod.string(),
   completedAt: zod.string().nullish(),
   status: zod.enum(["pending", "completed", "paid", "returned"]),
+  correctionItemIds: zod.array(zod.number()).nullish(),
   items: zod.array(
     zod.object({
       id: zod.number(),
@@ -324,6 +326,10 @@ export const ReturnOrderBatchParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const ReturnOrderBatchBody = zod.object({
+  correctionItemIds: zod.array(zod.number()),
+});
+
 export const ReturnOrderBatchResponse = zod.object({
   id: zod.number(),
   customerName: zod.string(),
@@ -331,6 +337,7 @@ export const ReturnOrderBatchResponse = zod.object({
   createdAt: zod.string(),
   completedAt: zod.string().nullish(),
   status: zod.enum(["pending", "completed", "paid", "returned"]),
+  correctionItemIds: zod.array(zod.number()).nullish(),
   items: zod.array(
     zod.object({
       id: zod.number(),
@@ -365,6 +372,7 @@ export const ResubmitOrderBatchResponse = zod.object({
   createdAt: zod.string(),
   completedAt: zod.string().nullish(),
   status: zod.enum(["pending", "completed", "paid", "returned"]),
+  correctionItemIds: zod.array(zod.number()).nullish(),
   items: zod.array(
     zod.object({
       id: zod.number(),
@@ -390,6 +398,7 @@ export const CompleteOrderBatchResponse = zod.object({
   createdAt: zod.string(),
   completedAt: zod.string().nullish(),
   status: zod.enum(["pending", "completed", "paid", "returned"]),
+  correctionItemIds: zod.array(zod.number()).nullish(),
   items: zod.array(
     zod.object({
       id: zod.number(),
@@ -461,6 +470,7 @@ export const PayOrderBatchResponse = zod.object({
   createdAt: zod.string(),
   completedAt: zod.string().nullish(),
   status: zod.enum(["pending", "completed", "paid", "returned"]),
+  correctionItemIds: zod.array(zod.number()).nullish(),
   items: zod.array(
     zod.object({
       id: zod.number(),

@@ -22,7 +22,7 @@ function formatPrice(pence: number) {
   return `₵${(pence / 100).toFixed(2)}`;
 }
 
-type BatchItem = { menuItemName: string; menuItemId: number; quantity: number; pricePence: number };
+type BatchItem = { id: number; menuItemName: string; menuItemId: number; quantity: number; pricePence: number };
 
 type Round = {
   id: number;
@@ -30,6 +30,7 @@ type Round = {
   createdAt: string;
   items: BatchItem[];
   subtotal: number;
+  correctionItemIds: number[] | null;
 };
 
 type GroupedCustomer = {
@@ -42,7 +43,7 @@ type GroupedCustomer = {
 };
 
 function groupBatches(
-  batches: { id: number; customerName: string; waitressName: string; status: string; createdAt: string; items: BatchItem[] }[]
+  batches: { id: number; customerName: string; waitressName: string; status: string; createdAt: string; correctionItemIds?: number[] | null; items: BatchItem[] }[]
 ): GroupedCustomer[] {
   const map = new Map<string, GroupedCustomer>();
 
@@ -67,7 +68,7 @@ function groupBatches(
     }
 
     const subtotal = batch.items.reduce((s, i) => s + i.pricePence * i.quantity, 0);
-    group.rounds.push({ id: batch.id, status: batch.status, createdAt: batch.createdAt, items: batch.items, subtotal });
+    group.rounds.push({ id: batch.id, status: batch.status, createdAt: batch.createdAt, items: batch.items, subtotal, correctionItemIds: batch.correctionItemIds ?? null });
   }
 
   for (const group of map.values()) {
@@ -203,11 +204,31 @@ export default function Bills() {
   const editBatch = useEditOrderBatch();
   const returnBatch = useReturnOrderBatch();
 
-  async function handleReturnRound(round: Round, waitressName: string) {
+  const [returnModal, setReturnModal] = useState<{ round: Round; customerName: string; waitressName: string } | null>(null);
+  const [returnSelectedIds, setReturnSelectedIds] = useState<Set<number>>(new Set());
+
+  function openReturnModal(round: Round, customerName: string, waitressName: string) {
+    setReturnSelectedIds(new Set(round.items.map((i) => i.id)));
+    setReturnModal({ round, customerName, waitressName });
+  }
+
+  function toggleReturnItem(id: number) {
+    setReturnSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function confirmReturn() {
+    if (!returnModal) return;
+    const correctionItemIds = Array.from(returnSelectedIds);
     try {
-      await returnBatch.mutateAsync({ id: round.id });
+      await returnBatch.mutateAsync({ id: returnModal.round.id, data: { correctionItemIds } });
       await queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
-      toast({ title: "Returned to Waitress", description: `Order sent back to ${waitressName} for correction.` });
+      toast({ title: "Returned to Waitress", description: `Order sent back to ${returnModal.waitressName} for correction.` });
+      setReturnModal(null);
     } catch {
       toast({ title: "Failed to return order", variant: "destructive" });
     }
@@ -548,9 +569,8 @@ export default function Bills() {
                           Edit
                         </button>
                         <button
-                          onClick={() => handleReturnRound(round, customer.waitressName)}
-                          disabled={returnBatch.isPending}
-                          className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-orange-400 hover:text-orange-300 transition-colors disabled:opacity-50"
+                          onClick={() => openReturnModal(round, customer.customerName, customer.waitressName)}
+                          className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-orange-400 hover:text-orange-300 transition-colors"
                         >
                           <RotateCcw className="w-2.5 h-2.5" />
                           Return
@@ -967,6 +987,74 @@ export default function Bills() {
         </div>
       )}
     </div>
+
+    {/* Return item selection modal */}
+    {returnModal && (
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm px-4 pb-4 sm:pb-0">
+        <div className="bg-card border border-border rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+          {/* Modal header */}
+          <div className="bg-orange-500/10 border-b border-orange-500/30 px-4 py-3 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-black uppercase tracking-widest text-orange-400">Return to Waitress</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{returnModal.customerName}</p>
+            </div>
+            <button onClick={() => setReturnModal(null)} className="p-1 text-muted-foreground hover:text-foreground">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Instruction */}
+          <div className="px-4 pt-3 pb-1">
+            <p className="text-xs text-muted-foreground">Select the items that need correction. The waitress will see only the flagged items highlighted on their screen.</p>
+          </div>
+
+          {/* Item checkboxes */}
+          <div className="px-4 py-3 space-y-2 max-h-72 overflow-y-auto">
+            {returnModal.round.items.map((item) => {
+              const checked = returnSelectedIds.has(item.id);
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => toggleReturnItem(item.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${
+                    checked
+                      ? "border-orange-500 bg-orange-500/10"
+                      : "border-border bg-background hover:border-orange-500/40"
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
+                    checked ? "border-orange-500 bg-orange-500" : "border-border"
+                  }`}>
+                    {checked && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </div>
+                  <span className="flex-1 text-sm font-medium text-foreground">{item.menuItemName}</span>
+                  <span className="text-xs text-muted-foreground font-bold shrink-0">×{item.quantity}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Actions */}
+          <div className="px-4 pb-4 pt-1 flex gap-2">
+            <button
+              onClick={() => setReturnModal(null)}
+              className="flex-1 h-11 rounded-xl border border-border text-sm font-bold uppercase tracking-wide text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmReturn}
+              disabled={returnSelectedIds.size === 0 || returnBatch.isPending}
+              className="flex-1 h-11 rounded-xl bg-orange-500 hover:bg-orange-400 text-white text-sm font-black uppercase tracking-wide transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <RotateCcw className="w-4 h-4" />
+              {returnBatch.isPending ? "Returning..." : `Return ${returnSelectedIds.size} Item${returnSelectedIds.size !== 1 ? "s" : ""}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 }

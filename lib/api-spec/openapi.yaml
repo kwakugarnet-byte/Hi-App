@@ -409,6 +409,12 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReturnOrderBatchBody"
       responses:
         "200":
           description: Batch returned
@@ -732,6 +738,11 @@ components:
         status:
           type: string
           enum: [pending, completed, paid, returned]
+        correctionItemIds:
+          type: array
+          items:
+            type: integer
+          nullable: true
         items:
           type: array
           items:
@@ -833,3 +844,12 @@ components:
           type: integer
         totalPence:
           type: integer
+
+    ReturnOrderBatchBody:
+      type: object
+      required: [correctionItemIds]
+      properties:
+        correctionItemIds:
+          type: array
+          items:
+            type: integer

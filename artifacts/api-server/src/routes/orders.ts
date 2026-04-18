@@ -329,9 +329,15 @@ router.post("/order-batches/:id/return", async (req, res): Promise<void> => {
     return;
   }
 
+  const body = ReturnOrderBatchBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
   const [batch] = await db
     .update(orderBatchesTable)
-    .set({ status: "returned" })
+    .set({ status: "returned", correctionItemIds: body.data.correctionItemIds })
     .where(eq(orderBatchesTable.id, params.data.id))
     .returning();
 

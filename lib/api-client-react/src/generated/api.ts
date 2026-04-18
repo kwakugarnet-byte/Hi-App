@@ -32,6 +32,7 @@ import type {
   OrderBatch,
   PinLoginBody,
   ResubmitOrderBatchBody,
+  ReturnOrderBatchBody,
   SettleWaiterBody,
   SettleWaiterResult,
   Shift,
@@ -1886,11 +1887,14 @@ export const getReturnOrderBatchUrl = (id: number) => {
 
 export const returnOrderBatch = async (
   id: number,
+  returnOrderBatchBody: ReturnOrderBatchBody,
   options?: RequestInit,
 ): Promise<OrderBatch> => {
   return customFetch<OrderBatch>(getReturnOrderBatchUrl(id), {
     ...options,
     method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(returnOrderBatchBody),
   });
 };
 
@@ -1901,14 +1905,14 @@ export const getReturnOrderBatchMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof returnOrderBatch>>,
     TError,
-    { id: number },
+    { id: number; data: BodyType<ReturnOrderBatchBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof returnOrderBatch>>,
   TError,
-  { id: number },
+  { id: number; data: BodyType<ReturnOrderBatchBody> },
   TContext
 > => {
   const mutationKey = ["returnOrderBatch"];
@@ -1922,11 +1926,11 @@ export const getReturnOrderBatchMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof returnOrderBatch>>,
-    { id: number }
+    { id: number; data: BodyType<ReturnOrderBatchBody> }
   > = (props) => {
-    const { id } = props ?? {};
+    const { id, data } = props ?? {};
 
-    return returnOrderBatch(id, requestOptions);
+    return returnOrderBatch(id, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -1935,7 +1939,7 @@ export const getReturnOrderBatchMutationOptions = <
 export type ReturnOrderBatchMutationResult = NonNullable<
   Awaited<ReturnType<typeof returnOrderBatch>>
 >;
-
+export type ReturnOrderBatchMutationBody = BodyType<ReturnOrderBatchBody>;
 export type ReturnOrderBatchMutationError = ErrorType<unknown>;
 
 /**
@@ -1948,14 +1952,14 @@ export const useReturnOrderBatch = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof returnOrderBatch>>,
     TError,
-    { id: number },
+    { id: number; data: BodyType<ReturnOrderBatchBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof returnOrderBatch>>,
   TError,
-  { id: number },
+  { id: number; data: BodyType<ReturnOrderBatchBody> },
   TContext
 > => {
   return useMutation(getReturnOrderBatchMutationOptions(options));

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, json } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { menuItemsTable } from "./menuItems";
@@ -10,6 +10,7 @@ export const orderBatchesTable = pgTable("order_batches", {
   status: text("status").notNull().default("pending"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   completedAt: timestamp("completed_at", { withTimezone: true }),
+  correctionItemIds: json("correction_item_ids").$type<number[]>(),
 });
 
 export const orderItemsTable = pgTable("order_items", {

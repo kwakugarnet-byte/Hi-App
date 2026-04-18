@@ -69,18 +69,24 @@ export default function Waitress() {
     batchId: number;
     customerName: string;
     items: Record<number, SelectedItem>;
+    flaggedCount: number;
   } | null>(null);
 
   function startEditing(batch: typeof returnedBatches[number]) {
+    const correctionIds = batch.correctionItemIds as number[] | null | undefined;
+    const itemsToPreFill = correctionIds && correctionIds.length > 0
+      ? batch.items.filter((i) => correctionIds.includes(i.id))
+      : batch.items;
+
     const itemMap: Record<number, SelectedItem> = {};
-    for (const item of batch.items) {
+    for (const item of itemsToPreFill) {
       itemMap[item.menuItemId] = {
         menuItemId: item.menuItemId,
         menuItemName: item.menuItemName,
         quantity: item.quantity,
       };
     }
-    setEditingReturn({ batchId: batch.id, customerName: batch.customerName, items: itemMap });
+    setEditingReturn({ batchId: batch.id, customerName: batch.customerName, items: itemMap, flaggedCount: correctionIds?.length ?? batch.items.length });
   }
 
   function editQty(id: number, name: string, delta: number) {
@@ -221,6 +227,14 @@ export default function Waitress() {
           </div>
           <div className="w-10" />
         </header>
+
+        {/* Bartender note */}
+        <div className="bg-orange-500/10 border-b border-orange-500/20 px-4 py-2.5 flex items-start gap-2">
+          <AlertTriangle className="w-3.5 h-3.5 text-orange-400 mt-0.5 shrink-0" />
+          <p className="text-xs text-orange-300 leading-snug">
+            The bartender flagged <span className="font-black">{editingReturn.flaggedCount} item{editingReturn.flaggedCount !== 1 ? "s" : ""}</span> for correction. Adjust the order below and send it back.
+          </p>
+        </div>
 
         {/* Category tabs */}
         <div className="shrink-0 overflow-x-auto border-b border-border bg-card">

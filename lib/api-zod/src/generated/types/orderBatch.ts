@@ -15,5 +15,6 @@ export interface OrderBatch {
   createdAt: string;
   completedAt?: string | null;
   status: OrderBatchStatus;
+  correctionItemIds?: number[] | null;
   items: OrderItem[];
 }

@@ -121,6 +121,7 @@ export interface OrderBatch {
   createdAt: string;
   completedAt?: string | null;
   status: OrderBatchStatus;
+  correctionItemIds?: number[] | null;
   items: OrderItem[];
 }
 
@@ -163,6 +164,10 @@ export interface SettleWaiterResult {
   waitressName: string;
   count: number;
   totalPence: number;
+}
+
+export interface ReturnOrderBatchBody {
+  correctionItemIds: number[];
 }
 
 /**
