@@ -309,8 +309,7 @@ export default function Bills() {
 
   const waiterNames = useMemo(() => {
     if (!batches) return [];
-    const active = batches.filter((b) => b.status !== "paid");
-    return [...new Set(active.map((b) => b.waitressName))].sort();
+    return [...new Set(batches.map((b) => b.waitressName))].sort();
   }, [batches]);
 
   const activeCustomers = useMemo(() => {
@@ -328,10 +327,10 @@ export default function Bills() {
     const paid = batches.filter((b) => {
       if (b.status !== "paid") return false;
       if (isWaitress && myName) return b.waitressName === myName;
-      return true;
+      return !selectedWaiter || b.waitressName === selectedWaiter;
     });
     return groupBatches(paid).reverse();
-  }, [batches, isWaitress, myName]);
+  }, [batches, selectedWaiter, isWaitress, myName]);
 
   const grandTotal = useMemo(
     () => activeCustomers.reduce((sum, c) => sum + c.total, 0),
@@ -343,20 +342,17 @@ export default function Bills() {
     [historyCustomers]
   );
 
-  // Credit owed per waiter (active/unpaid, no filter applied)
+  // Credit owed per waiter — derived from already-filtered activeCustomers
   const waiterCredits = useMemo(() => {
-    if (!batches) return [];
-    const unpaid = batches.filter((b) => b.status !== "paid");
-    const all = groupBatches(unpaid);
     const map = new Map<string, { name: string; customers: number; total: number }>();
-    for (const c of all) {
+    for (const c of activeCustomers) {
       if (!map.has(c.waitressName)) map.set(c.waitressName, { name: c.waitressName, customers: 0, total: 0 });
       const entry = map.get(c.waitressName)!;
       entry.customers += 1;
       entry.total += c.total;
     }
     return [...map.values()].sort((a, b) => b.total - a.total);
-  }, [batches]);
+  }, [activeCustomers]);
 
   // Sales per waiter from history (paid bills)
   const waiterSales = useMemo(() => {
@@ -918,8 +914,8 @@ export default function Bills() {
           </button>
         </div>
 
-        {/* Waiter filter chips — active tab only, admin/bartender only */}
-        {!isWaitress && tab === "active" && waiterNames.length > 1 && (
+        {/* Waiter filter chips — both tabs, admin/bartender only */}
+        {!isWaitress && waiterNames.length > 1 && (
           <div className="px-4 pb-3 flex items-center gap-2 overflow-x-auto">
             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground shrink-0">Filter:</span>
             <button
