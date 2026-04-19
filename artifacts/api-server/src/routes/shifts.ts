@@ -7,6 +7,7 @@ import {
   GetShiftsResponse,
   GetShiftsQueryParams,
 } from "@workspace/api-zod";
+import { logActivity } from "../lib/logActivity";
 
 const router: IRouter = Router();
 
@@ -58,7 +59,7 @@ router.post("/shifts/start", async (req, res): Promise<void> => {
     return;
   }
 
-  const user = req.user as { id: string; firstName?: string; lastName?: string };
+  const user = req.user as { id: string; firstName?: string; lastName?: string; role?: string };
   const staffId = parseInt(user.id, 10);
   const { start, end } = todayBounds();
 
@@ -87,6 +88,8 @@ router.post("/shifts/start", async (req, res): Promise<void> => {
     .values({ staffId, staffName, startedAt: new Date() })
     .returning();
 
+  await logActivity(staffName, user.role ?? "unknown", "shift_start");
+
   res.status(201).json(shiftToJson(created!));
 });
 
@@ -96,7 +99,8 @@ router.post("/shifts/end", async (req, res): Promise<void> => {
     return;
   }
 
-  const staffId = parseInt((req.user as { id: string }).id, 10);
+  const user = req.user as { id: string; firstName?: string; lastName?: string; role?: string };
+  const staffId = parseInt(user.id, 10);
   const { start, end } = todayBounds();
 
   const [active] = await db
@@ -122,6 +126,9 @@ router.post("/shifts/end", async (req, res): Promise<void> => {
     .set({ endedAt: new Date() })
     .where(eq(shiftsTable.id, active.id))
     .returning();
+
+  const staffName = [user.firstName, user.lastName].filter(Boolean).join(" ") || "Staff";
+  await logActivity(staffName, user.role ?? "unknown", "shift_end");
 
   res.json(EndShiftResponse.parse(shiftToJson(updated!)));
 });

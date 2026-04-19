@@ -481,3 +481,22 @@ export const PayOrderBatchResponse = zod.object({
     }),
   ),
 });
+
+/**
+ * @summary Get activity logs (admin only)
+ */
+export const GetActivityLogsQueryParams = zod.object({
+  date: zod.date().optional(),
+  actor: zod.coerce.string().optional(),
+  action: zod.coerce.string().optional(),
+});
+
+export const GetActivityLogsResponseItem = zod.object({
+  id: zod.number(),
+  timestamp: zod.coerce.date(),
+  actorName: zod.string(),
+  actorRole: zod.string(),
+  action: zod.string(),
+  details: zod.record(zod.string(), zod.unknown()).nullish(),
+});
+export const GetActivityLogsResponse = zod.array(GetActivityLogsResponseItem);

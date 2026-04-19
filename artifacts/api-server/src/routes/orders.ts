@@ -18,8 +18,15 @@ import {
   ResubmitOrderBatchResponse,
   EditOrderBatchBody,
 } from "@workspace/api-zod";
+import { logActivity } from "../lib/logActivity";
 
 const router: IRouter = Router();
+
+function actorFromReq(req: { user?: unknown }): { name: string; role: string } {
+  const u = req.user as { firstName?: string; lastName?: string; role?: string } | undefined;
+  const name = u ? [u.firstName, u.lastName].filter(Boolean).join(" ") || "unknown" : "unknown";
+  return { name, role: u?.role ?? "unknown" };
+}
 
 router.get("/menu-items", async (req, res): Promise<void> => {
   const items = await db.select().from(menuItemsTable).orderBy(menuItemsTable.category, menuItemsTable.name);
@@ -96,6 +103,14 @@ router.post("/order-batches", async (req, res): Promise<void> => {
     .innerJoin(menuItemsTable, eq(orderItemsTable.menuItemId, menuItemsTable.id))
     .where(eq(orderItemsTable.batchId, batch.id));
 
+  const actor = actorFromReq(req);
+  await logActivity(waitressName, actor.role, "order_placed", {
+    batchId: batch.id,
+    customerName,
+    itemCount: items.length,
+    items: orderItems.map((i) => `${i.menuItemName} x${i.quantity}`),
+  });
+
   const result = {
     ...batch,
     createdAt: batch.createdAt.toISOString(),
@@ -149,6 +164,15 @@ router.post("/order-batches/direct", async (req, res): Promise<void> => {
     .innerJoin(menuItemsTable, eq(orderItemsTable.menuItemId, menuItemsTable.id))
     .where(eq(orderItemsTable.batchId, batch.id));
 
+  const actor = actorFromReq(req);
+  const totalPence = orderItems.reduce((s, i) => s + i.pricePence * i.quantity, 0);
+  await logActivity(actor.name, actor.role, "order_direct", {
+    batchId: batch.id,
+    customerName,
+    totalPence,
+    items: orderItems.map((i) => `${i.menuItemName} x${i.quantity}`),
+  });
+
   res.status(201).json({
     ...batch,
     createdAt: batch.createdAt.toISOString(),
@@ -177,7 +201,6 @@ router.put("/order-batches/:id/edit", async (req, res): Promise<void> => {
     return;
   }
 
-  // Verify batch exists
   const existing = await db.select().from(orderBatchesTable).where(eq(orderBatchesTable.id, id));
   if (existing.length === 0) {
     res.status(404).json({ error: "Order batch not found" });
@@ -210,6 +233,13 @@ router.put("/order-batches/:id/edit", async (req, res): Promise<void> => {
     .from(orderItemsTable)
     .innerJoin(menuItemsTable, eq(orderItemsTable.menuItemId, menuItemsTable.id))
     .where(eq(orderItemsTable.batchId, id));
+
+  const actor = actorFromReq(req);
+  await logActivity(actor.name, actor.role, "order_edited", {
+    batchId: id,
+    customerName: batch.customerName,
+    waitressName: batch.waitressName,
+  });
 
   res.json({
     ...batch,
@@ -256,6 +286,15 @@ router.post("/order-batches/:id/complete", async (req, res): Promise<void> => {
     .from(orderItemsTable)
     .innerJoin(menuItemsTable, eq(orderItemsTable.menuItemId, menuItemsTable.id))
     .where(eq(orderItemsTable.batchId, batch.id));
+
+  const actor = actorFromReq(req);
+  const totalPence = orderItems.reduce((s, i) => s + i.pricePence * i.quantity, 0);
+  await logActivity(actor.name, actor.role, "order_completed", {
+    batchId: batch.id,
+    customerName: batch.customerName,
+    waitressName: batch.waitressName,
+    totalPence,
+  });
 
   const result = {
     ...batch,
@@ -304,6 +343,15 @@ router.post("/order-batches/:id/pay", async (req, res): Promise<void> => {
     .from(orderItemsTable)
     .innerJoin(menuItemsTable, eq(orderItemsTable.menuItemId, menuItemsTable.id))
     .where(eq(orderItemsTable.batchId, batch.id));
+
+  const actor = actorFromReq(req);
+  const totalPence = orderItems.reduce((s, i) => s + i.pricePence * i.quantity, 0);
+  await logActivity(actor.name, actor.role, "order_paid", {
+    batchId: batch.id,
+    customerName: batch.customerName,
+    waitressName: batch.waitressName,
+    totalPence,
+  });
 
   const result = {
     ...batch,
@@ -359,6 +407,14 @@ router.post("/order-batches/:id/return", async (req, res): Promise<void> => {
     .innerJoin(menuItemsTable, eq(orderItemsTable.menuItemId, menuItemsTable.id))
     .where(eq(orderItemsTable.batchId, batch.id));
 
+  const actor = actorFromReq(req);
+  await logActivity(actor.name, actor.role, "order_returned", {
+    batchId: batch.id,
+    customerName: batch.customerName,
+    waitressName: batch.waitressName,
+    flaggedCount: body.data.correctionItemIds.length,
+  });
+
   res.json(ReturnOrderBatchResponse.parse({
     ...batch,
     createdAt: batch.createdAt.toISOString(),
@@ -389,7 +445,6 @@ router.post("/order-batches/:id/resubmit", async (req, res): Promise<void> => {
 
   const batchId = params.data.id;
 
-  // Replace all items
   await db.delete(orderItemsTable).where(eq(orderItemsTable.batchId, batchId));
 
   if (body.data.items.length > 0) {
@@ -425,6 +480,14 @@ router.post("/order-batches/:id/resubmit", async (req, res): Promise<void> => {
     .from(orderItemsTable)
     .innerJoin(menuItemsTable, eq(orderItemsTable.menuItemId, menuItemsTable.id))
     .where(eq(orderItemsTable.batchId, batchId));
+
+  const actor = actorFromReq(req);
+  await logActivity(actor.name, actor.role, "order_resubmitted", {
+    batchId,
+    customerName: batch.customerName,
+    waitressName: batch.waitressName,
+    itemCount: body.data.items.length,
+  });
 
   res.json(ResubmitOrderBatchResponse.parse({
     ...batch,
@@ -478,6 +541,13 @@ router.post("/order-batches/settle-waiter", async (req, res): Promise<void> => {
     .where(inArray(orderItemsTable.batchId, batchIds));
 
   const totalPence = allItems.reduce((sum, i) => sum + i.pricePence * i.quantity, 0);
+
+  const actor = actorFromReq(req);
+  await logActivity(actor.name, actor.role, "account_settled", {
+    waitressName,
+    batchCount: unpaidBatches.length,
+    totalPence,
+  });
 
   res.json(SettleWaiterAccountResponse.parse({ waitressName, count: unpaidBatches.length, totalPence }));
 });

@@ -94,3 +94,28 @@ Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHea
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+
+## Bar Order System — Key Features
+
+**App**: `artifacts/bar-orders` (React + Vite)  
+**API**: `artifacts/api-server` (Express)
+
+### DB Tables
+- `staff` — id, name, pin_hash, role (admin/waitress/bartender)
+- `menu_items` — id, name, category, price_pence
+- `order_batches` — id, customer_name, waitress_name, status, created_at, completed_at, correction_item_ids
+- `order_items` — id, batch_id, menu_item_id, quantity
+- `shifts` — id, staff_id, staff_name, started_at, ended_at
+- `activity_logs` — id, timestamp, actor_name, actor_role, action, details (jsonb)
+
+### Activity Logging
+- `artifacts/api-server/src/lib/logActivity.ts` — shared helper, never throws
+- Logs are written on: login, logout, pin_changed, order_placed, order_direct, order_completed, order_paid, order_returned, order_edited, order_resubmitted, account_settled, shift_start, shift_end, menu_item_created/updated/deleted, staff_created/updated/deleted
+- Admin-only endpoint: `GET /api/activity-logs?date=&actor=&action=` (500 entries max, newest first)
+- Frontend page: `/admin/activity-log` — color-coded feed, filterable by date/staff/action, expandable raw JSON details, auto-refreshes every 30s
+
+### Credentials (dev)
+- `kwaku garnet` — admin, PIN 0000
+- `kofi` — bartender, PIN 1111
+- `mabel` — waitress, PIN 2222
+- `peter` — waitress, PIN 3333

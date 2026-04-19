@@ -5,6 +5,7 @@ import ordersRouter from "./orders";
 import pinAuthRouter from "./pinAuth";
 import adminRouter from "./admin";
 import shiftsRouter from "./shifts";
+import activityLogsRouter from "./activityLogs";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(pinAuthRouter);
 router.use(adminRouter);
 router.use(ordersRouter);
 router.use(shiftsRouter);
+router.use(activityLogsRouter);
 
 export default router;

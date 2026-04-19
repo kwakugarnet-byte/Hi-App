@@ -8,6 +8,7 @@ import {
   CreateStaffBody,
   UpdateStaffBody,
 } from "@workspace/api-zod";
+import { logActivity } from "../lib/logActivity";
 
 const router: IRouter = Router();
 
@@ -18,6 +19,11 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
     return;
   }
   next();
+}
+
+function adminActor(req: Request): string {
+  const u = req.user as { firstName?: string; lastName?: string } | undefined;
+  return u ? [u.firstName, u.lastName].filter(Boolean).join(" ") || "admin" : "admin";
 }
 
 router.post("/menu-items", requireAdmin, async (req: Request, res: Response): Promise<void> => {
@@ -31,6 +37,13 @@ router.post("/menu-items", requireAdmin, async (req: Request, res: Response): Pr
     .insert(menuItemsTable)
     .values(parsed.data)
     .returning();
+
+  await logActivity(adminActor(req), "admin", "menu_item_created", {
+    itemId: item.id,
+    name: item.name,
+    category: item.category,
+    pricePence: item.pricePence,
+  });
 
   res.status(201).json(item);
 });
@@ -59,6 +72,11 @@ router.patch("/menu-items/:id", requireAdmin, async (req: Request, res: Response
     return;
   }
 
+  await logActivity(adminActor(req), "admin", "menu_item_updated", {
+    itemId: id,
+    changes: parsed.data,
+  });
+
   res.json(item);
 });
 
@@ -69,7 +87,14 @@ router.delete("/menu-items/:id", requireAdmin, async (req: Request, res: Respons
     return;
   }
 
+  const [item] = await db.select().from(menuItemsTable).where(eq(menuItemsTable.id, id));
   await db.delete(menuItemsTable).where(eq(menuItemsTable.id, id));
+
+  await logActivity(adminActor(req), "admin", "menu_item_deleted", {
+    itemId: id,
+    name: item?.name,
+  });
+
   res.status(204).send();
 });
 
@@ -94,6 +119,12 @@ router.post("/admin/staff", requireAdmin, async (req: Request, res: Response): P
     .insert(staffTable)
     .values({ name: parsed.data.name, pinHash, role: parsed.data.role })
     .returning({ id: staffTable.id, name: staffTable.name, role: staffTable.role });
+
+  await logActivity(adminActor(req), "admin", "staff_created", {
+    staffId: member.id,
+    name: member.name,
+    role: member.role,
+  });
 
   res.status(201).json(member);
 });
@@ -127,6 +158,17 @@ router.patch("/admin/staff/:id", requireAdmin, async (req: Request, res: Respons
     return;
   }
 
+  const changes: Record<string, unknown> = {};
+  if (parsed.data.name !== undefined) changes.name = parsed.data.name;
+  if (parsed.data.role !== undefined) changes.role = parsed.data.role;
+  if (parsed.data.pin !== undefined) changes.pinChanged = true;
+
+  await logActivity(adminActor(req), "admin", "staff_updated", {
+    staffId: id,
+    name: member.name,
+    changes,
+  });
+
   res.json(member);
 });
 
@@ -137,7 +179,15 @@ router.delete("/admin/staff/:id", requireAdmin, async (req: Request, res: Respon
     return;
   }
 
+  const [member] = await db.select({ id: staffTable.id, name: staffTable.name, role: staffTable.role }).from(staffTable).where(eq(staffTable.id, id));
   await db.delete(staffTable).where(eq(staffTable.id, id));
+
+  await logActivity(adminActor(req), "admin", "staff_deleted", {
+    staffId: id,
+    name: member?.name,
+    role: member?.role,
+  });
+
   res.status(204).send();
 });
 

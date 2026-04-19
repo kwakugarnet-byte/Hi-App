@@ -170,6 +170,19 @@ export interface ReturnOrderBatchBody {
   correctionItemIds: number[];
 }
 
+export type ActivityLogEntryDetails = { [key: string]: unknown } | null;
+
+export interface ActivityLogEntry {
+  id: number;
+  timestamp: string;
+  actorName: string;
+  actorRole: string;
+  action: string;
+  details?: ActivityLogEntryDetails;
+}
+
+export type ActivityLogsResponse = ActivityLogEntry[];
+
 /**
  * Opaque session token — `Bearer <sid>`.
  */
@@ -193,4 +206,10 @@ export type GetShiftsParams = {
    * Filter by date (YYYY-MM-DD). Defaults to today.
    */
   date?: string;
+};
+
+export type GetActivityLogsParams = {
+  date?: string;
+  actor?: string;
+  action?: string;
 };

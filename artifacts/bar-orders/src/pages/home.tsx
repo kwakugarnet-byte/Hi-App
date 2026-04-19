@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { LogIn, Monitor, LogOut, Receipt, Settings, Users, KeyRound, AlertTriangle, Clock, Play, Square, CheckCircle2, CalendarDays } from "lucide-react";
+import { LogIn, Monitor, LogOut, Receipt, Settings, Users, KeyRound, AlertTriangle, Clock, Play, Square, CheckCircle2, CalendarDays, Activity } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import logo from "@/assets/logo.jpg";
 import {
@@ -267,6 +267,13 @@ export default function Home() {
                 <Button size="lg" variant="secondary" className="w-full h-16 text-base font-bold uppercase tracking-wider flex items-center justify-center gap-3">
                   <Monitor className="w-5 h-5" />
                   Bar Display
+                </Button>
+              </Link>
+
+              <Link href="/admin/activity-log" className="w-full">
+                <Button size="lg" variant="outline" className="w-full h-16 text-base font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/30 text-primary/70 hover:bg-primary/10">
+                  <Activity className="w-5 h-5" />
+                  Activity Log
                 </Button>
               </Link>
             </>

@@ -11,6 +11,7 @@ import Bills from "@/pages/bills";
 import Admin from "@/pages/admin";
 import AdminStaff from "@/pages/admin-staff";
 import ChangePin from "@/pages/change-pin";
+import ActivityLog from "@/pages/activity-log";
 import { useAuth } from "@/hooks/useAuth";
 import { useGetStaff, usePinLogin } from "@workspace/api-client-react";
 import { Delete } from "lucide-react";
@@ -202,6 +203,7 @@ function Router() {
       <Route path="/bills" component={Bills} />
       <Route path="/admin" component={Admin} />
       <Route path="/admin/staff" component={AdminStaff} />
+      <Route path="/admin/activity-log" component={ActivityLog} />
       <Route path="/change-pin" component={ChangePin} />
       <Route component={NotFound} />
     </Switch>

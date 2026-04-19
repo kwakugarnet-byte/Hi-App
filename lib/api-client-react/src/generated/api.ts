@@ -17,6 +17,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  ActivityLogsResponse,
   AdminStaffMember,
   AuthUserEnvelope,
   BeginBrowserLoginParams,
@@ -24,6 +25,7 @@ import type {
   CreateOrderBatchBody,
   CreateStaffBody,
   EditOrderBatchBody,
+  GetActivityLogsParams,
   GetShiftsParams,
   HandleBrowserLoginCallbackParams,
   HealthStatus,
@@ -2546,3 +2548,97 @@ export const usePayOrderBatch = <
 > => {
   return useMutation(getPayOrderBatchMutationOptions(options));
 };
+
+/**
+ * @summary Get activity logs (admin only)
+ */
+export const getGetActivityLogsUrl = (params?: GetActivityLogsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/activity-logs?${stringifiedParams}`
+    : `/api/activity-logs`;
+};
+
+export const getActivityLogs = async (
+  params?: GetActivityLogsParams,
+  options?: RequestInit,
+): Promise<ActivityLogsResponse> => {
+  return customFetch<ActivityLogsResponse>(getGetActivityLogsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetActivityLogsQueryKey = (params?: GetActivityLogsParams) => {
+  return [`/api/activity-logs`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetActivityLogsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getActivityLogs>>,
+  TError = ErrorType<void>,
+>(
+  params?: GetActivityLogsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getActivityLogs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetActivityLogsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getActivityLogs>>> = ({
+    signal,
+  }) => getActivityLogs(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getActivityLogs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetActivityLogsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getActivityLogs>>
+>;
+export type GetActivityLogsQueryError = ErrorType<void>;
+
+/**
+ * @summary Get activity logs (admin only)
+ */
+
+export function useGetActivityLogs<
+  TData = Awaited<ReturnType<typeof getActivityLogs>>,
+  TError = ErrorType<void>,
+>(
+  params?: GetActivityLogsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getActivityLogs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetActivityLogsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

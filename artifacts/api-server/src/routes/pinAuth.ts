@@ -16,6 +16,7 @@ import {
   SESSION_TTL,
   type SessionData,
 } from "../lib/auth";
+import { logActivity } from "../lib/logActivity";
 
 const router: IRouter = Router();
 
@@ -81,12 +82,19 @@ router.post("/pin-login", async (req: Request, res: Response): Promise<void> => 
   const sid = await createSession(sessionData);
   setSessionCookie(res, sid);
 
+  await logActivity(staff.name, staff.role, "login");
+
   res.json(
     GetCurrentAuthUserResponse.parse({ user: sessionData.user })
   );
 });
 
 router.post("/pin-logout", async (req: Request, res: Response): Promise<void> => {
+  const user = req.user as { id?: string; firstName?: string; lastName?: string; role?: string } | undefined;
+  if (user) {
+    const name = [user.firstName, user.lastName].filter(Boolean).join(" ") || "unknown";
+    await logActivity(name, user.role ?? "unknown", "logout");
+  }
   const sid = getSessionId(req);
   await clearSession(res, sid);
   res.json({ ok: true });
@@ -111,6 +119,10 @@ router.post("/change-pin", async (req: Request, res: Response): Promise<void> =>
     .update(staffTable)
     .set({ pinHash })
     .where(eq(staffTable.id, staffId));
+
+  const user = req.user as { firstName?: string; lastName?: string; role?: string };
+  const name = [user.firstName, user.lastName].filter(Boolean).join(" ") || "unknown";
+  await logActivity(name, user.role ?? "unknown", "pin_changed");
 
   res.json({ ok: true });
 });
