@@ -6,10 +6,12 @@ import {
   useGetMenuItems,
   getGetOrderBatchesQueryKey,
   getGetMenuItemsQueryKey,
+  getGetShiftsQueryKey,
   usePayOrderBatch,
   useSettleWaiterAccount,
   useEditOrderBatch,
   useReturnOrderBatch,
+  useGetShifts,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -198,6 +200,17 @@ export default function Bills() {
   const { data: menuItems } = useGetMenuItems({
     query: { queryKey: getGetMenuItemsQueryKey(), enabled: !!(isAdmin || isBartender) },
   });
+
+  // Fetch today's shifts (admin sees all, others see own)
+  const { data: shifts } = useGetShifts({
+    query: { queryKey: getGetShiftsQueryKey(), refetchInterval: 30000, enabled: !!(isAdmin || isBartender) },
+  });
+
+  // Set of staff names whose shift has ended today — their bills are admin-only to clear
+  const endedStaffNames = useMemo(() => {
+    if (!shifts) return new Set<string>();
+    return new Set(shifts.filter((s) => s.endedAt).map((s) => s.staffName));
+  }, [shifts]);
 
   const payBatch = usePayOrderBatch();
   const settleWaiter = useSettleWaiterAccount();
@@ -461,6 +474,9 @@ export default function Bills() {
                       <span className="text-[10px] text-muted-foreground font-bold bg-muted px-1.5 py-0.5 rounded-full shrink-0">
                         {w.customers} {w.customers === 1 ? "customer" : "customers"}
                       </span>
+                      {endedStaffNames.has(w.name) && (
+                        <span className="text-[10px] font-black uppercase tracking-wide text-orange-400 bg-orange-500/10 border border-orange-500/30 px-1.5 py-0.5 rounded-full shrink-0">Day ended</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-lg font-black text-amber-400 tabular-nums">{formatPrice(w.total)}</span>
@@ -514,7 +530,7 @@ export default function Bills() {
           </div>
         )}
         {activeCustomers.map((customer) => (
-          <div key={`${customer.waitressName}|||${customer.customerName}`} className="bg-card border border-border rounded-xl overflow-hidden">
+          <div key={`${customer.waitressName}|||${customer.customerName}|||${customer.firstOrderAt}`} className="bg-card border border-border rounded-xl overflow-hidden">
             <div className="px-4 py-3 border-b border-border flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <h2 className="text-xl font-black uppercase tracking-tight truncate">{customer.customerName}</h2>
@@ -603,19 +619,32 @@ export default function Bills() {
                 </div>
               </div>
             ))}
-            {(isAdmin || isBartender) && customer.overallStatus === "completed" && (
-              <div className="px-4 pb-4 pt-1 border-t border-border/50">
-                <Button
-                  size="sm"
-                  className="w-full gap-2 bg-green-700 hover:bg-green-600 text-white font-black uppercase tracking-widest"
-                  onClick={() => handleMarkPaid(customer)}
-                  disabled={payBatch.isPending}
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  {isAdmin ? "Mark Paid — Admin Clear" : "Mark Paid"}
-                </Button>
-              </div>
-            )}
+            {customer.overallStatus === "completed" && (isAdmin || isBartender) && (() => {
+              const shiftEnded = endedStaffNames.has(customer.waitressName);
+              if (isBartender && shiftEnded) {
+                return (
+                  <div className="px-4 pb-4 pt-1 border-t border-border/50">
+                    <div className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-border/50 text-muted-foreground/50 text-xs font-black uppercase tracking-widest cursor-not-allowed">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      Admin Clearance Required
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <div className="px-4 pb-4 pt-1 border-t border-border/50">
+                  <Button
+                    size="sm"
+                    className="w-full gap-2 bg-green-700 hover:bg-green-600 text-white font-black uppercase tracking-widest"
+                    onClick={() => handleMarkPaid(customer)}
+                    disabled={payBatch.isPending}
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    {isAdmin ? "Mark Paid — Admin Clear" : "Mark Paid"}
+                  </Button>
+                </div>
+              );
+            })()}
           </div>
         ))}
       </>
