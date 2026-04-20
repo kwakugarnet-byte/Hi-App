@@ -621,10 +621,12 @@ components:
           type: integer
         name:
           type: string
+        bonusPercent:
+          type: integer
 
     AdminStaffMember:
       type: object
-      required: [id, name, role]
+      required: [id, name, role, bonusPercent]
       properties:
         id:
           type: integer
@@ -632,6 +634,8 @@ components:
           type: string
         role:
           $ref: '#/components/schemas/StaffRole'
+        bonusPercent:
+          type: integer
 
     CreateStaffBody:
       type: object
@@ -645,6 +649,10 @@ components:
           type: string
           minLength: 4
           maxLength: 4
+        bonusPercent:
+          type: integer
+          minimum: 0
+          maximum: 100
 
     UpdateStaffBody:
       type: object
@@ -657,6 +665,10 @@ components:
           type: string
           minLength: 4
           maxLength: 4
+        bonusPercent:
+          type: integer
+          minimum: 0
+          maximum: 100
 
     ChangePinBody:
       type: object

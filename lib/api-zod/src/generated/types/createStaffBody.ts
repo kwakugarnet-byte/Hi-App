@@ -15,4 +15,9 @@ export interface CreateStaffBody {
    * @maxLength 4
    */
   pin: string;
+  /**
+   * @minimum 0
+   * @maximum 100
+   */
+  bonusPercent?: number;
 }

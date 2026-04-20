@@ -32,7 +32,7 @@ function setSessionCookie(res: Response, sid: string) {
 
 router.get("/staff", async (_req: Request, res: Response): Promise<void> => {
   const staff = await db
-    .select({ id: staffTable.id, name: staffTable.name })
+    .select({ id: staffTable.id, name: staffTable.name, bonusPercent: staffTable.bonusPercent })
     .from(staffTable)
     .orderBy(staffTable.name);
   res.json(GetStaffResponse.parse(staff));

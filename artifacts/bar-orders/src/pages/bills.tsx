@@ -7,11 +7,13 @@ import {
   getGetOrderBatchesQueryKey,
   getGetMenuItemsQueryKey,
   getGetShiftsQueryKey,
+  getGetStaffQueryKey,
   usePayOrderBatch,
   useSettleWaiterAccount,
   useEditOrderBatch,
   useReturnOrderBatch,
   useGetShifts,
+  useGetStaff,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -205,6 +207,20 @@ export default function Bills() {
   const { data: shifts } = useGetShifts({
     query: { queryKey: getGetShiftsQueryKey(), refetchInterval: 30000, enabled: !!(isAdmin || isBartender) },
   });
+
+  // Fetch staff list for bonus percentages
+  const { data: staffList } = useGetStaff({
+    query: { queryKey: getGetStaffQueryKey() },
+  });
+
+  // Map staff name → bonus percent
+  const staffBonusMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of staffList ?? []) {
+      if (s.bonusPercent && s.bonusPercent > 0) map.set(s.name, s.bonusPercent);
+    }
+    return map;
+  }, [staffList]);
 
   // Set of staff names whose shift has ended today — their bills are admin-only to clear
   const endedStaffNames = useMemo(() => {
@@ -479,7 +495,14 @@ export default function Bills() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-lg font-black text-amber-400 tabular-nums">{formatPrice(w.total)}</span>
+                      <div className="text-right">
+                        <div className="text-lg font-black text-amber-400 tabular-nums">{formatPrice(w.total)}</div>
+                        {staffBonusMap.has(w.name) && (
+                          <div className="text-[11px] font-bold text-emerald-400 tabular-nums">
+                            +{formatPrice(Math.round(w.total * staffBonusMap.get(w.name)! / 100))} bonus ({staffBonusMap.get(w.name)}%)
+                          </div>
+                        )}
+                      </div>
                       {isAdmin && (
                         <button
                           onClick={() =>
@@ -665,17 +688,30 @@ export default function Bills() {
               <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Sales by Waiter</span>
             </div>
             <div className="divide-y divide-border/50">
-              {waiterSales.map((w) => (
-                <div key={w.name} className="px-4 py-2.5 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-sm font-bold uppercase tracking-wide truncate">{w.name}</span>
-                    <span className="text-[10px] text-muted-foreground font-bold bg-muted px-1.5 py-0.5 rounded-full shrink-0">
-                      {w.customers} {w.customers === 1 ? "sale" : "sales"}
-                    </span>
+              {waiterSales.map((w) => {
+                const bonusPct = staffBonusMap.get(w.name);
+                const bonusAmt = bonusPct ? Math.round(w.total * bonusPct / 100) : 0;
+                return (
+                  <div key={w.name} className="px-4 py-2.5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm font-bold uppercase tracking-wide truncate">{w.name}</span>
+                      <span className="text-[10px] text-muted-foreground font-bold bg-muted px-1.5 py-0.5 rounded-full shrink-0">
+                        {w.customers} {w.customers === 1 ? "sale" : "sales"}
+                      </span>
+                    </div>
+                    {!isWaitress && (
+                      <div className="text-right shrink-0">
+                        <div className="text-lg font-black text-green-500 tabular-nums">{formatPrice(w.total)}</div>
+                        {bonusPct && bonusPct > 0 && (
+                          <div className="text-[11px] font-bold text-emerald-400 tabular-nums">
+                            +{formatPrice(bonusAmt)} bonus ({bonusPct}%)
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  {!isWaitress && <span className="text-lg font-black text-green-500 tabular-nums shrink-0">{formatPrice(w.total)}</span>}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

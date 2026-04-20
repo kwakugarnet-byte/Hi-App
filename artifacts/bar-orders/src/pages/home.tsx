@@ -9,6 +9,8 @@ import {
   getGetOrderBatchesQueryKey,
   useGetMyShift,
   getGetMyShiftQueryKey,
+  getGetStaffQueryKey,
+  useGetStaff,
   useStartShift,
   useEndShift,
 } from "@workspace/api-client-react";
@@ -45,8 +47,12 @@ export default function Home() {
     query: {
       queryKey: getGetOrderBatchesQueryKey(),
       refetchInterval: 30000,
-      enabled: isWaitress,
+      enabled: isWaitress || isBartender,
     },
+  });
+
+  const { data: staffList } = useGetStaff({
+    query: { queryKey: getGetStaffQueryKey() },
   });
 
   const { data: shiftData, isLoading: shiftLoading } = useGetMyShift({
@@ -86,6 +92,21 @@ export default function Home() {
       .filter((b) => b.status !== "paid" && b.waitressName === displayName)
       .reduce((sum, b) => sum + b.items.reduce((s, i) => s + i.pricePence * i.quantity, 0), 0);
   }, [batches, isWaitress, displayName]);
+
+  const myTodayPaid = useMemo(() => {
+    if (!batches || !(isWaitress || isBartender) || !displayName) return 0;
+    const today = new Date().toDateString();
+    return batches
+      .filter((b) => b.status === "paid" && b.waitressName === displayName && new Date(b.createdAt).toDateString() === today)
+      .reduce((sum, b) => sum + b.items.reduce((s, i) => s + i.pricePence * i.quantity, 0), 0);
+  }, [batches, isWaitress, isBartender, displayName]);
+
+  const myBonusPercent = useMemo(() => {
+    if (!staffList || !displayName) return 0;
+    return staffList.find((s) => s.name === displayName)?.bonusPercent ?? 0;
+  }, [staffList, displayName]);
+
+  const myBonusEarned = Math.round(myTodayPaid * myBonusPercent / 100);
 
   const shift = shiftData?.shift ?? null;
   const shiftActive = shift && !shift.endedAt;
@@ -206,6 +227,17 @@ export default function Home() {
                   </span>
                 </div>
               </Link>
+              {/* Bonus card */}
+              {myBonusPercent > 0 && (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black uppercase tracking-widest text-emerald-400">My Bonus Today</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{myBonusPercent}% of {formatPrice(myTodayPaid)} paid sales</p>
+                  </div>
+                  <span className="text-xl font-black tabular-nums shrink-0 text-emerald-400">{formatPrice(myBonusEarned)}</span>
+                </div>
+              )}
               <Link href="/waitress" className="w-full">
                 <Button size="lg" className="w-full h-24 text-xl font-bold uppercase tracking-wider flex items-center justify-center gap-3">
                   <LogIn className="w-6 h-6" />
@@ -217,6 +249,17 @@ export default function Home() {
 
           {isBartender && (
             <>
+              {/* Bonus card for bartender */}
+              {myBonusPercent > 0 && (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black uppercase tracking-widest text-emerald-400">My Bonus Today</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{myBonusPercent}% of {formatPrice(myTodayPaid)} paid sales</p>
+                  </div>
+                  <span className="text-xl font-black tabular-nums shrink-0 text-emerald-400">{formatPrice(myBonusEarned)}</span>
+                </div>
+              )}
               <Link href="/bar" className="w-full">
                 <Button size="lg" className="w-full h-24 text-xl font-bold uppercase tracking-wider flex items-center justify-center gap-3">
                   <Monitor className="w-6 h-6" />

@@ -11,4 +11,5 @@ export interface AdminStaffMember {
   id: number;
   name: string;
   role: StaffRole;
+  bonusPercent: number;
 }

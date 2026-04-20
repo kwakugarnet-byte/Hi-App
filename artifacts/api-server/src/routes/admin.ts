@@ -100,7 +100,7 @@ router.delete("/menu-items/:id", requireAdmin, async (req: Request, res: Respons
 
 router.get("/admin/staff", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
   const staff = await db
-    .select({ id: staffTable.id, name: staffTable.name, role: staffTable.role })
+    .select({ id: staffTable.id, name: staffTable.name, role: staffTable.role, bonusPercent: staffTable.bonusPercent })
     .from(staffTable)
     .orderBy(staffTable.name);
   res.json(staff);
@@ -117,8 +117,8 @@ router.post("/admin/staff", requireAdmin, async (req: Request, res: Response): P
 
   const [member] = await db
     .insert(staffTable)
-    .values({ name: parsed.data.name, pinHash, role: parsed.data.role })
-    .returning({ id: staffTable.id, name: staffTable.name, role: staffTable.role });
+    .values({ name: parsed.data.name, pinHash, role: parsed.data.role, bonusPercent: parsed.data.bonusPercent ?? 0 })
+    .returning({ id: staffTable.id, name: staffTable.name, role: staffTable.role, bonusPercent: staffTable.bonusPercent });
 
   await logActivity(adminActor(req), "admin", "staff_created", {
     staffId: member.id,
@@ -146,12 +146,13 @@ router.patch("/admin/staff/:id", requireAdmin, async (req: Request, res: Respons
   if (parsed.data.name !== undefined) update.name = parsed.data.name;
   if (parsed.data.role !== undefined) update.role = parsed.data.role;
   if (parsed.data.pin !== undefined) update.pinHash = await bcrypt.hash(parsed.data.pin, 10);
+  if (parsed.data.bonusPercent !== undefined) update.bonusPercent = parsed.data.bonusPercent;
 
   const [member] = await db
     .update(staffTable)
     .set(update)
     .where(eq(staffTable.id, id))
-    .returning({ id: staffTable.id, name: staffTable.name, role: staffTable.role });
+    .returning({ id: staffTable.id, name: staffTable.name, role: staffTable.role, bonusPercent: staffTable.bonusPercent });
 
   if (!member) {
     res.status(404).json({ error: "Staff member not found" });

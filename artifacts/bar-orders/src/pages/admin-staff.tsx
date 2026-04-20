@@ -48,8 +48,8 @@ function PinInput({ value, onChange }: { value: string; onChange: (v: string) =>
   );
 }
 
-type AddState = { name: string; role: Role; pin: string };
-type EditState = { id: number; name: string; role: Role; pin: string };
+type AddState = { name: string; role: Role; pin: string; bonusPercent: string };
+type EditState = { id: number; name: string; role: Role; pin: string; bonusPercent: string };
 
 export default function AdminStaff() {
   const { isAdmin, isLoading: authLoading } = useAuth();
@@ -73,7 +73,7 @@ export default function AdminStaff() {
   const [resetPin, setResetPin] = useState<{ id: number; pin: string } | null>(null);
 
   function startAdd() {
-    setAdding({ name: "", role: "waitress", pin: "" });
+    setAdding({ name: "", role: "waitress", pin: "", bonusPercent: "0" });
     setEditing(null);
     setResetPin(null);
   }
@@ -90,7 +90,7 @@ export default function AdminStaff() {
     }
 
     createStaff.mutate(
-      { data: { name: adding.name.trim(), role: adding.role, pin: adding.pin } },
+      { data: { name: adding.name.trim(), role: adding.role, pin: adding.pin, bonusPercent: parseInt(adding.bonusPercent) || 0 } },
       {
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: getGetAdminStaffQueryKey() });
@@ -102,17 +102,18 @@ export default function AdminStaff() {
     );
   }
 
-  function startEdit(member: { id: number; name: string; role: string }) {
-    setEditing({ id: member.id, name: member.name, role: member.role as Role, pin: "" });
+  function startEdit(member: { id: number; name: string; role: string; bonusPercent: number }) {
+    setEditing({ id: member.id, name: member.name, role: member.role as Role, pin: "", bonusPercent: String(member.bonusPercent) });
     setAdding(null);
     setResetPin(null);
   }
 
   function handleSave() {
     if (!editing) return;
-    const payload: { name?: string; role?: string; pin?: string } = {
+    const payload: { name?: string; role?: string; pin?: string; bonusPercent?: number } = {
       name: editing.name,
       role: editing.role,
+      bonusPercent: parseInt(editing.bonusPercent) || 0,
     };
     if (editing.pin.length === 4) payload.pin = editing.pin;
 
@@ -185,6 +186,19 @@ export default function AdminStaff() {
                 <PinInput value={adding.pin} onChange={(v) => setAdding({ ...adding, pin: v })} />
               </div>
             </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-muted-foreground uppercase tracking-wide shrink-0">Bonus %</span>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={adding.bonusPercent}
+                onChange={(e) => setAdding({ ...adding, bonusPercent: e.target.value })}
+                className="w-20 h-10 rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary text-center font-mono"
+                placeholder="0"
+              />
+              <span className="text-xs text-muted-foreground">% of their total sales</span>
+            </div>
             <div className="flex gap-2">
               <Button onClick={handleAdd} disabled={createStaff.isPending} className="flex-1 gap-2 font-bold uppercase tracking-wide">
                 <Check className="w-4 h-4" />
@@ -231,6 +245,19 @@ export default function AdminStaff() {
                       <PinInput value={editing.pin} onChange={(v) => setEditing({ ...editing, pin: v })} />
                     </div>
                   </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground uppercase tracking-wide shrink-0">Bonus %</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={editing.bonusPercent}
+                      onChange={(e) => setEditing({ ...editing, bonusPercent: e.target.value })}
+                      className="w-20 h-10 rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary text-center font-mono"
+                      placeholder="0"
+                    />
+                    <span className="text-xs text-muted-foreground">% of their total sales</span>
+                  </div>
                   <p className="text-xs text-muted-foreground">Leave PIN blank to keep current PIN</p>
                   <div className="flex gap-2">
                     <Button onClick={handleSave} disabled={updateStaff.isPending} className="flex-1 gap-2 font-bold uppercase tracking-wide">
@@ -250,9 +277,16 @@ export default function AdminStaff() {
               <div key={member.id} className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3">
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-sm truncate">{member.name}</p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-bold uppercase tracking-wide ${ROLE_COLOR[member.role as Role] ?? "bg-muted text-muted-foreground"}`}>
-                    {ROLE_LABEL[member.role as Role] ?? member.role}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-bold uppercase tracking-wide ${ROLE_COLOR[member.role as Role] ?? "bg-muted text-muted-foreground"}`}>
+                      {ROLE_LABEL[member.role as Role] ?? member.role}
+                    </span>
+                    {member.bonusPercent > 0 && (
+                      <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+                        {member.bonusPercent}% bonus
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {isDeleting ? (

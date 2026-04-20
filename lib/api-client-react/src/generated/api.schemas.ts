@@ -20,12 +20,14 @@ export const StaffRole = {
 export interface StaffMember {
   id: number;
   name: string;
+  bonusPercent?: number;
 }
 
 export interface AdminStaffMember {
   id: number;
   name: string;
   role: StaffRole;
+  bonusPercent: number;
 }
 
 export interface CreateStaffBody {
@@ -36,6 +38,11 @@ export interface CreateStaffBody {
    * @maxLength 4
    */
   pin: string;
+  /**
+   * @minimum 0
+   * @maximum 100
+   */
+  bonusPercent?: number;
 }
 
 export interface UpdateStaffBody {
@@ -46,6 +53,11 @@ export interface UpdateStaffBody {
    * @maxLength 4
    */
   pin?: string;
+  /**
+   * @minimum 0
+   * @maximum 100
+   */
+  bonusPercent?: number;
 }
 
 export interface ChangePinBody {

@@ -76,6 +76,7 @@ export const LogoutBrowserSessionHeader = zod.object({
 export const GetStaffResponseItem = zod.object({
   id: zod.number(),
   name: zod.string(),
+  bonusPercent: zod.number().optional(),
 });
 export const GetStaffResponse = zod.array(GetStaffResponseItem);
 
@@ -121,6 +122,7 @@ export const GetAdminStaffResponseItem = zod.object({
   id: zod.number(),
   name: zod.string(),
   role: zod.enum(["admin", "waitress", "bartender"]),
+  bonusPercent: zod.number(),
 });
 export const GetAdminStaffResponse = zod.array(GetAdminStaffResponseItem);
 
@@ -130,10 +132,18 @@ export const GetAdminStaffResponse = zod.array(GetAdminStaffResponseItem);
 export const createStaffBodyPinMin = 4;
 export const createStaffBodyPinMax = 4;
 
+export const createStaffBodyBonusPercentMin = 0;
+export const createStaffBodyBonusPercentMax = 100;
+
 export const CreateStaffBody = zod.object({
   name: zod.string(),
   role: zod.enum(["admin", "waitress", "bartender"]),
   pin: zod.string().min(createStaffBodyPinMin).max(createStaffBodyPinMax),
+  bonusPercent: zod
+    .number()
+    .min(createStaffBodyBonusPercentMin)
+    .max(createStaffBodyBonusPercentMax)
+    .optional(),
 });
 
 /**
@@ -146,6 +156,9 @@ export const UpdateStaffParams = zod.object({
 export const updateStaffBodyPinMin = 4;
 export const updateStaffBodyPinMax = 4;
 
+export const updateStaffBodyBonusPercentMin = 0;
+export const updateStaffBodyBonusPercentMax = 100;
+
 export const UpdateStaffBody = zod.object({
   name: zod.string().optional(),
   role: zod.enum(["admin", "waitress", "bartender"]).optional(),
@@ -154,12 +167,18 @@ export const UpdateStaffBody = zod.object({
     .min(updateStaffBodyPinMin)
     .max(updateStaffBodyPinMax)
     .optional(),
+  bonusPercent: zod
+    .number()
+    .min(updateStaffBodyBonusPercentMin)
+    .max(updateStaffBodyBonusPercentMax)
+    .optional(),
 });
 
 export const UpdateStaffResponse = zod.object({
   id: zod.number(),
   name: zod.string(),
   role: zod.enum(["admin", "waitress", "bartender"]),
+  bonusPercent: zod.number(),
 });
 
 /**
