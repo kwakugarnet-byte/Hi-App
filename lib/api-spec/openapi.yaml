@@ -191,6 +191,27 @@ paths:
               schema:
                 $ref: '#/components/schemas/AdminStaffMember'
 
+  /admin/staff/{id}/clear-bonus:
+    post:
+      tags: [Admin]
+      operationId: clearStaffBonus
+      summary: Mark a staff member's bonus as paid (resets accumulation)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Bonus cleared
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminStaffMember'
+        "404":
+          description: Not found
+
   /admin/staff/{id}:
     patch:
       tags: [Admin]
@@ -623,6 +644,9 @@ components:
           type: string
         bonusPercent:
           type: integer
+        bonusLastPaidAt:
+          type: string
+          nullable: true
 
     AdminStaffMember:
       type: object
@@ -636,6 +660,9 @@ components:
           $ref: '#/components/schemas/StaffRole'
         bonusPercent:
           type: integer
+        bonusLastPaidAt:
+          type: string
+          nullable: true
 
     CreateStaffBody:
       type: object

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle, CircleDashed, ChevronRight, Eye, X, CreditCard, Pencil, Plus, Minus, Trash2, RotateCcw } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle, CircleDashed, ChevronRight, Eye, X, CreditCard, Pencil, Plus, Minus, Trash2, RotateCcw, Sparkles } from "lucide-react";
 import {
   useGetOrderBatches,
   useGetMenuItems,
@@ -14,6 +14,7 @@ import {
   useReturnOrderBatch,
   useGetShifts,
   useGetStaff,
+  useClearStaffBonus,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -232,7 +233,9 @@ export default function Bills() {
   const settleWaiter = useSettleWaiterAccount();
   const editBatch = useEditOrderBatch();
   const returnBatch = useReturnOrderBatch();
+  const clearBonus = useClearStaffBonus();
 
+  const [bonusClearConfirm, setBonusClearConfirm] = useState<number | null>(null);
   const [returnModal, setReturnModal] = useState<{ round: Round; customerName: string; waitressName: string } | null>(null);
   const [returnSelectedIds, setReturnSelectedIds] = useState<Set<number>>(new Set());
 
@@ -395,6 +398,32 @@ export default function Bills() {
     return [...map.values()].sort((a, b) => b.total - a.total);
   }, [historyCustomers]);
 
+  // Bonus owed per waiter — paid batches since last bonus clearing × bonusPercent
+  const bonusSummary = useMemo(() => {
+    if (!batches || !staffList) return [];
+    const eligible = staffList.filter((s) => (s.bonusPercent ?? 0) > 0);
+    if (eligible.length === 0) return [];
+    const salesSince = new Map<string, number>();
+    for (const b of batches) {
+      if (b.status !== "paid") continue;
+      const staff = eligible.find((s) => s.name === b.waitressName);
+      if (!staff) continue;
+      if (staff.bonusLastPaidAt && new Date(b.createdAt) <= new Date(staff.bonusLastPaidAt)) continue;
+      const batchTotal = b.items.reduce((s, i) => s + i.pricePence * i.quantity, 0);
+      salesSince.set(b.waitressName, (salesSince.get(b.waitressName) ?? 0) + batchTotal);
+    }
+    return eligible
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        bonusPercent: s.bonusPercent!,
+        salesTotal: salesSince.get(s.name) ?? 0,
+        bonusOwed: Math.round((salesSince.get(s.name) ?? 0) * (s.bonusPercent!) / 100),
+        lastClearedAt: s.bonusLastPaidAt ?? null,
+      }))
+      .sort((a, b) => b.bonusOwed - a.bonusOwed);
+  }, [batches, staffList]);
+
   const handleMarkPaid = async (customer: GroupedCustomer) => {
     const ids = customer.rounds.map((r) => r.id);
     try {
@@ -552,6 +581,94 @@ export default function Bills() {
             </div>
           </div>
         )}
+
+        {/* ── BONUS OWED — admin only, shown when staff have bonus rates ── */}
+        {isAdmin && bonusSummary.length > 0 && (
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-border flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-emerald-400" />
+              <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Bonus Owed</span>
+              <span className="ml-auto text-[10px] text-muted-foreground font-bold">From paid sales</span>
+            </div>
+            <div className="divide-y divide-border/50">
+              {bonusSummary.map((w) => (
+                <div key={w.id}>
+                  <div className="px-4 py-2.5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm font-bold uppercase tracking-wide truncate">{w.name}</span>
+                      <span className="text-[10px] text-muted-foreground font-bold bg-muted px-1.5 py-0.5 rounded-full shrink-0">
+                        {w.bonusPercent}% of {formatPrice(w.salesTotal)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="text-right">
+                        <div className={`text-lg font-black tabular-nums ${w.bonusOwed > 0 ? "text-emerald-400" : "text-muted-foreground"}`}>
+                          {formatPrice(w.bonusOwed)}
+                        </div>
+                        {w.lastClearedAt && (
+                          <div className="text-[10px] text-muted-foreground">
+                            since {format(new Date(w.lastClearedAt), "d MMM, h:mm a")}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() =>
+                          bonusClearConfirm === w.id
+                            ? setBonusClearConfirm(null)
+                            : setBonusClearConfirm(w.id)
+                        }
+                        disabled={w.bonusOwed === 0}
+                        className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        <CheckCircle2 className="w-3 h-3" />
+                        Mark Paid
+                      </button>
+                    </div>
+                  </div>
+                  {/* Inline confirm panel */}
+                  {bonusClearConfirm === w.id && (
+                    <div className="px-4 py-3 bg-emerald-500/5 border-t border-emerald-500/20 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-emerald-400 uppercase tracking-wide">
+                          Mark {w.name}'s bonus as paid?
+                        </p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {formatPrice(w.bonusOwed)} bonus will be recorded as paid. Accumulation resets from now.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => setBonusClearConfirm(null)}
+                          className="text-[10px] font-bold text-muted-foreground hover:text-foreground uppercase tracking-wide px-2 py-1 rounded-lg border border-border hover:border-muted-foreground/50 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await clearBonus.mutateAsync({ id: w.id });
+                              await queryClient.invalidateQueries({ queryKey: getGetStaffQueryKey() });
+                              setBonusClearConfirm(null);
+                              toast({ title: `${w.name}'s bonus marked as paid`, description: `${formatPrice(w.bonusOwed)} recorded.` });
+                            } catch {
+                              toast({ title: "Failed to clear bonus", variant: "destructive" });
+                            }
+                          }}
+                          disabled={clearBonus.isPending}
+                          className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-50"
+                        >
+                          <CheckCircle2 className="w-3 h-3" />
+                          {clearBonus.isPending ? "Saving…" : "Confirm"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {activeCustomers.map((customer) => (
           <div key={`${customer.waitressName}|||${customer.customerName}|||${customer.firstOrderAt}`} className="bg-card border border-border rounded-xl overflow-hidden">
             <div className="px-4 py-3 border-b border-border flex items-start justify-between gap-3">

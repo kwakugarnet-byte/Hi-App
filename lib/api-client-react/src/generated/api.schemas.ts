@@ -21,6 +21,7 @@ export interface StaffMember {
   id: number;
   name: string;
   bonusPercent?: number;
+  bonusLastPaidAt?: string | null;
 }
 
 export interface AdminStaffMember {
@@ -28,6 +29,7 @@ export interface AdminStaffMember {
   name: string;
   role: StaffRole;
   bonusPercent: number;
+  bonusLastPaidAt?: string | null;
 }
 
 export interface CreateStaffBody {

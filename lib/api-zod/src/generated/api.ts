@@ -77,6 +77,7 @@ export const GetStaffResponseItem = zod.object({
   id: zod.number(),
   name: zod.string(),
   bonusPercent: zod.number().optional(),
+  bonusLastPaidAt: zod.string().nullish(),
 });
 export const GetStaffResponse = zod.array(GetStaffResponseItem);
 
@@ -123,6 +124,7 @@ export const GetAdminStaffResponseItem = zod.object({
   name: zod.string(),
   role: zod.enum(["admin", "waitress", "bartender"]),
   bonusPercent: zod.number(),
+  bonusLastPaidAt: zod.string().nullish(),
 });
 export const GetAdminStaffResponse = zod.array(GetAdminStaffResponseItem);
 
@@ -144,6 +146,21 @@ export const CreateStaffBody = zod.object({
     .min(createStaffBodyBonusPercentMin)
     .max(createStaffBodyBonusPercentMax)
     .optional(),
+});
+
+/**
+ * @summary Mark a staff member's bonus as paid (resets accumulation)
+ */
+export const ClearStaffBonusParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ClearStaffBonusResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  role: zod.enum(["admin", "waitress", "bartender"]),
+  bonusPercent: zod.number(),
+  bonusLastPaidAt: zod.string().nullish(),
 });
 
 /**
@@ -179,6 +196,7 @@ export const UpdateStaffResponse = zod.object({
   name: zod.string(),
   role: zod.enum(["admin", "waitress", "bartender"]),
   bonusPercent: zod.number(),
+  bonusLastPaidAt: zod.string().nullish(),
 });
 
 /**

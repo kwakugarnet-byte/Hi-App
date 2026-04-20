@@ -958,6 +958,90 @@ export const useCreateStaff = <
 };
 
 /**
+ * @summary Mark a staff member's bonus as paid (resets accumulation)
+ */
+export const getClearStaffBonusUrl = (id: number) => {
+  return `/api/admin/staff/${id}/clear-bonus`;
+};
+
+export const clearStaffBonus = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminStaffMember> => {
+  return customFetch<AdminStaffMember>(getClearStaffBonusUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getClearStaffBonusMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clearStaffBonus>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof clearStaffBonus>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["clearStaffBonus"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof clearStaffBonus>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return clearStaffBonus(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ClearStaffBonusMutationResult = NonNullable<
+  Awaited<ReturnType<typeof clearStaffBonus>>
+>;
+
+export type ClearStaffBonusMutationError = ErrorType<void>;
+
+/**
+ * @summary Mark a staff member's bonus as paid (resets accumulation)
+ */
+export const useClearStaffBonus = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clearStaffBonus>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof clearStaffBonus>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getClearStaffBonusMutationOptions(options));
+};
+
+/**
  * @summary Update a staff member (admin only)
  */
 export const getUpdateStaffUrl = (id: number) => {

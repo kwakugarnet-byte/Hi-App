@@ -100,10 +100,10 @@ router.delete("/menu-items/:id", requireAdmin, async (req: Request, res: Respons
 
 router.get("/admin/staff", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
   const staff = await db
-    .select({ id: staffTable.id, name: staffTable.name, role: staffTable.role, bonusPercent: staffTable.bonusPercent })
+    .select({ id: staffTable.id, name: staffTable.name, role: staffTable.role, bonusPercent: staffTable.bonusPercent, bonusLastPaidAt: staffTable.bonusLastPaidAt })
     .from(staffTable)
     .orderBy(staffTable.name);
-  res.json(staff);
+  res.json(staff.map((s) => ({ ...s, bonusLastPaidAt: s.bonusLastPaidAt?.toISOString() ?? null })));
 });
 
 router.post("/admin/staff", requireAdmin, async (req: Request, res: Response): Promise<void> => {
@@ -118,7 +118,7 @@ router.post("/admin/staff", requireAdmin, async (req: Request, res: Response): P
   const [member] = await db
     .insert(staffTable)
     .values({ name: parsed.data.name, pinHash, role: parsed.data.role, bonusPercent: parsed.data.bonusPercent ?? 0 })
-    .returning({ id: staffTable.id, name: staffTable.name, role: staffTable.role, bonusPercent: staffTable.bonusPercent });
+    .returning({ id: staffTable.id, name: staffTable.name, role: staffTable.role, bonusPercent: staffTable.bonusPercent, bonusLastPaidAt: staffTable.bonusLastPaidAt });
 
   await logActivity(adminActor(req), "admin", "staff_created", {
     staffId: member.id,
@@ -126,7 +126,7 @@ router.post("/admin/staff", requireAdmin, async (req: Request, res: Response): P
     role: member.role,
   });
 
-  res.status(201).json(member);
+  res.status(201).json({ ...member, bonusLastPaidAt: member.bonusLastPaidAt?.toISOString() ?? null });
 });
 
 router.patch("/admin/staff/:id", requireAdmin, async (req: Request, res: Response): Promise<void> => {
@@ -152,7 +152,7 @@ router.patch("/admin/staff/:id", requireAdmin, async (req: Request, res: Respons
     .update(staffTable)
     .set(update)
     .where(eq(staffTable.id, id))
-    .returning({ id: staffTable.id, name: staffTable.name, role: staffTable.role, bonusPercent: staffTable.bonusPercent });
+    .returning({ id: staffTable.id, name: staffTable.name, role: staffTable.role, bonusPercent: staffTable.bonusPercent, bonusLastPaidAt: staffTable.bonusLastPaidAt });
 
   if (!member) {
     res.status(404).json({ error: "Staff member not found" });
@@ -170,7 +170,35 @@ router.patch("/admin/staff/:id", requireAdmin, async (req: Request, res: Respons
     changes,
   });
 
-  res.json(member);
+  res.json({ ...member, bonusLastPaidAt: member.bonusLastPaidAt?.toISOString() ?? null });
+});
+
+router.post("/admin/staff/:id/clear-bonus", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+
+  const now = new Date();
+  const [member] = await db
+    .update(staffTable)
+    .set({ bonusLastPaidAt: now })
+    .where(eq(staffTable.id, id))
+    .returning({ id: staffTable.id, name: staffTable.name, role: staffTable.role, bonusPercent: staffTable.bonusPercent, bonusLastPaidAt: staffTable.bonusLastPaidAt });
+
+  if (!member) {
+    res.status(404).json({ error: "Staff member not found" });
+    return;
+  }
+
+  await logActivity(adminActor(req), "admin", "bonus_cleared", {
+    staffId: id,
+    name: member.name,
+    clearedAt: now.toISOString(),
+  });
+
+  res.json({ ...member, bonusLastPaidAt: member.bonusLastPaidAt?.toISOString() ?? null });
 });
 
 router.delete("/admin/staff/:id", requireAdmin, async (req: Request, res: Response): Promise<void> => {

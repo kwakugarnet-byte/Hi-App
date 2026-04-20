@@ -12,4 +12,5 @@ export interface AdminStaffMember {
   name: string;
   role: StaffRole;
   bonusPercent: number;
+  bonusLastPaidAt?: string | null;
 }

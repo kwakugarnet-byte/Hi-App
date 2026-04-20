@@ -10,4 +10,5 @@ export interface StaffMember {
   id: number;
   name: string;
   bonusPercent?: number;
+  bonusLastPaidAt?: string | null;
 }
