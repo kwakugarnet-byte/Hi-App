@@ -236,6 +236,7 @@ export default function Bills() {
   const clearBonus = useClearStaffBonus();
 
   const [bonusClearConfirm, setBonusClearConfirm] = useState<number | null>(null);
+  const [bonusDeduction, setBonusDeduction] = useState("");
   const [returnModal, setReturnModal] = useState<{ round: Round; customerName: string; waitressName: string } | null>(null);
   const [returnSelectedIds, setReturnSelectedIds] = useState<Set<number>>(new Set());
 
@@ -612,11 +613,15 @@ export default function Bills() {
                         )}
                       </div>
                       <button
-                        onClick={() =>
-                          bonusClearConfirm === w.id
-                            ? setBonusClearConfirm(null)
-                            : setBonusClearConfirm(w.id)
-                        }
+                        onClick={() => {
+                          if (bonusClearConfirm === w.id) {
+                            setBonusClearConfirm(null);
+                            setBonusDeduction("");
+                          } else {
+                            setBonusClearConfirm(w.id);
+                            setBonusDeduction("");
+                          }
+                        }}
                         disabled={w.bonusOwed === 0}
                         className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                       >
@@ -626,43 +631,87 @@ export default function Bills() {
                     </div>
                   </div>
                   {/* Inline confirm panel */}
-                  {bonusClearConfirm === w.id && (
-                    <div className="px-4 py-3 bg-emerald-500/5 border-t border-emerald-500/20 flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-xs font-black text-emerald-400 uppercase tracking-wide">
-                          Mark {w.name}'s bonus as paid?
-                        </p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          {formatPrice(w.bonusOwed)} bonus will be recorded as paid. Accumulation resets from now.
-                        </p>
+                  {bonusClearConfirm === w.id && (() => {
+                    const deductPence = Math.max(0, Math.round(parseFloat(bonusDeduction || "0") * 100));
+                    const netPayout = Math.max(0, w.bonusOwed - deductPence);
+                    const hasDeduction = deductPence > 0;
+                    return (
+                      <div className="px-4 py-3 bg-emerald-500/5 border-t border-emerald-500/20 space-y-3">
+                        {/* Deduction input row */}
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 min-w-0">
+                            <label className="text-[10px] font-black uppercase tracking-wide text-muted-foreground block mb-1">
+                              Losses / Deduction (₵)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder="0.00"
+                              value={bonusDeduction}
+                              onChange={(e) => setBonusDeduction(e.target.value)}
+                              className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm font-bold tabular-nums text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+                            />
+                          </div>
+                          {/* Payout breakdown */}
+                          <div className="text-right shrink-0">
+                            {hasDeduction ? (
+                              <>
+                                <div className="text-[10px] text-muted-foreground line-through tabular-nums">{formatPrice(w.bonusOwed)}</div>
+                                <div className="text-[10px] text-red-400 font-bold tabular-nums">− {formatPrice(deductPence)}</div>
+                                <div className="text-base font-black text-emerald-400 tabular-nums">{formatPrice(netPayout)}</div>
+                                <div className="text-[9px] text-muted-foreground uppercase tracking-wide">net payout</div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="text-base font-black text-emerald-400 tabular-nums">{formatPrice(w.bonusOwed)}</div>
+                                <div className="text-[9px] text-muted-foreground uppercase tracking-wide">payout</div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {/* Confirm / cancel */}
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-[11px] text-muted-foreground">
+                            {hasDeduction
+                              ? `${formatPrice(deductPence)} deducted for losses — ${formatPrice(netPayout)} paid to ${w.name}. Accumulation resets from now.`
+                              : `${formatPrice(w.bonusOwed)} will be recorded as paid. Accumulation resets from now.`}
+                          </p>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => { setBonusClearConfirm(null); setBonusDeduction(""); }}
+                              className="text-[10px] font-bold text-muted-foreground hover:text-foreground uppercase tracking-wide px-2 py-1 rounded-lg border border-border hover:border-muted-foreground/50 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await clearBonus.mutateAsync({ id: w.id });
+                                  await queryClient.invalidateQueries({ queryKey: getGetStaffQueryKey() });
+                                  setBonusClearConfirm(null);
+                                  setBonusDeduction("");
+                                  toast({
+                                    title: `${w.name}'s bonus marked as paid`,
+                                    description: hasDeduction
+                                      ? `${formatPrice(netPayout)} paid out (${formatPrice(deductPence)} deducted for losses).`
+                                      : `${formatPrice(w.bonusOwed)} recorded.`,
+                                  });
+                                } catch {
+                                  toast({ title: "Failed to clear bonus", variant: "destructive" });
+                                }
+                              }}
+                              disabled={clearBonus.isPending}
+                              className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-50"
+                            >
+                              <CheckCircle2 className="w-3 h-3" />
+                              {clearBonus.isPending ? "Saving…" : "Confirm"}
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={() => setBonusClearConfirm(null)}
-                          className="text-[10px] font-bold text-muted-foreground hover:text-foreground uppercase tracking-wide px-2 py-1 rounded-lg border border-border hover:border-muted-foreground/50 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={async () => {
-                            try {
-                              await clearBonus.mutateAsync({ id: w.id });
-                              await queryClient.invalidateQueries({ queryKey: getGetStaffQueryKey() });
-                              setBonusClearConfirm(null);
-                              toast({ title: `${w.name}'s bonus marked as paid`, description: `${formatPrice(w.bonusOwed)} recorded.` });
-                            } catch {
-                              toast({ title: "Failed to clear bonus", variant: "destructive" });
-                            }
-                          }}
-                          disabled={clearBonus.isPending}
-                          className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-50"
-                        >
-                          <CheckCircle2 className="w-3 h-3" />
-                          {clearBonus.isPending ? "Saving…" : "Confirm"}
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               ))}
             </div>
