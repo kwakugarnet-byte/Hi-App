@@ -373,8 +373,9 @@ export default function Bills() {
     [activeCustomers]
   );
 
-  // Date-range filtered history
+  // Date-range filtered history — admin only; others see everything
   const filteredHistoryCustomers = useMemo(() => {
+    if (!isAdmin) return historyCustomers;
     if (salesRange === "custom") {
       const start = customStart ? new Date(customStart + "T00:00:00") : null;
       const end   = customEnd   ? new Date(customEnd   + "T23:59:59") : null;
@@ -389,7 +390,7 @@ export default function Bills() {
     const days = salesRange === "7d" ? 7 : salesRange === "30d" ? 30 : salesRange === "90d" ? 90 : 365;
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     return historyCustomers.filter((c) => new Date(c.firstOrderAt) >= cutoff);
-  }, [historyCustomers, salesRange, customStart, customEnd]);
+  }, [historyCustomers, isAdmin, salesRange, customStart, customEnd]);
 
   const totalSales = useMemo(
     () => filteredHistoryCustomers.reduce((sum, c) => sum + c.total, 0),
@@ -870,46 +871,48 @@ export default function Bills() {
       </div>
     ) : (
       <>
-        {/* Date range filter bar */}
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="px-3 py-2.5 flex items-center gap-1.5 flex-wrap">
-            {(["7d", "30d", "90d", "1y", "custom"] as const).map((r) => (
-              <button
-                key={r}
-                onClick={() => setSalesRange(r)}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wide transition-all ${
-                  salesRange === r
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
-                }`}
-              >
-                {RANGE_LABELS[r]}
-              </button>
-            ))}
-          </div>
-          {salesRange === "custom" && (
-            <div className="px-3 pb-2.5 flex items-center gap-2 border-t border-border/50 pt-2">
-              <div className="flex-1">
-                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground block mb-1">From</label>
-                <input
-                  type="date"
-                  value={customStart}
-                  onChange={(e) => setCustomStart(e.target.value)}
-                  className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
-                />
-              </div>
-              <div className="flex-1">
-                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground block mb-1">To</label>
-                <input
-                  type="date"
-                  value={customEnd}
-                  onChange={(e) => setCustomEnd(e.target.value)}
-                  className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
-                />
-              </div>
+        {/* Date range filter bar — admin only */}
+        {isAdmin && (
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="px-3 py-2.5 flex items-center gap-1.5 flex-wrap">
+              {(["7d", "30d", "90d", "1y", "custom"] as const).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setSalesRange(r)}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wide transition-all ${
+                    salesRange === r
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                  }`}
+                >
+                  {RANGE_LABELS[r]}
+                </button>
+              ))}
             </div>
-          )}
-        </div>
+            {salesRange === "custom" && (
+              <div className="px-3 pb-2.5 flex items-center gap-2 border-t border-border/50 pt-2">
+                <div className="flex-1">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground block mb-1">From</label>
+                  <input
+                    type="date"
+                    value={customStart}
+                    onChange={(e) => setCustomStart(e.target.value)}
+                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground block mb-1">To</label>
+                  <input
+                    type="date"
+                    value={customEnd}
+                    onChange={(e) => setCustomEnd(e.target.value)}
+                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Grand total card — admin only */}
         {isAdmin && (
