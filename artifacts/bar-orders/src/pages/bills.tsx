@@ -735,7 +735,7 @@ export default function Bills() {
                 <p className="text-2xl font-black text-primary">{formatPrice(customer.total)}</p>
                 <p className="text-xs text-muted-foreground flex items-center justify-end gap-1">
                   <Clock className="w-3 h-3" />
-                  {format(new Date(customer.firstOrderAt), "h:mm a")}
+                  {format(new Date(customer.firstOrderAt), "d MMM · h:mm a")}
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -847,6 +847,21 @@ export default function Bills() {
       </div>
     ) : (
       <>
+        {/* Grand total card — admin only */}
+        {isAdmin && (
+          <div className="bg-green-500/5 border border-green-500/30 rounded-xl px-4 py-3.5 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest text-green-400">Total Sales</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {historyCustomers.length} paid bill{historyCustomers.length !== 1 ? "s" : ""} · {waiterSales.length} waiter{waiterSales.length !== 1 ? "s" : ""}
+              </p>
+            </div>
+            <span className="text-3xl font-black text-green-400 tabular-nums">
+              {formatPrice(historyCustomers.reduce((s, c) => s + c.total, 0))}
+            </span>
+          </div>
+        )}
+
         {waiterSales.length > 0 && (
           <div className="bg-card border border-border rounded-xl overflow-hidden">
             <div className="px-4 py-2.5 border-b border-border flex items-center gap-2">
@@ -896,7 +911,7 @@ export default function Bills() {
                 {!isWaitress && <p className="text-xl font-black text-primary/80">{formatPrice(customer.total)}</p>}
                 <p className="text-xs text-muted-foreground/60 flex items-center justify-end gap-1 mt-1">
                   <Clock className="w-3 h-3" />
-                  {format(new Date(customer.firstOrderAt), "h:mm a")}
+                  {format(new Date(customer.firstOrderAt), "d MMM · h:mm a")}
                 </p>
               </div>
             </div>
