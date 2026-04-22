@@ -12,6 +12,7 @@ import {
   SettleWaiterAccountBody,
   SettleWaiterAccountResponse,
   ReturnOrderBatchParams,
+  ReturnOrderBatchBody,
   ReturnOrderBatchResponse,
   ResubmitOrderBatchParams,
   ResubmitOrderBatchBody,

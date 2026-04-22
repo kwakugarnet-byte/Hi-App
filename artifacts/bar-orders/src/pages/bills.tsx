@@ -278,8 +278,9 @@ export default function Bills() {
       await queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
       toast({ title: "Returned to Waitress", description: `Order sent back to ${returnModal.waitressName} for correction.` });
       setReturnModal(null);
-    } catch {
-      toast({ title: "Failed to return order", variant: "destructive" });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast({ title: "Failed to return order", description: msg, variant: "destructive" });
     }
   }
 
@@ -1353,32 +1354,31 @@ export default function Bills() {
               return (
                 <div
                   key={item.id}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all ${
-                    isSelected ? "border-orange-500 bg-orange-500/10" : "border-border bg-background"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => toggleReturnItem(item.id)}
+                  onKeyDown={(e) => e.key === "Enter" || e.key === " " ? toggleReturnItem(item.id) : undefined}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all cursor-pointer select-none ${
+                    isSelected ? "border-orange-500 bg-orange-500/10" : "border-border bg-background hover:border-orange-300/50"
                   }`}
                 >
-                  {/* Checkbox toggle */}
-                  <button
-                    type="button"
-                    onClick={() => toggleReturnItem(item.id)}
+                  {/* Checkbox visual */}
+                  <div
                     className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
-                      isSelected ? "border-orange-500 bg-orange-500" : "border-border hover:border-orange-400"
+                      isSelected ? "border-orange-500 bg-orange-500" : "border-border"
                     }`}
                   >
                     {isSelected && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                  </button>
+                  </div>
 
                   {/* Item name */}
-                  <span
-                    className="flex-1 text-sm font-medium text-foreground cursor-pointer"
-                    onClick={() => toggleReturnItem(item.id)}
-                  >
+                  <span className="flex-1 text-sm font-medium text-foreground">
                     {item.menuItemName}
                   </span>
 
                   {/* Qty controls (only when selected and qty > 1) */}
                   {isSelected && item.quantity > 1 ? (
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
                         onClick={() => adjustReturnQty(item.id, -1, item.quantity)}
