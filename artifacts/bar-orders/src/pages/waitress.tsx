@@ -73,9 +73,15 @@ export default function Waitress() {
   } | null>(null);
 
   function startEditing(batch: typeof returnedBatches[number]) {
-    const correctionIds = batch.correctionItemIds as number[] | null | undefined;
-    const itemsToPreFill = correctionIds && correctionIds.length > 0
-      ? batch.items.filter((i) => correctionIds.includes(i.id))
+    const correctionIds = (batch.correctionItemIds ?? []) as number[];
+    // Build a qty map: count occurrences of each item id to get return quantity
+    const correctionQtyMap = new Map<number, number>();
+    for (const id of correctionIds) {
+      correctionQtyMap.set(id, (correctionQtyMap.get(id) ?? 0) + 1);
+    }
+
+    const itemsToPreFill = correctionQtyMap.size > 0
+      ? batch.items.filter((i) => correctionQtyMap.has(i.id))
       : batch.items;
 
     const itemMap: Record<number, SelectedItem> = {};
@@ -83,10 +89,15 @@ export default function Waitress() {
       itemMap[item.menuItemId] = {
         menuItemId: item.menuItemId,
         menuItemName: item.menuItemName,
-        quantity: item.quantity,
+        quantity: correctionQtyMap.get(item.id) ?? item.quantity,
       };
     }
-    setEditingReturn({ batchId: batch.id, customerName: batch.customerName, items: itemMap, flaggedCount: correctionIds?.length ?? batch.items.length });
+    setEditingReturn({
+      batchId: batch.id,
+      customerName: batch.customerName,
+      items: itemMap,
+      flaggedCount: correctionQtyMap.size > 0 ? correctionQtyMap.size : batch.items.length,
+    });
   }
 
   function editQty(id: number, name: string, delta: number) {
@@ -361,10 +372,15 @@ export default function Waitress() {
                 <div className="min-w-0">
                   <p className="text-sm font-black uppercase tracking-tight text-foreground truncate">{batch.customerName}</p>
                   <p className="text-[11px] text-orange-400/80 mt-0.5 truncate">
-                    {(batch.correctionItemIds && (batch.correctionItemIds as number[]).length > 0
-                      ? batch.items.filter((i) => (batch.correctionItemIds as number[]).includes(i.id))
-                      : batch.items
-                    ).map((i) => `${i.quantity}× ${i.menuItemName}`).join(", ")}
+                    {(() => {
+                      const ids = (batch.correctionItemIds ?? []) as number[];
+                      const qtyMap = new Map<number, number>();
+                      for (const id of ids) qtyMap.set(id, (qtyMap.get(id) ?? 0) + 1);
+                      const display = qtyMap.size > 0
+                        ? batch.items.filter((i) => qtyMap.has(i.id))
+                        : batch.items;
+                      return display.map((i) => `${qtyMap.get(i.id) ?? i.quantity}× ${i.menuItemName}`).join(", ");
+                    })()}
                   </p>
                 </div>
                 <button

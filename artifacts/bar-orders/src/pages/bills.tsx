@@ -241,25 +241,38 @@ export default function Bills() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [returnModal, setReturnModal] = useState<{ round: Round; customerName: string; waitressName: string } | null>(null);
-  const [returnSelectedIds, setReturnSelectedIds] = useState<Set<number>>(new Set());
+  const [returnQtys, setReturnQtys] = useState<Map<number, number>>(new Map());
 
   function openReturnModal(round: Round, customerName: string, waitressName: string) {
-    setReturnSelectedIds(new Set(round.items.map((i) => i.id)));
+    setReturnQtys(new Map());
     setReturnModal({ round, customerName, waitressName });
   }
 
   function toggleReturnItem(id: number) {
-    setReturnSelectedIds((prev) => {
-      const next = new Set(prev);
+    setReturnQtys((prev) => {
+      const next = new Map(prev);
       if (next.has(id)) next.delete(id);
-      else next.add(id);
+      else next.set(id, 1);
+      return next;
+    });
+  }
+
+  function adjustReturnQty(id: number, delta: number, maxQty: number) {
+    setReturnQtys((prev) => {
+      const next = new Map(prev);
+      const current = next.get(id) ?? 1;
+      const newQty = Math.max(1, Math.min(maxQty, current + delta));
+      next.set(id, newQty);
       return next;
     });
   }
 
   async function confirmReturn() {
     if (!returnModal) return;
-    const correctionItemIds = Array.from(returnSelectedIds);
+    const correctionItemIds: number[] = [];
+    for (const [id, qty] of returnQtys) {
+      for (let i = 0; i < qty; i++) correctionItemIds.push(id);
+    }
     try {
       await returnBatch.mutateAsync({ id: returnModal.round.id, data: { correctionItemIds } });
       await queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
@@ -1329,32 +1342,65 @@ export default function Bills() {
 
           {/* Instruction */}
           <div className="px-4 pt-3 pb-1">
-            <p className="text-xs text-muted-foreground">Select the items that need correction. The waitress will see only the flagged items highlighted on their screen.</p>
+            <p className="text-xs text-muted-foreground">Tap an item to flag it for return. For multiple quantities, use the +/− to choose how many to send back.</p>
           </div>
 
-          {/* Item checkboxes */}
+          {/* Item rows */}
           <div className="px-4 py-3 space-y-2 max-h-72 overflow-y-auto">
             {returnModal.round.items.map((item) => {
-              const checked = returnSelectedIds.has(item.id);
+              const returnQty = returnQtys.get(item.id) ?? 0;
+              const isSelected = returnQty > 0;
               return (
-                <button
+                <div
                   key={item.id}
-                  type="button"
-                  onClick={() => toggleReturnItem(item.id)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${
-                    checked
-                      ? "border-orange-500 bg-orange-500/10"
-                      : "border-border bg-background hover:border-orange-500/40"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all ${
+                    isSelected ? "border-orange-500 bg-orange-500/10" : "border-border bg-background"
                   }`}
                 >
-                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
-                    checked ? "border-orange-500 bg-orange-500" : "border-border"
-                  }`}>
-                    {checked && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                  </div>
-                  <span className="flex-1 text-sm font-medium text-foreground">{item.menuItemName}</span>
-                  <span className="text-xs text-muted-foreground font-bold shrink-0">×{item.quantity}</span>
-                </button>
+                  {/* Checkbox toggle */}
+                  <button
+                    type="button"
+                    onClick={() => toggleReturnItem(item.id)}
+                    className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
+                      isSelected ? "border-orange-500 bg-orange-500" : "border-border hover:border-orange-400"
+                    }`}
+                  >
+                    {isSelected && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </button>
+
+                  {/* Item name */}
+                  <span
+                    className="flex-1 text-sm font-medium text-foreground cursor-pointer"
+                    onClick={() => toggleReturnItem(item.id)}
+                  >
+                    {item.menuItemName}
+                  </span>
+
+                  {/* Qty controls (only when selected and qty > 1) */}
+                  {isSelected && item.quantity > 1 ? (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => adjustReturnQty(item.id, -1, item.quantity)}
+                        className="w-6 h-6 rounded-md border border-orange-500/40 flex items-center justify-center text-orange-400 hover:bg-orange-500/20 transition-colors text-base leading-none"
+                      >
+                        −
+                      </button>
+                      <span className="w-10 text-center text-xs font-black text-orange-400">
+                        {returnQty}/{item.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => adjustReturnQty(item.id, 1, item.quantity)}
+                        className="w-6 h-6 rounded-md border border-orange-500/40 flex items-center justify-center text-orange-400 hover:bg-orange-500/20 transition-colors text-base leading-none"
+                      >
+                        +
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground font-bold shrink-0">×{item.quantity}</span>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -1369,11 +1415,11 @@ export default function Bills() {
             </button>
             <button
               onClick={confirmReturn}
-              disabled={returnSelectedIds.size === 0 || returnBatch.isPending}
+              disabled={returnQtys.size === 0 || returnBatch.isPending}
               className="flex-1 h-11 rounded-xl bg-orange-500 hover:bg-orange-400 text-white text-sm font-black uppercase tracking-wide transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <RotateCcw className="w-4 h-4" />
-              {returnBatch.isPending ? "Returning..." : `Return ${returnSelectedIds.size} Item${returnSelectedIds.size !== 1 ? "s" : ""}`}
+              {returnBatch.isPending ? "Returning..." : `Return ${[...returnQtys.values()].reduce((s, q) => s + q, 0)} Item${[...returnQtys.values()].reduce((s, q) => s + q, 0) !== 1 ? "s" : ""}`}
             </button>
           </div>
         </div>
