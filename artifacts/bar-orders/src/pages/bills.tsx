@@ -348,6 +348,11 @@ export default function Bills() {
     return [...new Set(batches.map((b) => b.waitressName))].sort();
   }, [batches]);
 
+  const historyWaiterNames = useMemo(() => {
+    if (!batches) return [];
+    return [...new Set(batches.filter((b) => b.status === "paid").map((b) => b.waitressName))].sort();
+  }, [batches]);
+
   const activeCustomers = useMemo(() => {
     if (!batches) return [];
     const unpaid = batches.filter((b) => {
@@ -1216,7 +1221,7 @@ export default function Bills() {
         {/* Tabs */}
         <div className="px-4 pb-3 flex gap-2">
           <button
-            onClick={() => setTab("active")}
+            onClick={() => { setTab("active"); setSelectedWaiter(null); }}
             className={`flex-1 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest border transition-colors ${
               tab === "active"
                 ? "bg-primary text-primary-foreground border-primary"
@@ -1226,7 +1231,7 @@ export default function Bills() {
             Active Bills
           </button>
           <button
-            onClick={() => setTab("history")}
+            onClick={() => { setTab("history"); setSelectedWaiter(null); }}
             className={`flex-1 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest border transition-colors ${
               tab === "history"
                 ? "bg-primary text-primary-foreground border-primary"
@@ -1238,9 +1243,9 @@ export default function Bills() {
         </div>
 
         {/* Waiter filter chips — both tabs, admin/bartender only */}
-        {!isWaitress && waiterNames.length > 1 && (
+        {!isWaitress && (tab === "active" ? waiterNames : historyWaiterNames).length > 1 && (
           <div className="px-4 pb-3 flex items-center gap-2 overflow-x-auto">
-            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground shrink-0">Filter:</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground shrink-0">Waiter:</span>
             <button
               onClick={() => setSelectedWaiter(null)}
               className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border transition-colors ${
@@ -1251,7 +1256,7 @@ export default function Bills() {
             >
               All
             </button>
-            {waiterNames.map((name) => (
+            {(tab === "active" ? waiterNames : historyWaiterNames).map((name) => (
               <button
                 key={name}
                 onClick={() => setSelectedWaiter(selectedWaiter === name ? null : name)}
