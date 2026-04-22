@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Link, Redirect } from "wouter";
-import { ArrowLeft, Send, Plus, Minus, Trash2, AlertTriangle, RotateCcw, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Send, Plus, Minus, Trash2, AlertTriangle, RotateCcw, CheckCircle2, Search, X } from "lucide-react";
 import {
   useGetMenuItems,
   useGetOrderBatches,
@@ -55,6 +55,7 @@ export default function Waitress() {
 
   const [customerName, setCustomerName] = useState("");
   const [activeTab, setActiveTab] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selected, setSelected] = useState<Record<number, SelectedItem>>({});
   const [nameError, setNameError] = useState(false);
   const [voidConfirmId, setVoidConfirmId] = useState<number | null>(null);
@@ -127,6 +128,8 @@ export default function Waitress() {
         quantity: correctionQtyMap.get(item.id) ?? item.quantity,
       };
     }
+    setSearchQuery("");
+    setActiveTab(null);
     setEditingReturn({
       batchId: batch.id,
       customerName: batch.customerName,
@@ -186,16 +189,22 @@ export default function Waitress() {
 
   const categories = useMemo(() => {
     if (!menuItems) return [];
-    const cats = Array.from(new Set(menuItems.map((i) => i.category)));
-    return cats;
+    return Array.from(new Set(menuItems.map((i) => i.category))).sort();
   }, [menuItems]);
 
-  const currentTab = activeTab ?? categories[0] ?? null;
+  const currentTab = activeTab ?? "All";
 
   const itemsInTab = useMemo(() => {
-    if (!menuItems || !currentTab) return [];
-    return menuItems.filter((i) => i.category === currentTab);
-  }, [menuItems, currentTab]);
+    if (!menuItems) return [];
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      return [...menuItems].filter((i) => i.name.toLowerCase().includes(q)).sort((a, b) => a.name.localeCompare(b.name));
+    }
+    if (currentTab === "All") {
+      return [...menuItems].sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return menuItems.filter((i) => i.category === currentTab).sort((a, b) => a.name.localeCompare(b.name));
+  }, [menuItems, currentTab, searchQuery]);
 
   const selectedList = Object.values(selected);
   const totalItems = selectedList.reduce((sum, i) => sum + i.quantity, 0);
@@ -264,7 +273,7 @@ export default function Waitress() {
     return (
       <div className="min-h-[100dvh] bg-background text-foreground flex flex-col">
         <header className="sticky top-0 z-20 bg-orange-500/10 border-b border-orange-500/40 px-4 py-3 flex items-center justify-between shrink-0">
-          <button onClick={() => setEditingReturn(null)} className="p-2 text-muted-foreground hover:text-foreground">
+          <button onClick={() => { setEditingReturn(null); setSearchQuery(""); setActiveTab(null); }} className="p-2 text-muted-foreground hover:text-foreground">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="text-center">
@@ -282,51 +291,82 @@ export default function Waitress() {
           </p>
         </div>
 
-        {/* Category tabs */}
-        <div className="shrink-0 overflow-x-auto border-b border-border bg-card">
-          <div className="flex gap-1 px-4 py-2 min-w-max">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveTab(cat)}
-                className={`px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-all ${
-                  currentTab === cat
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-                }`}
-              >
-                {cat}
+        {/* Search bar */}
+        <div className="shrink-0 px-4 pt-3 pb-2 border-b border-border bg-card">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search drinks…"
+              className="w-full h-10 pl-9 pr-9 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-orange-500 transition-colors"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X className="w-4 h-4" />
               </button>
-            ))}
+            )}
           </div>
         </div>
 
-        {/* Drink grid */}
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-4">
-            {itemsInTab.map((item) => {
-              const qty = editingReturn.items[item.id]?.quantity ?? 0;
-              return (
+        {/* Category tabs */}
+        {!searchQuery && (
+          <div className="shrink-0 overflow-x-auto border-b border-border bg-card">
+            <div className="flex gap-1 px-4 py-2 min-w-max">
+              {["All", ...categories].map((cat) => (
                 <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => addEditItem(item.id, item.name)}
-                  className={`relative rounded-xl border p-4 text-left transition-all active:scale-95 ${
-                    qty > 0
-                      ? "border-orange-500 bg-orange-500/10 text-foreground"
-                      : "border-border bg-card text-muted-foreground hover:border-orange-500/50 hover:text-foreground"
+                  key={cat}
+                  onClick={() => { setActiveTab(cat === "All" ? null : cat); setSearchQuery(""); }}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-all ${
+                    currentTab === cat
+                      ? "bg-orange-500 text-white"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
                   }`}
                 >
-                  <span className="block font-semibold text-sm leading-snug">{item.name}</span>
-                  {qty > 0 && (
-                    <span className="absolute top-2 right-2 bg-orange-500 text-white text-xs font-black w-6 h-6 flex items-center justify-center rounded-full">
-                      {qty}
-                    </span>
-                  )}
+                  {cat}
                 </button>
-              );
-            })}
+              ))}
+            </div>
           </div>
+        )}
+
+        {/* Drink grid */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {itemsInTab.length === 0 && searchQuery ? (
+            <div className="flex flex-col items-center justify-center h-32 text-muted-foreground gap-2">
+              <Search className="w-6 h-6 opacity-30" />
+              <p className="text-sm">No drinks match "{searchQuery}"</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-4">
+              {itemsInTab.map((item) => {
+                const qty = editingReturn.items[item.id]?.quantity ?? 0;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => addEditItem(item.id, item.name)}
+                    className={`relative rounded-xl border p-4 text-left transition-all active:scale-95 ${
+                      qty > 0
+                        ? "border-orange-500 bg-orange-500/10 text-foreground"
+                        : "border-border bg-card text-muted-foreground hover:border-orange-500/50 hover:text-foreground"
+                    }`}
+                  >
+                    <span className="block font-semibold text-sm leading-snug">{item.name}</span>
+                    {searchQuery && (
+                      <span className="block text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wide">{item.category}</span>
+                    )}
+                    {qty > 0 && (
+                      <span className="absolute top-2 right-2 bg-orange-500 text-white text-xs font-black w-6 h-6 flex items-center justify-center rounded-full">
+                        {qty}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Correction summary + send back */}
@@ -546,51 +586,85 @@ export default function Waitress() {
             </div>
           ) : (
             <div className="flex flex-col flex-1 min-h-0">
-              {/* Tab strip */}
-              <div className="shrink-0 overflow-x-auto border-b border-border bg-card">
-                <div className="flex gap-1 px-4 py-2 min-w-max">
-                  {categories.map((cat) => (
+              {/* Search bar */}
+              <div className="shrink-0 px-4 pt-3 pb-2 border-b border-border bg-card">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search drinks…"
+                    className="w-full h-10 pl-9 pr-9 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+                  />
+                  {searchQuery && (
                     <button
-                      key={cat}
-                      onClick={() => setActiveTab(cat)}
-                      className={`px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-all ${
-                        currentTab === cat
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-                      }`}
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     >
-                      {cat}
+                      <X className="w-4 h-4" />
                     </button>
-                  ))}
+                  )}
                 </div>
               </div>
 
-              {/* Drink grid */}
-              <div className="flex-1 overflow-y-auto p-4">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-4">
-                  {itemsInTab.map((item) => {
-                    const qty = selected[item.id]?.quantity ?? 0;
-                    return (
+              {/* Tab strip */}
+              {!searchQuery && (
+                <div className="shrink-0 overflow-x-auto border-b border-border bg-card">
+                  <div className="flex gap-1 px-4 py-2 min-w-max">
+                    {["All", ...categories].map((cat) => (
                       <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => addItem(item.id, item.name)}
-                        className={`relative rounded-xl border p-4 text-left transition-all active:scale-95 ${
-                          qty > 0
-                            ? "border-primary bg-primary/10 text-foreground"
-                            : "border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                        key={cat}
+                        onClick={() => { setActiveTab(cat === "All" ? null : cat); setSearchQuery(""); }}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-all ${
+                          currentTab === cat
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
                         }`}
                       >
-                        <span className="block font-semibold text-sm leading-snug">{item.name}</span>
-                        {qty > 0 && (
-                          <span className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs font-black w-6 h-6 flex items-center justify-center rounded-full">
-                            {qty}
-                          </span>
-                        )}
+                        {cat}
                       </button>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
+              )}
+
+              {/* Drink grid */}
+              <div className="flex-1 overflow-y-auto p-4">
+                {itemsInTab.length === 0 && searchQuery ? (
+                  <div className="flex flex-col items-center justify-center h-32 text-muted-foreground gap-2">
+                    <Search className="w-6 h-6 opacity-30" />
+                    <p className="text-sm">No drinks match "{searchQuery}"</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-4">
+                    {itemsInTab.map((item) => {
+                      const qty = selected[item.id]?.quantity ?? 0;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => addItem(item.id, item.name)}
+                          className={`relative rounded-xl border p-4 text-left transition-all active:scale-95 ${
+                            qty > 0
+                              ? "border-primary bg-primary/10 text-foreground"
+                              : "border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                          }`}
+                        >
+                          <span className="block font-semibold text-sm leading-snug">{item.name}</span>
+                          {searchQuery && (
+                            <span className="block text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wide">{item.category}</span>
+                          )}
+                          {qty > 0 && (
+                            <span className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs font-black w-6 h-6 flex items-center justify-center rounded-full">
+                              {qty}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           )}
