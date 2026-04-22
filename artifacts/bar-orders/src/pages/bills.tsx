@@ -223,10 +223,13 @@ export default function Bills() {
     return map;
   }, [staffList]);
 
-  // Set of staff names whose shift has ended today — their bills are admin-only to clear
+  // Set of staff names whose shift has ended today with NO active shift — their bills are admin-only to clear
   const endedStaffNames = useMemo(() => {
     if (!shifts) return new Set<string>();
-    return new Set(shifts.filter((s) => s.endedAt).map((s) => s.staffName));
+    const activeNames = new Set(shifts.filter((s) => !s.endedAt).map((s) => s.staffName));
+    const endedNames = new Set(shifts.filter((s) => s.endedAt).map((s) => s.staffName));
+    // Only flag as ended if they have no currently-active shift
+    return new Set([...endedNames].filter((name) => !activeNames.has(name)));
   }, [shifts]);
 
   const payBatch = usePayOrderBatch();

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, eq, gte, inArray, lte, ne } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, ne } from "drizzle-orm";
 import { db, menuItemsTable, orderBatchesTable, orderItemsTable, shiftsTable } from "@workspace/db";
 import {
   GetMenuItemsResponse,
@@ -336,7 +336,8 @@ router.post("/order-batches/:id/pay", async (req, res): Promise<void> => {
       const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
       const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
-      const [endedShift] = await db
+      // Get the latest shift for this waitress today — if it has ended, block the payment
+      const [latestShift] = await db
         .select({ endedAt: shiftsTable.endedAt })
         .from(shiftsTable)
         .where(
@@ -346,10 +347,10 @@ router.post("/order-batches/:id/pay", async (req, res): Promise<void> => {
             lte(shiftsTable.startedAt, dayEnd),
           )
         )
-        .orderBy(shiftsTable.startedAt)
+        .orderBy(desc(shiftsTable.startedAt))
         .limit(1);
 
-      if (endedShift?.endedAt) {
+      if (latestShift?.endedAt) {
         res.status(403).json({ error: "Admin clearance required: this waitress has ended their shift." });
         return;
       }

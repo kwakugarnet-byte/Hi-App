@@ -147,12 +147,12 @@ export default function Home() {
               </div>
 
               {shiftEnded ? (
-                /* Day fully ended */
+                /* Day fully ended — allow starting another shift */
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 min-w-0">
                     <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-sm font-black text-green-500 uppercase tracking-wide">Day Completed</p>
+                      <p className="text-sm font-black text-green-500 uppercase tracking-wide">Shift Ended</p>
                       <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
                         <Clock className="w-3 h-3 shrink-0" />
                         {format(new Date(shift.startedAt), "h:mm a")}
@@ -161,6 +161,14 @@ export default function Home() {
                       </p>
                     </div>
                   </div>
+                  <button
+                    onClick={() => startShift.mutate()}
+                    disabled={startShift.isPending}
+                    className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-xs font-black uppercase tracking-wide disabled:opacity-50"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    New Shift
+                  </button>
                 </div>
               ) : shiftActive ? (
                 /* Shift in progress */
