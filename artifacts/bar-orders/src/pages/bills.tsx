@@ -237,6 +237,9 @@ export default function Bills() {
 
   const [bonusClearConfirm, setBonusClearConfirm] = useState<number | null>(null);
   const [bonusDeduction, setBonusDeduction] = useState("");
+  const [salesRange, setSalesRange] = useState<"7d" | "30d" | "90d" | "1y" | "custom">("30d");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
   const [returnModal, setReturnModal] = useState<{ round: Round; customerName: string; waitressName: string } | null>(null);
   const [returnSelectedIds, setReturnSelectedIds] = useState<Set<number>>(new Set());
 
@@ -370,9 +373,27 @@ export default function Bills() {
     [activeCustomers]
   );
 
+  // Date-range filtered history
+  const filteredHistoryCustomers = useMemo(() => {
+    if (salesRange === "custom") {
+      const start = customStart ? new Date(customStart + "T00:00:00") : null;
+      const end   = customEnd   ? new Date(customEnd   + "T23:59:59") : null;
+      if (!start && !end) return historyCustomers;
+      return historyCustomers.filter((c) => {
+        const d = new Date(c.firstOrderAt);
+        if (start && d < start) return false;
+        if (end   && d > end)   return false;
+        return true;
+      });
+    }
+    const days = salesRange === "7d" ? 7 : salesRange === "30d" ? 30 : salesRange === "90d" ? 90 : 365;
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    return historyCustomers.filter((c) => new Date(c.firstOrderAt) >= cutoff);
+  }, [historyCustomers, salesRange, customStart, customEnd]);
+
   const totalSales = useMemo(
-    () => historyCustomers.reduce((sum, c) => sum + c.total, 0),
-    [historyCustomers]
+    () => filteredHistoryCustomers.reduce((sum, c) => sum + c.total, 0),
+    [filteredHistoryCustomers]
   );
 
   // Credit owed per waiter — derived from already-filtered activeCustomers
@@ -387,17 +408,17 @@ export default function Bills() {
     return [...map.values()].sort((a, b) => b.total - a.total);
   }, [activeCustomers]);
 
-  // Sales per waiter from history (paid bills)
+  // Sales per waiter from history (paid bills — filtered range)
   const waiterSales = useMemo(() => {
     const map = new Map<string, { name: string; customers: number; total: number }>();
-    for (const c of historyCustomers) {
+    for (const c of filteredHistoryCustomers) {
       if (!map.has(c.waitressName)) map.set(c.waitressName, { name: c.waitressName, customers: 0, total: 0 });
       const entry = map.get(c.waitressName)!;
       entry.customers += 1;
       entry.total += c.total;
     }
     return [...map.values()].sort((a, b) => b.total - a.total);
-  }, [historyCustomers]);
+  }, [filteredHistoryCustomers]);
 
   // Bonus owed per waiter — paid batches since last bonus clearing × bonusPercent
   const bonusSummary = useMemo(() => {
@@ -839,25 +860,68 @@ export default function Bills() {
       </>
     );
 
+  const RANGE_LABELS: Record<string, string> = { "7d": "7 Days", "30d": "30 Days", "90d": "90 Days", "1y": "1 Year", "custom": "Custom" };
+
   const historyContent = historyCustomers.length === 0
     ? (
       <div className="h-64 flex flex-col items-center justify-center opacity-50 gap-4">
         <TrendingUp className="w-16 h-16 text-muted-foreground" />
-        <p className="text-muted-foreground font-bold uppercase tracking-widest text-sm">No sales yet today</p>
+        <p className="text-muted-foreground font-bold uppercase tracking-widest text-sm">No sales yet</p>
       </div>
     ) : (
       <>
+        {/* Date range filter bar */}
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="px-3 py-2.5 flex items-center gap-1.5 flex-wrap">
+            {(["7d", "30d", "90d", "1y", "custom"] as const).map((r) => (
+              <button
+                key={r}
+                onClick={() => setSalesRange(r)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wide transition-all ${
+                  salesRange === r
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                }`}
+              >
+                {RANGE_LABELS[r]}
+              </button>
+            ))}
+          </div>
+          {salesRange === "custom" && (
+            <div className="px-3 pb-2.5 flex items-center gap-2 border-t border-border/50 pt-2">
+              <div className="flex-1">
+                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground block mb-1">From</label>
+                <input
+                  type="date"
+                  value={customStart}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground block mb-1">To</label>
+                <input
+                  type="date"
+                  value={customEnd}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Grand total card — admin only */}
         {isAdmin && (
           <div className="bg-green-500/5 border border-green-500/30 rounded-xl px-4 py-3.5 flex items-center justify-between gap-4">
             <div>
               <p className="text-xs font-black uppercase tracking-widest text-green-400">Total Sales</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                {historyCustomers.length} paid bill{historyCustomers.length !== 1 ? "s" : ""} · {waiterSales.length} waiter{waiterSales.length !== 1 ? "s" : ""}
+                {filteredHistoryCustomers.length} paid bill{filteredHistoryCustomers.length !== 1 ? "s" : ""} · {waiterSales.length} waiter{waiterSales.length !== 1 ? "s" : ""}
               </p>
             </div>
             <span className="text-3xl font-black text-green-400 tabular-nums">
-              {formatPrice(historyCustomers.reduce((s, c) => s + c.total, 0))}
+              {formatPrice(totalSales)}
             </span>
           </div>
         )}
@@ -896,7 +960,13 @@ export default function Bills() {
             </div>
           </div>
         )}
-        {historyCustomers.map((customer) => (
+        {filteredHistoryCustomers.length === 0 && (
+          <div className="h-40 flex flex-col items-center justify-center opacity-50 gap-3">
+            <TrendingUp className="w-10 h-10 text-muted-foreground" />
+            <p className="text-muted-foreground font-bold uppercase tracking-widest text-xs">No sales in this period</p>
+          </div>
+        )}
+        {filteredHistoryCustomers.map((customer) => (
           <div key={`history|||${customer.waitressName}|||${customer.customerName}|||${customer.firstOrderAt}`} className="bg-card/60 border border-border/60 rounded-xl overflow-hidden opacity-80">
             <div className="px-4 py-3 border-b border-border/40 flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
