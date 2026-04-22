@@ -157,12 +157,13 @@ router.get("/shifts", async (req, res): Promise<void> => {
   }
 
   const isAdmin = user.role === "admin";
+  const isBartender = user.role === "bartender";
 
   const shifts = await db
     .select()
     .from(shiftsTable)
     .where(
-      isAdmin
+      isAdmin || isBartender
         ? and(gte(shiftsTable.startedAt, dayStart), lte(shiftsTable.startedAt, dayEnd))
         : and(
             eq(shiftsTable.staffId, staffId),

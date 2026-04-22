@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { and, eq, inArray, ne } from "drizzle-orm";
-import { db, menuItemsTable, orderBatchesTable, orderItemsTable } from "@workspace/db";
+import { and, eq, gte, inArray, lte, ne } from "drizzle-orm";
+import { db, menuItemsTable, orderBatchesTable, orderItemsTable, shiftsTable } from "@workspace/db";
 import {
   GetMenuItemsResponse,
   GetOrderBatchesResponse,
@@ -320,6 +320,41 @@ router.post("/order-batches/:id/pay", async (req, res): Promise<void> => {
     return;
   }
 
+  const actor = actorFromReq(req);
+
+  // If bartender, block payment if the waitress has ended their shift today — admin only
+  if (actor.role === "bartender") {
+    const [existingBatch] = await db
+      .select({ waitressName: orderBatchesTable.waitressName })
+      .from(orderBatchesTable)
+      .where(eq(orderBatchesTable.id, params.data.id))
+      .limit(1);
+
+    if (existingBatch) {
+      const now = new Date();
+      const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+      const [endedShift] = await db
+        .select({ endedAt: shiftsTable.endedAt })
+        .from(shiftsTable)
+        .where(
+          and(
+            eq(shiftsTable.staffName, existingBatch.waitressName),
+            gte(shiftsTable.startedAt, dayStart),
+            lte(shiftsTable.startedAt, dayEnd),
+          )
+        )
+        .orderBy(shiftsTable.startedAt)
+        .limit(1);
+
+      if (endedShift?.endedAt) {
+        res.status(403).json({ error: "Admin clearance required: this waitress has ended their shift." });
+        return;
+      }
+    }
+  }
+
   const [batch] = await db
     .update(orderBatchesTable)
     .set({ status: "paid" })
@@ -344,7 +379,6 @@ router.post("/order-batches/:id/pay", async (req, res): Promise<void> => {
     .innerJoin(menuItemsTable, eq(orderItemsTable.menuItemId, menuItemsTable.id))
     .where(eq(orderItemsTable.batchId, batch.id));
 
-  const actor = actorFromReq(req);
   const totalPence = orderItems.reduce((s, i) => s + i.pricePence * i.quantity, 0);
   await logActivity(actor.name, actor.role, "order_paid", {
     batchId: batch.id,
