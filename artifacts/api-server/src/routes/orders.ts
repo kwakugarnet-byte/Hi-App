@@ -323,35 +323,19 @@ router.post("/order-batches/:id/pay", async (req, res): Promise<void> => {
 
   const actor = actorFromReq(req);
 
-  // If bartender, block payment if the waitress has ended their shift today — admin only
+  // If bartender, block payment if the bill is older than 12 hours — admin only
   if (actor.role === "bartender") {
     const [existingBatch] = await db
-      .select({ waitressName: orderBatchesTable.waitressName })
+      .select({ createdAt: orderBatchesTable.createdAt })
       .from(orderBatchesTable)
       .where(eq(orderBatchesTable.id, params.data.id))
       .limit(1);
 
     if (existingBatch) {
-      const now = new Date();
-      const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-      const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-
-      // Get the latest shift for this waitress today — if it has ended, block the payment
-      const [latestShift] = await db
-        .select({ endedAt: shiftsTable.endedAt })
-        .from(shiftsTable)
-        .where(
-          and(
-            eq(shiftsTable.staffName, existingBatch.waitressName),
-            gte(shiftsTable.startedAt, dayStart),
-            lte(shiftsTable.startedAt, dayEnd),
-          )
-        )
-        .orderBy(desc(shiftsTable.startedAt))
-        .limit(1);
-
-      if (latestShift?.endedAt) {
-        res.status(403).json({ error: "Admin clearance required: this waitress has ended their shift." });
+      const ageMs = Date.now() - new Date(existingBatch.createdAt).getTime();
+      const twelveHours = 12 * 60 * 60 * 1000;
+      if (ageMs > twelveHours) {
+        res.status(403).json({ error: "Admin clearance required: this bill is older than 12 hours." });
         return;
       }
     }
@@ -561,6 +545,19 @@ router.post("/order-batches/settle-waiter", async (req, res): Promise<void> => {
   if (unpaidBatches.length === 0) {
     res.json(SettleWaiterAccountResponse.parse({ waitressName, count: 0, totalPence: 0 }));
     return;
+  }
+
+  // If bartender, block settlement if any batch is older than 12 hours — admin only
+  const actor2 = actorFromReq(req);
+  if (actor2.role === "bartender") {
+    const twelveHours = 12 * 60 * 60 * 1000;
+    const hasOldBatch = unpaidBatches.some(
+      (b) => Date.now() - new Date(b.createdAt).getTime() > twelveHours
+    );
+    if (hasOldBatch) {
+      res.status(403).json({ error: "Admin clearance required: one or more bills are older than 12 hours." });
+      return;
+    }
   }
 
   const batchIds = unpaidBatches.map((b) => b.id);

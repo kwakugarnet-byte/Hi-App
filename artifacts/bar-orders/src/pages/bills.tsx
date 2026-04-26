@@ -395,6 +395,10 @@ export default function Bills() {
     [activeCustomers]
   );
 
+  const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+  const isOlderThan12Hours = (dateStr: string) =>
+    Date.now() - new Date(dateStr).getTime() > TWELVE_HOURS_MS;
+
   // Date-range filtered history
   const filteredHistoryCustomers = useMemo(() => {
     if (salesRange === "custom") {
@@ -845,8 +849,8 @@ export default function Bills() {
               </div>
             ))}
             {customer.overallStatus === "completed" && (isAdmin || isBartender) && (() => {
-              const shiftEnded = endedStaffNames.has(customer.waitressName);
-              if (isBartender && shiftEnded) {
+              const billTooOld = isBartender && isOlderThan12Hours(customer.firstOrderAt);
+              if (billTooOld) {
                 return (
                   <div className="px-4 pb-4 pt-1 border-t border-border/50">
                     <div className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-border/50 text-muted-foreground/50 text-xs font-black uppercase tracking-widest cursor-not-allowed">
