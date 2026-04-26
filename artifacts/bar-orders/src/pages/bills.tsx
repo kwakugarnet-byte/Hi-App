@@ -849,13 +849,13 @@ export default function Bills() {
               </div>
             ))}
             {customer.overallStatus === "completed" && (isAdmin || isBartender) && (() => {
-              const billTooOld = isOlderThan12Hours(customer.firstOrderAt);
+              const billTooOld = isBartender && isOlderThan12Hours(customer.firstOrderAt);
               if (billTooOld) {
                 return (
                   <div className="px-4 pb-4 pt-1 border-t border-border/50">
                     <div className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-border/50 text-muted-foreground/50 text-xs font-black uppercase tracking-widest cursor-not-allowed">
                       <ShieldCheck className="w-3.5 h-3.5" />
-                      Bill Expired — Over 24 Hours
+                      Admin Clearance Required
                     </div>
                   </div>
                 );
