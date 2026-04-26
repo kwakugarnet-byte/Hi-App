@@ -323,8 +323,8 @@ router.post("/order-batches/:id/pay", async (req, res): Promise<void> => {
 
   const actor = actorFromReq(req);
 
-  // If bartender, block payment if the bill is older than 12 hours — admin only
-  if (actor.role === "bartender") {
+  // Block payment if the bill is older than 24 hours — no one can pay old bills
+  {
     const [existingBatch] = await db
       .select({ createdAt: orderBatchesTable.createdAt })
       .from(orderBatchesTable)
@@ -335,7 +335,7 @@ router.post("/order-batches/:id/pay", async (req, res): Promise<void> => {
       const ageMs = Date.now() - new Date(existingBatch.createdAt).getTime();
       const twentyFourHours = 24 * 60 * 60 * 1000;
       if (ageMs > twentyFourHours) {
-        res.status(403).json({ error: "Admin clearance required: this bill is older than 24 hours." });
+        res.status(403).json({ error: "This bill is older than 24 hours and can no longer be marked as paid." });
         return;
       }
     }
@@ -547,15 +547,14 @@ router.post("/order-batches/settle-waiter", async (req, res): Promise<void> => {
     return;
   }
 
-  // If bartender, block settlement if any batch is older than 12 hours — admin only
-  const actor2 = actorFromReq(req);
-  if (actor2.role === "bartender") {
+  // Block settlement if any batch is older than 24 hours — no one can settle old bills
+  {
     const twentyFourHours = 24 * 60 * 60 * 1000;
     const hasOldBatch = unpaidBatches.some(
       (b) => Date.now() - new Date(b.createdAt).getTime() > twentyFourHours
     );
     if (hasOldBatch) {
-      res.status(403).json({ error: "Admin clearance required: one or more bills are older than 24 hours." });
+      res.status(403).json({ error: "One or more bills are older than 24 hours and can no longer be marked as paid." });
       return;
     }
   }
