@@ -813,13 +813,6 @@ export default function Bills() {
                           <Pencil className="w-2.5 h-2.5" />
                           Edit
                         </button>
-                        <button
-                          onClick={() => openReturnModal(round, customer.customerName, customer.waitressName)}
-                          className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-orange-400 hover:text-orange-300 transition-colors"
-                        >
-                          <RotateCcw className="w-2.5 h-2.5" />
-                          Return
-                        </button>
                       </>
                     )}
                     <span className="text-[10px] text-muted-foreground/60 flex items-center gap-1">
