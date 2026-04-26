@@ -395,9 +395,9 @@ export default function Bills() {
     [activeCustomers]
   );
 
-  const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+  const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
   const isOlderThan12Hours = (dateStr: string) =>
-    Date.now() - new Date(dateStr).getTime() > TWELVE_HOURS_MS;
+    Date.now() - new Date(dateStr).getTime() > TWENTY_FOUR_HOURS_MS;
 
   // Date-range filtered history
   const filteredHistoryCustomers = useMemo(() => {

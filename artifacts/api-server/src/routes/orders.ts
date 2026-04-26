@@ -333,9 +333,9 @@ router.post("/order-batches/:id/pay", async (req, res): Promise<void> => {
 
     if (existingBatch) {
       const ageMs = Date.now() - new Date(existingBatch.createdAt).getTime();
-      const twelveHours = 12 * 60 * 60 * 1000;
-      if (ageMs > twelveHours) {
-        res.status(403).json({ error: "Admin clearance required: this bill is older than 12 hours." });
+      const twentyFourHours = 24 * 60 * 60 * 1000;
+      if (ageMs > twentyFourHours) {
+        res.status(403).json({ error: "Admin clearance required: this bill is older than 24 hours." });
         return;
       }
     }
@@ -550,12 +550,12 @@ router.post("/order-batches/settle-waiter", async (req, res): Promise<void> => {
   // If bartender, block settlement if any batch is older than 12 hours — admin only
   const actor2 = actorFromReq(req);
   if (actor2.role === "bartender") {
-    const twelveHours = 12 * 60 * 60 * 1000;
+    const twentyFourHours = 24 * 60 * 60 * 1000;
     const hasOldBatch = unpaidBatches.some(
-      (b) => Date.now() - new Date(b.createdAt).getTime() > twelveHours
+      (b) => Date.now() - new Date(b.createdAt).getTime() > twentyFourHours
     );
     if (hasOldBatch) {
-      res.status(403).json({ error: "Admin clearance required: one or more bills are older than 12 hours." });
+      res.status(403).json({ error: "Admin clearance required: one or more bills are older than 24 hours." });
       return;
     }
   }
