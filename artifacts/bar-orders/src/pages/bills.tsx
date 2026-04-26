@@ -848,7 +848,7 @@ export default function Bills() {
                 </div>
               </div>
             ))}
-            {customer.overallStatus === "completed" && (isAdmin || isBartender) && (() => {
+            {(customer.overallStatus === "completed" || (isAdmin && customer.rounds.every(r => r.status === "completed" || r.status === "returned"))) && (isAdmin || isBartender) && (() => {
               const billTooOld = isBartender && isOlderThan12Hours(customer.firstOrderAt);
               if (billTooOld) {
                 return (
