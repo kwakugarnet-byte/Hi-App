@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { Link } from "wouter";
 import {
   ArrowLeft,
@@ -155,15 +155,35 @@ function actionConfig(action: string): ActionConfig {
   );
 }
 
+const CHANGE_FIELD_LABELS: Record<string, string> = {
+  name: "Name",
+  role: "Role",
+  category: "Category",
+  pricePence: "Price",
+  pinChanged: "PIN",
+};
+
+function formatChangeValue(key: string, value: unknown): string {
+  if (key === "pricePence" && typeof value === "number") return formatPrice(value);
+  if (key === "pinChanged") return "Updated";
+  if (key === "role") return String(value).charAt(0).toUpperCase() + String(value).slice(1);
+  return String(value);
+}
+
 function formatDetails(action: string, details: Record<string, unknown> | null): string | null {
   if (!details) return null;
   const d = details;
   switch (action) {
     case "order_placed":
+      return [
+        d.customerName && `Customer: ${d.customerName}`,
+        typeof d.itemCount === "number" && `${d.itemCount} item${d.itemCount !== 1 ? "s" : ""}`,
+      ]
+        .filter(Boolean)
+        .join(" · ");
     case "order_direct":
       return [
         d.customerName && `Customer: ${d.customerName}`,
-        d.items && Array.isArray(d.items) && d.items.length > 0 && (d.items as string[]).join(", "),
         typeof d.totalPence === "number" && `Total: ${formatPrice(d.totalPence)}`,
       ]
         .filter(Boolean)
@@ -172,7 +192,7 @@ function formatDetails(action: string, details: Record<string, unknown> | null):
     case "order_paid":
       return [
         d.customerName && `Customer: ${d.customerName}`,
-        d.waitressName && `Waiter: ${d.waitressName}`,
+        d.waitressName && `Served by: ${d.waitressName}`,
         typeof d.totalPence === "number" && `Total: ${formatPrice(d.totalPence)}`,
       ]
         .filter(Boolean)
@@ -180,8 +200,8 @@ function formatDetails(action: string, details: Record<string, unknown> | null):
     case "order_returned":
       return [
         d.customerName && `Customer: ${d.customerName}`,
-        d.waitressName && `Waiter: ${d.waitressName}`,
-        typeof d.flaggedCount === "number" && `${d.flaggedCount} item(s) flagged`,
+        d.waitressName && `Served by: ${d.waitressName}`,
+        typeof d.flaggedCount === "number" && `${d.flaggedCount} item${d.flaggedCount !== 1 ? "s" : ""} flagged`,
       ]
         .filter(Boolean)
         .join(" · ");
@@ -189,37 +209,103 @@ function formatDetails(action: string, details: Record<string, unknown> | null):
     case "order_resubmitted":
       return [
         d.customerName && `Customer: ${d.customerName}`,
-        d.waitressName && `Waiter: ${d.waitressName}`,
+        d.waitressName && `Served by: ${d.waitressName}`,
       ]
         .filter(Boolean)
         .join(" · ");
     case "account_settled":
       return [
-        d.waitressName && `Waiter: ${d.waitressName}`,
-        typeof d.batchCount === "number" && `${d.batchCount} bill(s)`,
+        d.waitressName && `Settled by: ${d.waitressName}`,
+        typeof d.batchCount === "number" && `${d.batchCount} bill${d.batchCount !== 1 ? "s" : ""}`,
         typeof d.totalPence === "number" && `Total: ${formatPrice(d.totalPence)}`,
       ]
         .filter(Boolean)
         .join(" · ");
     case "menu_item_created":
-      return [d.name, d.category, typeof d.pricePence === "number" && formatPrice(d.pricePence as number)]
+      return [
+        d.name,
+        d.category,
+        typeof d.pricePence === "number" && formatPrice(d.pricePence),
+      ]
         .filter(Boolean)
         .join(" · ");
-    case "menu_item_updated":
-      return d.changes
-        ? `Changes: ${Object.entries(d.changes as Record<string, unknown>)
-            .map(([k, v]) => `${k}=${v}`)
-            .join(", ")}`
-        : null;
+    case "menu_item_updated": {
+      if (!d.changes || typeof d.changes !== "object") return d.name ? String(d.name) : null;
+      const parts = Object.entries(d.changes as Record<string, unknown>).map(([k, v]) => {
+        const label = CHANGE_FIELD_LABELS[k] ?? k.replace(/_/g, " ");
+        return `${label} → ${formatChangeValue(k, v)}`;
+      });
+      return parts.length > 0 ? parts.join(", ") : null;
+    }
     case "menu_item_deleted":
-      return d.name ? `Item: ${d.name}` : null;
+      return d.name ? String(d.name) : null;
     case "staff_created":
-    case "staff_updated":
     case "staff_deleted":
-      return [d.name, d.role].filter(Boolean).join(" · ");
+      return [
+        d.name,
+        d.role && (String(d.role).charAt(0).toUpperCase() + String(d.role).slice(1)),
+      ]
+        .filter(Boolean)
+        .join(" · ");
+    case "staff_updated": {
+      if (!d.changes || typeof d.changes !== "object") return d.name ? String(d.name) : null;
+      const parts = Object.entries(d.changes as Record<string, unknown>).map(([k, v]) => {
+        const label = CHANGE_FIELD_LABELS[k] ?? k.replace(/_/g, " ");
+        return `${label} → ${formatChangeValue(k, v)}`;
+      });
+      return [d.name && String(d.name), parts.join(", ")].filter(Boolean).join(" · ");
+    }
     default:
       return null;
   }
+}
+
+function renderExpandedDetails(action: string, details: Record<string, unknown>): React.ReactNode {
+  const rows: { label: string; value: React.ReactNode }[] = [];
+  const d = details;
+
+  if (typeof d.batchId === "number") rows.push({ label: "Order #", value: String(d.batchId) });
+  if (d.customerName) rows.push({ label: "Customer", value: String(d.customerName) });
+  if (d.waitressName) rows.push({ label: "Served by", value: String(d.waitressName) });
+  if (d.name && action !== "menu_item_updated") rows.push({ label: "Name", value: String(d.name) });
+  if (d.role) rows.push({ label: "Role", value: String(d.role).charAt(0).toUpperCase() + String(d.role).slice(1) });
+  if (d.category) rows.push({ label: "Category", value: String(d.category) });
+  if (typeof d.pricePence === "number") rows.push({ label: "Price", value: formatPrice(d.pricePence) });
+  if (typeof d.totalPence === "number") rows.push({ label: "Total", value: formatPrice(d.totalPence) });
+  if (typeof d.itemCount === "number") rows.push({ label: "Item count", value: `${d.itemCount} item${d.itemCount !== 1 ? "s" : ""}` });
+  if (typeof d.flaggedCount === "number") rows.push({ label: "Flagged items", value: `${d.flaggedCount}` });
+  if (typeof d.batchCount === "number") rows.push({ label: "Bills settled", value: `${d.batchCount}` });
+
+  if (Array.isArray(d.items) && d.items.length > 0) {
+    rows.push({
+      label: "Items ordered",
+      value: (
+        <ul className="space-y-0.5">
+          {(d.items as string[]).map((item, i) => <li key={i}>• {item}</li>)}
+        </ul>
+      ),
+    });
+  }
+
+  if (d.changes && typeof d.changes === "object" && !Array.isArray(d.changes)) {
+    Object.entries(d.changes as Record<string, unknown>).forEach(([k, v]) => {
+      const label = CHANGE_FIELD_LABELS[k] ?? k.replace(/_/g, " ");
+      rows.push({ label: `New ${label}`, value: formatChangeValue(k, v) });
+    });
+  }
+
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
+      {rows.map(({ label, value }, i) => (
+        <Fragment key={i}>
+          <span className="text-muted-foreground font-bold whitespace-nowrap">{label}</span>
+          <span className="text-foreground">{value}</span>
+        </Fragment>
+      ))}
+    </div>
+  );
 }
 
 function formatTimestamp(ts: string): string {
@@ -421,10 +507,8 @@ export default function ActivityLog() {
                     </div>
                   </div>
                   {isExpanded && hasRawDetails && (
-                    <div className="px-4 pb-3 border-t border-border/50">
-                      <pre className="text-[10px] text-muted-foreground font-mono bg-muted/50 rounded-lg p-2 mt-2 overflow-x-auto whitespace-pre-wrap break-all">
-                        {JSON.stringify(entry.details, null, 2)}
-                      </pre>
+                    <div className="px-4 pb-3 pt-2 border-t border-border/50 text-[11px]">
+                      {renderExpandedDetails(entry.action, entry.details!)}
                     </div>
                   )}
                 </div>
