@@ -6,10 +6,8 @@ import {
   useGetOrderBatches,
   useCreateOrderBatch,
   useResubmitOrderBatch,
-  useGetMyShift,
   getGetMenuItemsQueryKey,
   getGetOrderBatchesQueryKey,
-  getGetMyShiftQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -33,14 +31,6 @@ export default function Waitress() {
   const waitressName = user?.firstName
     ? `${user.firstName}${user.lastName ? " " + user.lastName : ""}`
     : user?.email ?? "Staff";
-
-  const { data: shiftData, isLoading: shiftLoading } = useGetMyShift({
-    query: { queryKey: getGetMyShiftQueryKey(), refetchInterval: 30000 },
-  });
-
-  // Day is "started" if there is an active (not ended) shift
-  const dayStarted = !shiftLoading && !!shiftData?.shift && !shiftData.shift.endedAt;
-  const dayEnded = !shiftLoading && !!shiftData?.shift && !!shiftData.shift.endedAt;
 
   const { data: menuItems, isLoading: menuLoading } = useGetMenuItems({
     query: { queryKey: getGetMenuItemsQueryKey() },
@@ -504,36 +494,8 @@ export default function Waitress() {
         </div>
       )}
 
-      {/* ── Order form — blocked if day not started ── */}
-      {shiftLoading ? (
-        <div className="flex-1 flex items-center justify-center opacity-40">
-          <Skeleton className="w-48 h-8 bg-card rounded-lg" />
-        </div>
-      ) : !dayStarted ? (
-        /* Blocked state */
-        <div className="flex-1 flex flex-col items-center justify-center px-8 gap-5 text-center">
-          <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center">
-            <Send className="w-8 h-8 text-muted-foreground opacity-40" />
-          </div>
-          <div>
-            <p className="text-base font-black uppercase tracking-widest text-foreground">
-              {dayEnded ? "Your Shift Has Ended" : "Day Not Started"}
-            </p>
-            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-              {dayEnded
-                ? "Your shift is over for today. Orders cannot be taken after the day is ended."
-                : "You need to start your day before taking orders. Go to the Home screen and tap Start Day."}
-            </p>
-          </div>
-          <Link href="/">
-            <button className="mt-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-black uppercase tracking-widest text-sm hover:bg-primary/90 transition-colors">
-              Go to Home
-            </button>
-          </Link>
-        </div>
-      ) : (
-        /* Normal order form */
-        <>
+      {/* ── Order form ── */}
+      <>
           {/* Customer name */}
           <div className="px-4 pt-4 pb-3 shrink-0 border-b border-border bg-card space-y-3">
             {activeCustomers.length > 0 && (
@@ -713,8 +675,7 @@ export default function Waitress() {
               </Button>
             </div>
           </div>
-        </>
-      )}
+      </>
     </div>
   );
 }
