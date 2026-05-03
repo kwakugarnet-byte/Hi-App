@@ -494,6 +494,13 @@ export default function Bills() {
     const amountCedis = parseFloat(partialAmount);
     if (!partialAmount || isNaN(amountCedis) || amountCedis <= 0) return;
     const amountPence = Math.round(amountCedis * 100);
+
+    const previouslyPaid = (allPartialPayments ?? [])
+      .filter((p) => p.customerName === customer.customerName && p.waitressName === customer.waitressName)
+      .reduce((s, p) => s + p.amountPence, 0);
+    const totalPaidAfter = previouslyPaid + amountPence;
+    const isFullyPaid = totalPaidAfter >= customer.total;
+
     try {
       await recordPartialPayment.mutateAsync({
         customerName: customer.customerName,
@@ -501,7 +508,17 @@ export default function Bills() {
         amountPence,
       });
       await queryClient.invalidateQueries({ queryKey: getPartialPaymentsQueryKey() });
-      toast({ title: "Partial Payment Recorded", description: `₵${amountCedis.toFixed(2)} recorded for ${customer.customerName}. Remaining balance updated.` });
+
+      if (isFullyPaid) {
+        // Auto-clear all rounds since the full amount has been paid
+        const ids = customer.rounds.map((r) => r.id);
+        await Promise.all(ids.map((id) => payBatch.mutateAsync({ id })));
+        await queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
+        toast({ title: "Bill Fully Paid & Cleared", description: `${customer.customerName}'s account has been settled.` });
+      } else {
+        toast({ title: "Partial Payment Recorded", description: `₵${amountCedis.toFixed(2)} recorded for ${customer.customerName}. Remaining balance updated.` });
+      }
+
       setPartialPayFor(null);
       setPartialAmount("");
     } catch {
