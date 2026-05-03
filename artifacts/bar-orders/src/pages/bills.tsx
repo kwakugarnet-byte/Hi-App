@@ -245,6 +245,8 @@ export default function Bills() {
   const [customEnd, setCustomEnd] = useState("");
   const [returnModal, setReturnModal] = useState<{ round: Round; customerName: string; waitressName: string } | null>(null);
   const [returnQtys, setReturnQtys] = useState<Map<number, number>>(new Map());
+  const [partialPayFor, setPartialPayFor] = useState<string | null>(null);
+  const [partialRoundIds, setPartialRoundIds] = useState<Set<number>>(new Set());
 
   function openReturnModal(round: Round, customerName: string, waitressName: string) {
     setReturnQtys(new Map());
@@ -480,6 +482,24 @@ export default function Bills() {
       toast({ title: "Paid & Cleared", description: `${customer.customerName}'s bill settled.` });
     } catch {
       toast({ title: "Error", description: "Could not mark as paid.", variant: "destructive" });
+    }
+  };
+
+  const handlePartialPay = async (customer: GroupedCustomer) => {
+    const ids = [...partialRoundIds];
+    if (ids.length === 0) return;
+    try {
+      await Promise.all(ids.map((id) => payBatch.mutateAsync({ id })));
+      await queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
+      const paidTotal = ids.reduce((s, id) => {
+        const round = customer.rounds.find((r) => r.id === id);
+        return s + (round?.subtotal ?? 0);
+      }, 0);
+      toast({ title: "Partial Payment Recorded", description: `${ids.length} round${ids.length !== 1 ? "s" : ""} cleared — ${formatPrice(paidTotal)} for ${customer.customerName}.` });
+      setPartialPayFor(null);
+      setPartialRoundIds(new Set());
+    } catch {
+      toast({ title: "Error", description: "Could not record partial payment.", variant: "destructive" });
     }
   };
 
@@ -849,8 +869,11 @@ export default function Bills() {
               </div>
             ))}
             {(customer.overallStatus === "completed" || (isAdmin && customer.rounds.every(r => r.status === "completed" || r.status === "returned"))) && (isAdmin || isBartender) && (() => {
-              const billTooOld = isBartender && isOlderThan24Hours(customer.firstOrderAt);
-              if (billTooOld) {
+              const isOld = isOlderThan24Hours(customer.firstOrderAt);
+              const customerKey = `${customer.waitressName}|||${customer.customerName}`;
+
+              // Bartender + old bill → locked
+              if (isBartender && isOld) {
                 return (
                   <div className="px-4 pb-4 pt-1 border-t border-border/50">
                     <div className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-border/50 text-muted-foreground/50 text-xs font-black uppercase tracking-widest cursor-not-allowed">
@@ -860,6 +883,85 @@ export default function Bills() {
                   </div>
                 );
               }
+
+              // Admin + old bill → Full or Partial payment choice
+              if (isAdmin && isOld) {
+                const isExpanded = partialPayFor === customerKey;
+                const payableRounds = customer.rounds.filter((r) => r.status === "completed");
+                const partialTotal = [...partialRoundIds].reduce((s, id) => {
+                  const round = customer.rounds.find((r) => r.id === id);
+                  return s + (round?.subtotal ?? 0);
+                }, 0);
+                return (
+                  <div className="px-4 pb-4 pt-2 border-t border-border/50 space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-400">Admin Clearance — 24h+</p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1 gap-1.5 bg-green-700 hover:bg-green-600 text-white font-black uppercase tracking-widest text-[11px]"
+                        onClick={() => { setPartialPayFor(null); setPartialRoundIds(new Set()); handleMarkPaid(customer); }}
+                        disabled={payBatch.isPending}
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        Full Payment
+                      </Button>
+                      <button
+                        onClick={() => {
+                          if (isExpanded) { setPartialPayFor(null); setPartialRoundIds(new Set()); }
+                          else { setPartialPayFor(customerKey); setPartialRoundIds(new Set()); }
+                        }}
+                        className={`flex-1 flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-widest px-3 py-1.5 rounded-md border transition-colors ${
+                          isExpanded
+                            ? "bg-amber-500/20 border-amber-500/50 text-amber-400"
+                            : "border-border text-muted-foreground hover:border-amber-500/50 hover:text-amber-400"
+                        }`}
+                      >
+                        Partial
+                      </button>
+                    </div>
+                    {isExpanded && (
+                      <div className="space-y-1.5 pt-1">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Select rounds to clear:</p>
+                        {payableRounds.map((round, idx) => {
+                          const isChecked = partialRoundIds.has(round.id);
+                          return (
+                            <button
+                              key={round.id}
+                              type="button"
+                              onClick={() => setPartialRoundIds((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(round.id)) next.delete(round.id); else next.add(round.id);
+                                return next;
+                              })}
+                              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all ${
+                                isChecked ? "border-amber-500 bg-amber-500/10 text-foreground" : "border-border bg-background text-muted-foreground hover:border-amber-500/30"
+                              }`}
+                            >
+                              <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${isChecked ? "border-amber-500 bg-amber-500" : "border-border"}`}>
+                                {isChecked && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                              </div>
+                              <span className="flex-1 text-left font-bold">Round {idx + 1} · {format(new Date(round.createdAt), "h:mm a")}</span>
+                              <span className="text-xs font-black tabular-nums">{formatPrice(round.subtotal)}</span>
+                            </button>
+                          );
+                        })}
+                        {partialRoundIds.size > 0 && (
+                          <Button
+                            size="sm"
+                            className="w-full gap-2 bg-amber-600 hover:bg-amber-500 text-white font-black uppercase tracking-widest mt-1"
+                            onClick={() => handlePartialPay(customer)}
+                            disabled={payBatch.isPending}
+                          >
+                            Pay {partialRoundIds.size} Round{partialRoundIds.size !== 1 ? "s" : ""} — {formatPrice(partialTotal)}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              // Normal (within 24h) → simple Mark Paid
               return (
                 <div className="px-4 pb-4 pt-1 border-t border-border/50">
                   <Button
