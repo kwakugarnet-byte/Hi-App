@@ -396,7 +396,7 @@ export default function Bills() {
   );
 
   const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
-  const isOlderThan12Hours = (dateStr: string) =>
+  const isOlderThan24Hours = (dateStr: string) =>
     Date.now() - new Date(dateStr).getTime() > TWENTY_FOUR_HOURS_MS;
 
   // Date-range filtered history
@@ -848,27 +848,32 @@ export default function Bills() {
                 </div>
               </div>
             ))}
-            {customer.overallStatus === "completed" && isAdmin && (
-              <div className="px-4 pb-4 pt-1 border-t border-border/50">
-                <Button
-                  size="sm"
-                  className="w-full gap-2 bg-green-700 hover:bg-green-600 text-white font-black uppercase tracking-widest"
-                  onClick={() => handleMarkPaid(customer)}
-                  disabled={payBatch.isPending}
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  Mark Paid — Admin Clear
-                </Button>
-              </div>
-            )}
-            {customer.overallStatus === "completed" && isBartender && !isAdmin && (
-              <div className="px-4 pb-4 pt-1 border-t border-border/50">
-                <div className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-border/50 text-muted-foreground/50 text-xs font-black uppercase tracking-widest cursor-not-allowed">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  Admin Clearance Required
+            {(customer.overallStatus === "completed" || (isAdmin && customer.rounds.every(r => r.status === "completed" || r.status === "returned"))) && (isAdmin || isBartender) && (() => {
+              const billTooOld = isBartender && isOlderThan24Hours(customer.firstOrderAt);
+              if (billTooOld) {
+                return (
+                  <div className="px-4 pb-4 pt-1 border-t border-border/50">
+                    <div className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-border/50 text-muted-foreground/50 text-xs font-black uppercase tracking-widest cursor-not-allowed">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      Admin Clearance Required
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <div className="px-4 pb-4 pt-1 border-t border-border/50">
+                  <Button
+                    size="sm"
+                    className="w-full gap-2 bg-green-700 hover:bg-green-600 text-white font-black uppercase tracking-widest"
+                    onClick={() => handleMarkPaid(customer)}
+                    disabled={payBatch.isPending}
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    {isAdmin ? "Mark Paid — Admin Clear" : "Mark Paid"}
+                  </Button>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         ))}
       </>
