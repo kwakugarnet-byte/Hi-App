@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, desc, eq, gte, inArray, lte, ne } from "drizzle-orm";
-import { db, menuItemsTable, orderBatchesTable, orderItemsTable, shiftsTable } from "@workspace/db";
+import { db, menuItemsTable, orderBatchesTable, orderItemsTable, shiftsTable, partialPaymentsTable } from "@workspace/db";
 import {
   GetMenuItemsResponse,
   GetOrderBatchesResponse,
@@ -521,6 +521,36 @@ router.post("/order-batches/:id/resubmit", async (req, res): Promise<void> => {
       quantity: item.quantity,
     })),
   }));
+});
+
+router.get("/partial-payments", async (req, res): Promise<void> => {
+  const { customerName, waitressName } = req.query;
+  const conditions = [];
+  if (typeof customerName === "string") conditions.push(eq(partialPaymentsTable.customerName, customerName));
+  if (typeof waitressName === "string") conditions.push(eq(partialPaymentsTable.waitressName, waitressName));
+  const rows = conditions.length > 0
+    ? await db.select().from(partialPaymentsTable).where(and(...conditions)).orderBy(partialPaymentsTable.createdAt)
+    : await db.select().from(partialPaymentsTable).orderBy(partialPaymentsTable.createdAt);
+  res.json(rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })));
+});
+
+router.post("/partial-payments", async (req, res): Promise<void> => {
+  const { customerName, waitressName, amountPence } = req.body ?? {};
+  if (!customerName || !waitressName || typeof amountPence !== "number" || amountPence <= 0) {
+    res.status(400).json({ error: "customerName, waitressName, and amountPence (> 0) are required." });
+    return;
+  }
+  const actor = actorFromReq(req);
+  const [row] = await db
+    .insert(partialPaymentsTable)
+    .values({ customerName, waitressName, amountPence: Math.round(amountPence), recordedBy: actor.name })
+    .returning();
+  await logActivity(actor.name, actor.role, "partial_payment", {
+    customerName,
+    waitressName,
+    amountPence: Math.round(amountPence),
+  });
+  res.status(201).json({ ...row, createdAt: row.createdAt.toISOString() });
 });
 
 router.post("/order-batches/settle-waiter", async (req, res): Promise<void> => {
