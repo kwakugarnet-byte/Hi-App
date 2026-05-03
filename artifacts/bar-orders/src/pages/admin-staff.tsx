@@ -52,11 +52,7 @@ type AddState = { name: string; role: Role; pin: string; bonusPercent: string };
 type EditState = { id: number; name: string; role: Role; pin: string; bonusPercent: string };
 type Tab = "staff" | "bonus";
 
-export default function AdminStaff() {
-  const { isAdmin, isLoading: authLoading } = useAuth();
-
-  if (!authLoading && !isAdmin) return <Redirect to="/" />;
-
+function AdminStaffInner() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -485,4 +481,11 @@ export default function AdminStaff() {
       )}
     </div>
   );
+}
+
+export default function AdminStaff() {
+  const { isAdmin, isLoading: authLoading } = useAuth();
+  if (authLoading) return null;
+  if (!isAdmin) return <Redirect to="/" />;
+  return <AdminStaffInner />;
 }
