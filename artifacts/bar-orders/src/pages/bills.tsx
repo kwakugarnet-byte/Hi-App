@@ -352,7 +352,7 @@ export default function Bills() {
 
   const handleSettleConfirmed = () => {
     if (!settleConfirm) return;
-    settleWaiter.mutate({ waitressName: settleConfirm.name }, {
+    settleWaiter.mutate({ data: { waitressName: settleConfirm.name } }, {
       onSuccess: (result) => {
         queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
         setSettleConfirm(null);

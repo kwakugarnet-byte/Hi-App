@@ -19,14 +19,10 @@ import { useToast } from "@/hooks/use-toast";
 
 type SelectedItem = { menuItemId: number; menuItemName: string; quantity: number };
 
-export default function Waitress() {
+function WaitressInner() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { user, role, isLoading: authLoading } = useAuth();
-
-  if (!authLoading && role !== "waitress" && role !== "bartender" && role !== "admin") {
-    return <Redirect to="/" />;
-  }
+  const { user } = useAuth();
 
   const waitressName = user?.firstName
     ? `${user.firstName}${user.lastName ? " " + user.lastName : ""}`
@@ -678,4 +674,11 @@ export default function Waitress() {
       </>
     </div>
   );
+}
+
+export default function Waitress() {
+  const { role, isLoading: authLoading } = useAuth();
+  if (authLoading) return null;
+  if (role !== "waitress" && role !== "bartender" && role !== "admin") return <Redirect to="/" />;
+  return <WaitressInner />;
 }
