@@ -12,6 +12,7 @@ import Admin from "@/pages/admin";
 import AdminStaff from "@/pages/admin-staff";
 import ChangePin from "@/pages/change-pin";
 import ActivityLog from "@/pages/activity-log";
+import Menu from "@/pages/menu";
 import { useAuth } from "@/hooks/useAuth";
 import { useGetStaff, usePinLogin } from "@workspace/api-client-react";
 import { Delete } from "lucide-react";
@@ -215,9 +216,14 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <AuthGate>
-            <Router />
-          </AuthGate>
+          <Switch>
+            <Route path="/menu" component={Menu} />
+            <Route>
+              <AuthGate>
+                <Router />
+              </AuthGate>
+            </Route>
+          </Switch>
         </WouterRouter>
         <Toaster />
       </TooltipProvider>
