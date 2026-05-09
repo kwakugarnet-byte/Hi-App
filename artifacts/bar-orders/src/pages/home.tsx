@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { LogIn, Monitor, LogOut, Receipt, Settings, Users, KeyRound, AlertTriangle, CheckCircle2, Activity } from "lucide-react";
+import { LogIn, Monitor, LogOut, Receipt, Settings, Users, KeyRound, AlertTriangle, CheckCircle2, Activity, BookOpen } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import logo from "@/assets/logo.jpg";
 import {
@@ -137,6 +137,12 @@ export default function Home() {
                   Take Order
                 </Button>
               </Link>
+              <Link href="/menu" className="w-full">
+                <Button size="lg" variant="outline" className="w-full h-16 text-base font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/50 text-primary hover:bg-primary/10">
+                  <BookOpen className="w-5 h-5" />
+                  Show Menu to Customer
+                </Button>
+              </Link>
             </>
           )}
 
@@ -171,6 +177,12 @@ export default function Home() {
                 <Button size="lg" variant="outline" className="w-full h-20 text-lg font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/50 text-primary hover:bg-primary/10">
                   <Receipt className="w-5 h-5" />
                   All Active Bills
+                </Button>
+              </Link>
+              <Link href="/menu" className="w-full">
+                <Button size="lg" variant="outline" className="w-full h-16 text-base font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/50 text-primary hover:bg-primary/10">
+                  <BookOpen className="w-5 h-5" />
+                  Show Menu to Customer
                 </Button>
               </Link>
             </>
@@ -210,6 +222,12 @@ export default function Home() {
                 <Button size="lg" variant="outline" className="w-full h-16 text-base font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/30 text-primary/70 hover:bg-primary/10">
                   <Activity className="w-5 h-5" />
                   Activity Log
+                </Button>
+              </Link>
+              <Link href="/menu" className="w-full">
+                <Button size="lg" variant="outline" className="w-full h-16 text-base font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/50 text-primary hover:bg-primary/10">
+                  <BookOpen className="w-5 h-5" />
+                  Show Menu to Customer
                 </Button>
               </Link>
             </>
