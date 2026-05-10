@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, Plus, Pencil, Trash2, Check, X, Layers } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Check, X, Layers, Tag } from "lucide-react";
 import {
   useGetMenuItems,
   useCreateMenuItem,
@@ -8,13 +8,20 @@ import {
   useDeleteMenuItem,
   getGetMenuItemsQueryKey,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const CATEGORIES = ["Beer", "Cider", "Spirits", "Whiskey", "Wine", "Soft Drinks"];
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+type DbCategory = { id: number; name: string };
+async function fetchCategories(): Promise<DbCategory[]> {
+  const res = await fetch(`${BASE}/api/categories`);
+  if (!res.ok) return [];
+  return res.json();
+}
+const CATS_KEY = ["categories"];
 
 function formatPrice(pence: number) {
   return `₵${(pence / 100).toFixed(2)}`;
@@ -31,6 +38,11 @@ export default function Admin() {
     query: { queryKey: getGetMenuItemsQueryKey() },
   });
 
+  const { data: dbCategories } = useQuery<DbCategory[]>({
+    queryKey: CATS_KEY,
+    queryFn: fetchCategories,
+  });
+
   const createItem = useCreateMenuItem();
   const updateItem = useUpdateMenuItem();
   const deleteItem = useDeleteMenuItem();
@@ -44,11 +56,12 @@ export default function Admin() {
   const [bulkEdits, setBulkEdits] = useState<Record<number, BulkRow>>({});
   const [savingBulk, setSavingBulk] = useState(false);
 
+  // Live category names: from DB + any on existing products not yet in DB
   const categories = useMemo(() => {
-    if (!menuItems) return CATEGORIES;
-    const cats = Array.from(new Set(menuItems.map((i) => i.category)));
-    return cats.sort();
-  }, [menuItems]);
+    const dbNames = (dbCategories ?? []).map((c) => c.name);
+    const itemCats = menuItems ? Array.from(new Set(menuItems.map((i) => i.category))) : [];
+    return Array.from(new Set([...dbNames, ...itemCats])).sort();
+  }, [dbCategories, menuItems]);
 
   const allCategories = ["All", ...categories];
 
@@ -139,7 +152,7 @@ export default function Admin() {
   }
 
   function startAdd() {
-    setAdding({ name: "", category: categories[0] ?? CATEGORIES[0], pricePence: "" });
+    setAdding({ name: "", category: categories[0] ?? "", pricePence: "" });
     setBulkMode(false);
   }
 
@@ -223,6 +236,16 @@ export default function Admin() {
           </div>
         ) : (
           <div className="flex gap-1">
+            <Link href="/admin/categories">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1 text-xs font-bold uppercase tracking-wide h-9"
+                title="Manage Categories"
+              >
+                <Tag className="w-4 h-4" />
+              </Button>
+            </Link>
             <Button
               size="sm"
               variant="outline"
@@ -288,7 +311,7 @@ export default function Admin() {
                 onChange={(e) => setAdding({ ...adding, category: e.target.value })}
                 className="flex-1 h-10 rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
               >
-                {[...CATEGORIES, ...categories.filter((c) => !CATEGORIES.includes(c))].map((c) => (
+                {categories.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
@@ -366,7 +389,7 @@ export default function Admin() {
                             onChange={(e) => updateBulkRow(item.id, "category", e.target.value)}
                             className="h-8 w-28 shrink-0 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                           >
-                            {[...CATEGORIES, ...categories.filter((c) => !CATEGORIES.includes(c))].map((c) => (
+                            {categories.map((c) => (
                               <option key={c} value={c}>{c}</option>
                             ))}
                           </select>

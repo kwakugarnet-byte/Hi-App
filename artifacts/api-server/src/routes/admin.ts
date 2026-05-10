@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
-import { db, menuItemsTable, staffTable } from "@workspace/db";
+import { db, menuItemsTable, staffTable, categoriesTable } from "@workspace/db";
 import {
   CreateMenuItemBody,
   UpdateMenuItemBody,
@@ -25,6 +25,40 @@ function adminActor(req: Request): string {
   const u = req.user as { firstName?: string; lastName?: string } | undefined;
   return u ? [u.firstName, u.lastName].filter(Boolean).join(" ") || "admin" : "admin";
 }
+
+// ── Categories ──────────────────────────────────────────────────────────────
+
+router.get("/categories", async (_req: Request, res: Response): Promise<void> => {
+  const cats = await db.select().from(categoriesTable).orderBy(categoriesTable.name);
+  res.json(cats);
+});
+
+router.post("/categories", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  const { name } = req.body;
+  if (!name || typeof name !== "string" || !name.trim()) {
+    res.status(400).json({ error: "Name is required" });
+    return;
+  }
+  try {
+    const [cat] = await db.insert(categoriesTable).values({ name: name.trim() }).returning();
+    await logActivity(adminActor(req), "admin", "category_created", { name: cat.name });
+    res.status(201).json(cat);
+  } catch {
+    res.status(409).json({ error: "Category already exists" });
+  }
+});
+
+router.delete("/categories/:id", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const [cat] = await db.select().from(categoriesTable).where(eq(categoriesTable.id, id));
+  if (!cat) { res.status(404).json({ error: "Category not found" }); return; }
+  await db.delete(categoriesTable).where(eq(categoriesTable.id, id));
+  await logActivity(adminActor(req), "admin", "category_deleted", { name: cat.name });
+  res.status(204).send();
+});
+
+// ── Menu Items ───────────────────────────────────────────────────────────────
 
 router.post("/menu-items", requireAdmin, async (req: Request, res: Response): Promise<void> => {
   const parsed = CreateMenuItemBody.safeParse(req.body);

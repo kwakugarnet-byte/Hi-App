@@ -12,6 +12,7 @@ import Admin from "@/pages/admin";
 import AdminStaff from "@/pages/admin-staff";
 import ChangePin from "@/pages/change-pin";
 import ActivityLog from "@/pages/activity-log";
+import AdminCategories from "@/pages/admin-categories";
 import Menu from "@/pages/menu";
 import { useAuth } from "@/hooks/useAuth";
 import { useGetStaff, usePinLogin } from "@workspace/api-client-react";
@@ -205,6 +206,7 @@ function Router() {
       <Route path="/admin" component={Admin} />
       <Route path="/admin/staff" component={AdminStaff} />
       <Route path="/admin/activity-log" component={ActivityLog} />
+      <Route path="/admin/categories" component={AdminCategories} />
       <Route path="/change-pin" component={ChangePin} />
       <Route component={NotFound} />
     </Switch>
