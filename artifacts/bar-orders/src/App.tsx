@@ -14,6 +14,7 @@ import ChangePin from "@/pages/change-pin";
 import ActivityLog from "@/pages/activity-log";
 import AdminCategories from "@/pages/admin-categories";
 import Menu from "@/pages/menu";
+import ChatPanel from "@/components/ChatPanel";
 import { useAuth } from "@/hooks/useAuth";
 import { useGetStaff, usePinLogin } from "@workspace/api-client-react";
 import { Delete } from "lucide-react";
@@ -223,6 +224,7 @@ function App() {
             <Route>
               <AuthGate>
                 <Router />
+                <ChatPanel />
               </AuthGate>
             </Route>
           </Switch>

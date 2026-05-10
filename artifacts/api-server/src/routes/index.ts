@@ -6,6 +6,7 @@ import pinAuthRouter from "./pinAuth";
 import adminRouter from "./admin";
 import shiftsRouter from "./shifts";
 import activityLogsRouter from "./activityLogs";
+import messagesRouter from "./messages";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(adminRouter);
 router.use(ordersRouter);
 router.use(shiftsRouter);
 router.use(activityLogsRouter);
+router.use(messagesRouter);
 
 export default router;
