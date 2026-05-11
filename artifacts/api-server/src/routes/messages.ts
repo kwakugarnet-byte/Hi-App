@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { and, desc, eq, gt } from "drizzle-orm";
-import { db, messagesTable } from "@workspace/db";
+import { db, messagesTable, conversationReadsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -42,7 +42,6 @@ router.get("/messages", requireAuth, async (req: Request, res: Response): Promis
 // GET /messages/latest — last message per conversation (for inbox preview)
 router.get("/messages/latest", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const myName = senderName(req);
-  // Get last 200 messages and derive conversations this user is part of
   const rows = await db
     .select()
     .from(messagesTable)
@@ -51,8 +50,6 @@ router.get("/messages/latest", requireAuth, async (req: Request, res: Response):
 
   const latestPerConv = new Map<string, typeof rows[number]>();
   for (const row of rows) {
-    // Only include conversations this user is part of:
-    // group = always, DM = only if myName is one of the participants
     const parts = row.conversation.split("|");
     const isGroup = row.conversation === "group";
     const isDm = parts.length === 2 && parts.includes(myName);
@@ -68,6 +65,31 @@ router.get("/messages/latest", requireAuth, async (req: Request, res: Response):
       lastMessage: { ...row, createdAt: row.createdAt.toISOString() },
     }))
   );
+});
+
+// GET /messages/reads?conversation=<id> — who has read this conversation and when
+router.get("/messages/reads", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const conversation = (req.query.conversation as string) || "group";
+  const rows = await db
+    .select()
+    .from(conversationReadsTable)
+    .where(eq(conversationReadsTable.conversation, conversation));
+  res.json(rows.map((r) => ({ staffName: r.staffName, lastReadAt: r.lastReadAt.toISOString() })));
+});
+
+// POST /messages/read — mark conversation as read (upsert)
+router.post("/messages/read", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const { conversation } = req.body;
+  const conv = typeof conversation === "string" && conversation.trim() ? conversation.trim() : "group";
+  const myName = senderName(req);
+  await db
+    .insert(conversationReadsTable)
+    .values({ staffName: myName, conversation: conv, lastReadAt: new Date() })
+    .onConflictDoUpdate({
+      target: [conversationReadsTable.staffName, conversationReadsTable.conversation],
+      set: { lastReadAt: new Date() },
+    });
+  res.json({ ok: true });
 });
 
 // POST /messages

@@ -1,6 +1,7 @@
 export * from "./activityLogs";
 export * from "./auth";
 export * from "./categories";
+export * from "./conversationReads";
 export * from "./menuItems";
 export * from "./messages";
 export * from "./orderBatches";

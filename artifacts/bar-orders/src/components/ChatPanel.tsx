@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MessageSquare, X, Send, ChevronDown, ArrowLeft, Users, User } from "lucide-react";
+import { MessageSquare, X, Send, ChevronDown, ArrowLeft, Users, CheckCheck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -15,6 +15,11 @@ type Message = {
 type LatestEntry = {
   conversation: string;
   lastMessage: Message;
+};
+
+type ReadReceipt = {
+  staffName: string;
+  lastReadAt: string;
 };
 
 type StaffMember = { id: number; name: string; role: string };
@@ -84,6 +89,19 @@ async function fetchLatest(): Promise<LatestEntry[]> {
   return apiFetch("/api/messages/latest");
 }
 
+async function fetchReads(conversation: string): Promise<ReadReceipt[]> {
+  return apiFetch(`/api/messages/reads?conversation=${encodeURIComponent(conversation)}`);
+}
+
+async function markRead(conversation: string): Promise<void> {
+  await fetch(`${BASE}/api/messages/read`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ conversation }),
+  });
+}
+
 async function sendMessage(message: string, conversation: string): Promise<Message> {
   const res = await fetch(`${BASE}/api/messages`, {
     method: "POST",
@@ -99,10 +117,31 @@ async function fetchStaff(): Promise<StaffMember[]> {
   return apiFetch("/api/staff");
 }
 
+// Build a map of messageId -> who has this as their latest-read message
+function buildSeenByMap(messages: Message[], reads: ReadReceipt[], myName: string): Map<number, string[]> {
+  const map = new Map<number, string[]>();
+  for (const receipt of reads) {
+    if (receipt.staffName === myName) continue;
+    const readTime = new Date(receipt.lastReadAt).getTime();
+    // Find the last message this person has seen
+    let lastSeenMsgId: number | null = null;
+    for (const msg of messages) {
+      if (new Date(msg.createdAt).getTime() <= readTime) {
+        lastSeenMsgId = msg.id;
+      }
+    }
+    if (lastSeenMsgId !== null) {
+      const existing = map.get(lastSeenMsgId) ?? [];
+      map.set(lastSeenMsgId, [...existing, receipt.staffName]);
+    }
+  }
+  return map;
+}
+
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 
-function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" }) {
-  const sz = size === "sm" ? "w-7 h-7 text-[10px]" : "w-9 h-9 text-xs";
+function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "xs" }) {
+  const sz = size === "xs" ? "w-4 h-4 text-[8px]" : size === "sm" ? "w-7 h-7 text-[10px]" : "w-9 h-9 text-xs";
   return (
     <div className={`${sz} ${avatarColor(name)} rounded-full flex items-center justify-center font-black text-white shrink-0`}>
       {initials(name)}
@@ -110,25 +149,61 @@ function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" }) {
   );
 }
 
+// ─── SeenBy ──────────────────────────────────────────────────────────────────
+
+function SeenBy({ names, isMe, isGroup }: { names: string[]; isMe: boolean; isGroup: boolean }) {
+  if (!names.length) return null;
+  return (
+    <div className={`flex items-center gap-1 mt-0.5 ${isMe ? "justify-end" : "justify-start pl-9"}`}>
+      <CheckCheck className="w-3 h-3 text-primary shrink-0" />
+      {isGroup ? (
+        <div className="flex items-center gap-0.5">
+          {names.slice(0, 4).map((n) => (
+            <Avatar key={n} name={n} size="xs" />
+          ))}
+          {names.length > 4 && (
+            <span className="text-[9px] text-muted-foreground ml-0.5">+{names.length - 4}</span>
+          )}
+        </div>
+      ) : (
+        <span className="text-[10px] text-primary font-semibold">Seen</span>
+      )}
+    </div>
+  );
+}
+
 // ─── MessageBubble ────────────────────────────────────────────────────────────
 
-function MessageBubble({ msg, isMe, showName }: { msg: Message; isMe: boolean; showName: boolean }) {
+function MessageBubble({
+  msg, isMe, showName, seenBy, isGroup,
+}: {
+  msg: Message;
+  isMe: boolean;
+  showName: boolean;
+  seenBy: string[];
+  isGroup: boolean;
+}) {
   return (
-    <div className={`flex gap-2 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
-      {!isMe && <Avatar name={msg.staffName} size="sm" />}
-      <div className={`max-w-[75%] space-y-0.5 flex flex-col ${isMe ? "items-end" : "items-start"}`}>
-        {showName && !isMe && (
-          <p className="text-[10px] font-bold text-muted-foreground px-1">{msg.staffName}</p>
-        )}
-        <div className={`px-3 py-2 rounded-2xl text-sm leading-snug break-words ${
-          isMe
-            ? "bg-primary text-primary-foreground rounded-tr-sm"
-            : "bg-muted text-foreground rounded-tl-sm"
-        }`}>
-          {msg.message}
+    <div className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
+      <div className={`flex gap-2 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
+        {!isMe && <Avatar name={msg.staffName} size="sm" />}
+        <div className={`max-w-[75%] space-y-0.5 flex flex-col ${isMe ? "items-end" : "items-start"}`}>
+          {showName && !isMe && (
+            <p className="text-[10px] font-bold text-muted-foreground px-1">{msg.staffName}</p>
+          )}
+          <div className={`px-3 py-2 rounded-2xl text-sm leading-snug break-words ${
+            isMe
+              ? "bg-primary text-primary-foreground rounded-tr-sm"
+              : "bg-muted text-foreground rounded-tl-sm"
+          }`}>
+            {msg.message}
+          </div>
+          <p className="text-[10px] text-muted-foreground px-1">{formatTime(msg.createdAt)}</p>
         </div>
-        <p className="text-[10px] text-muted-foreground px-1">{formatTime(msg.createdAt)}</p>
       </div>
+      {isMe && seenBy.length > 0 && (
+        <SeenBy names={seenBy} isMe={isMe} isGroup={isGroup} />
+      )}
     </div>
   );
 }
@@ -149,6 +224,7 @@ function ChatView({
   onBack: () => void;
 }) {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [reads, setReads] = useState<ReadReceipt[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [atBottom, setAtBottom] = useState(true);
@@ -172,27 +248,39 @@ function ChatView({
       }
       setTimeout(() => scrollToBottom(), 50);
     }).catch(() => {});
+    markRead(conversation).catch(() => {});
+    fetchReads(conversation).then(setReads).catch(() => {});
     inputRef.current?.focus();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation]);
 
-  // Poll every 4s
+  // Poll messages every 4s
   useEffect(() => {
     const tick = async () => {
       try {
         const fresh = await fetchMessages(conversation, sinceRef.current);
-        if (!fresh.length) return;
-        setMessages((prev) => {
-          const ids = new Set(prev.map((m) => m.id));
-          return [...prev, ...fresh.filter((m) => !ids.has(m.id))];
-        });
-        sinceRef.current = fresh[fresh.length - 1].createdAt;
-        setLastSeen(myName, conversation, fresh[fresh.length - 1].createdAt);
+        if (fresh.length) {
+          setMessages((prev) => {
+            const ids = new Set(prev.map((m) => m.id));
+            return [...prev, ...fresh.filter((m) => !ids.has(m.id))];
+          });
+          sinceRef.current = fresh[fresh.length - 1].createdAt;
+          setLastSeen(myName, conversation, fresh[fresh.length - 1].createdAt);
+          markRead(conversation).catch(() => {});
+        }
       } catch {}
     };
     const id = setInterval(tick, 4000);
     return () => clearInterval(id);
   }, [conversation, myName]);
+
+  // Poll reads every 4s
+  useEffect(() => {
+    const id = setInterval(() => {
+      fetchReads(conversation).then(setReads).catch(() => {});
+    }, 4000);
+    return () => clearInterval(id);
+  }, [conversation]);
 
   // Auto-scroll when new messages arrive and already at bottom
   useEffect(() => {
@@ -215,12 +303,15 @@ function ChatView({
       setMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]);
       sinceRef.current = msg.createdAt;
       setLastSeen(myName, conversation, msg.createdAt);
+      markRead(conversation).catch(() => {});
       setTimeout(() => scrollToBottom(true), 30);
     } catch {} finally {
       setSending(false);
       inputRef.current?.focus();
     }
   }
+
+  const seenByMap = buildSeenByMap(messages, reads, myName);
 
   // Group by day
   const grouped: { day: string; items: Message[] }[] = [];
@@ -280,6 +371,8 @@ function ChatView({
                 msg={msg}
                 isMe={msg.staffName === myName}
                 showName={isGroup && (i === 0 || items[i - 1].staffName !== msg.staffName)}
+                seenBy={seenByMap.get(msg.id) ?? []}
+                isGroup={isGroup}
               />
             ))}
           </div>
@@ -339,7 +432,6 @@ function InboxView({
     for (const e of entries) {
       const seen = new Date(getLastSeen(myName, e.conversation)).getTime();
       const msgTime = new Date(e.lastMessage.createdAt).getTime();
-      // Only count as unread if sender isn't me and newer than last seen
       if (e.lastMessage.staffName !== myName && msgTime > seen) {
         counts[e.conversation] = (counts[e.conversation] ?? 0) + 1;
       }
@@ -507,13 +599,11 @@ export default function ChatPanel() {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [totalUnread, setTotalUnread] = useState(0);
 
-  // Load staff list once
   useEffect(() => {
     if (!myName) return;
     fetchStaff().then(setStaff).catch(() => {});
   }, [myName]);
 
-  // Poll unread count while panel is closed
   useEffect(() => {
     if (!myName || open) return;
     const tick = async () => {
