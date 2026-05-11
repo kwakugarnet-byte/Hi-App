@@ -1,16 +1,22 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, and, desc } from "drizzle-orm";
-import { db, bikesTable, bikeIncomeTable, bikeExpensesTable, bikeAssignmentsTable, staffTable } from "@workspace/db";
+import { db, bikesTable, bikeIncomeTable, bikeExpensesTable, bikeAssignmentsTable, staffTable, staffPermissionsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
-function requireBikeAccess(req: Request, res: Response, next: NextFunction) {
-  const user = req.user as { role?: string } | undefined;
-  if (!req.isAuthenticated() || (user?.role !== "admin" && user?.role !== "bike_manager")) {
-    res.status(403).json({ error: "Access denied" });
-    return;
+async function requireBikeAccess(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const user = req.user as { role?: string; id?: string } | undefined;
+  if (!req.isAuthenticated() || !user) { res.status(403).json({ error: "Access denied" }); return; }
+  if (user.role === "admin" || user.role === "bike_manager") { next(); return; }
+  const staffId = parseInt(user.id ?? "", 10);
+  if (!isNaN(staffId)) {
+    const [perm] = await db
+      .select()
+      .from(staffPermissionsTable)
+      .where(and(eq(staffPermissionsTable.staffId, staffId), eq(staffPermissionsTable.permission, "access_bikes")));
+    if (perm) { next(); return; }
   }
-  next();
+  res.status(403).json({ error: "Access denied" });
 }
 
 function requireAdmin(req: Request, res: Response, next: NextFunction) {

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { LogIn, Monitor, LogOut, Receipt, Settings, Users, KeyRound, AlertTriangle, CheckCircle2, Activity, BookOpen, Bike } from "lucide-react";
+import { LogIn, Monitor, LogOut, Receipt, Settings, Users, KeyRound, AlertTriangle, CheckCircle2, Activity, BookOpen, Bike, Tag } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import logo from "@/assets/logo.jpg";
 import {
@@ -32,7 +32,7 @@ const ROLE_COLOR: Record<string, string> = {
 };
 
 export default function Home() {
-  const { user, logout, role, isAdmin, isWaitress, isBartender, isBikeManager } = useAuth();
+  const { user, logout, role, isAdmin, isWaitress, isBartender, isBikeManager, hasPermission } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -51,7 +51,6 @@ export default function Home() {
   const { data: staffList } = useGetStaff({
     query: { queryKey: getGetStaffQueryKey() },
   });
-
 
   const myOutstanding = useMemo(() => {
     if (!batches || !isWaitress || !displayName) return 0;
@@ -75,6 +74,12 @@ export default function Home() {
 
   const myBonusEarned = Math.round(myTodayPaid * myBonusPercent / 100);
 
+  // Permission-based access flags for non-admin staff
+  const canManageProducts = !isAdmin && (hasPermission("manage_products") || hasPermission("change_prices"));
+  const canManageCategories = !isAdmin && hasPermission("manage_categories");
+  const canManageStaff = !isAdmin && hasPermission("manage_staff");
+  const canViewActivity = !isAdmin && hasPermission("view_activity");
+  const canAccessBikes = !isAdmin && !isBikeManager && hasPermission("access_bikes");
 
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center p-4">
@@ -94,7 +99,6 @@ export default function Home() {
         </div>
 
         <div className="grid gap-4">
-
 
           {isWaitress && (
             <>
@@ -167,14 +171,12 @@ export default function Home() {
                   Bar Display
                 </Button>
               </Link>
-
               <Link href="/waitress" className="w-full">
                 <Button size="lg" variant="outline" className="w-full h-20 text-lg font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/50 text-primary hover:bg-primary/10">
                   <LogIn className="w-5 h-5" />
                   Take Order
                 </Button>
               </Link>
-
               <Link href="/bills" className="w-full">
                 <Button size="lg" variant="outline" className="w-full h-20 text-lg font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/50 text-primary hover:bg-primary/10">
                   <Receipt className="w-5 h-5" />
@@ -190,15 +192,13 @@ export default function Home() {
             </>
           )}
 
-          {isBikeManager && !isAdmin && (
-            <>
-              <Link href="/bikes" className="w-full">
-                <Button size="lg" className="w-full h-24 text-xl font-bold uppercase tracking-wider flex items-center justify-center gap-3">
-                  <Bike className="w-6 h-6" />
-                  Bike Management
-                </Button>
-              </Link>
-            </>
+          {(isBikeManager || canAccessBikes) && !isAdmin && (
+            <Link href="/bikes" className="w-full">
+              <Button size="lg" className="w-full h-24 text-xl font-bold uppercase tracking-wider flex items-center justify-center gap-3">
+                <Bike className="w-6 h-6" />
+                Bike Management
+              </Button>
+            </Link>
           )}
 
           {isAdmin && (
@@ -239,7 +239,7 @@ export default function Home() {
               </Link>
               <Link href="/admin/categories" className="w-full">
                 <Button size="lg" variant="outline" className="w-full h-16 text-base font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/30 text-primary/70 hover:bg-primary/10">
-                  <BookOpen className="w-5 h-5" />
+                  <Tag className="w-5 h-5" />
                   Manage Categories
                 </Button>
               </Link>
@@ -256,6 +256,40 @@ export default function Home() {
                 </Button>
               </Link>
             </>
+          )}
+
+          {/* ── Permission-based nav for non-admin staff ── */}
+          {canManageProducts && (
+            <Link href="/admin" className="w-full">
+              <Button size="lg" variant="outline" className="w-full h-16 text-base font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/50 text-primary hover:bg-primary/10">
+                <Settings className="w-5 h-5" />
+                Manage Products
+              </Button>
+            </Link>
+          )}
+          {canManageCategories && (
+            <Link href="/admin/categories" className="w-full">
+              <Button size="lg" variant="outline" className="w-full h-16 text-base font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/30 text-primary/70 hover:bg-primary/10">
+                <Tag className="w-5 h-5" />
+                Manage Categories
+              </Button>
+            </Link>
+          )}
+          {canManageStaff && (
+            <Link href="/admin/staff" className="w-full">
+              <Button size="lg" variant="outline" className="w-full h-16 text-base font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/30 text-primary/70 hover:bg-primary/10">
+                <Users className="w-5 h-5" />
+                Manage Staff
+              </Button>
+            </Link>
+          )}
+          {canViewActivity && (
+            <Link href="/admin/activity-log" className="w-full">
+              <Button size="lg" variant="outline" className="w-full h-16 text-base font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/30 text-primary/70 hover:bg-primary/10">
+                <Activity className="w-5 h-5" />
+                Activity Log
+              </Button>
+            </Link>
           )}
 
           <Link href="/change-pin" className="w-full">

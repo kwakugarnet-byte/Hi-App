@@ -9,3 +9,4 @@ export * from "./orderBatches";
 export * from "./partialPayments";
 export * from "./shifts";
 export * from "./staff";
+export * from "./staffPermissions";

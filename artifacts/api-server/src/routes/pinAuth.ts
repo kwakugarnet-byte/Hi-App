@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
-import { db, staffTable } from "@workspace/db";
+import { db, staffTable, staffPermissionsTable } from "@workspace/db";
 import {
   GetStaffResponse,
   PinLoginBody,
@@ -125,6 +125,19 @@ router.post("/change-pin", async (req: Request, res: Response): Promise<void> =>
   await logActivity(name, user.role ?? "unknown", "pin_changed");
 
   res.json({ ok: true });
+});
+
+router.get("/staff/me/permissions", async (req: Request, res: Response): Promise<void> => {
+  if (!req.isAuthenticated() || !req.user) { res.json({ permissions: [] }); return; }
+  const user = req.user as { role?: string; id?: string };
+  if (user.role === "admin") { res.json({ permissions: [] }); return; }
+  const staffId = parseInt(user.id ?? "", 10);
+  if (isNaN(staffId)) { res.json({ permissions: [] }); return; }
+  const rows = await db
+    .select({ permission: staffPermissionsTable.permission })
+    .from(staffPermissionsTable)
+    .where(eq(staffPermissionsTable.staffId, staffId));
+  res.json({ permissions: rows.map((r) => r.permission) });
 });
 
 export default router;
