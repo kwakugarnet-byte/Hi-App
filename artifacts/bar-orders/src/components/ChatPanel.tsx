@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MessageSquare, X, Send, ChevronDown, ArrowLeft, Users, CheckCheck } from "lucide-react";
+import { MessageSquare, X, Send, ChevronDown, ArrowLeft, Users } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -117,18 +117,28 @@ async function fetchStaff(): Promise<StaffMember[]> {
   return apiFetch("/api/staff");
 }
 
-// Build a map of messageId -> who has this as their latest-read message
+// Set of message IDs read by at least one other person (for blue ticks)
+function buildReadSet(messages: Message[], reads: ReadReceipt[], myName: string): Set<number> {
+  const set = new Set<number>();
+  const others = reads.filter((r) => r.staffName !== myName);
+  for (const msg of messages) {
+    const msgTime = new Date(msg.createdAt).getTime();
+    if (others.some((r) => new Date(r.lastReadAt).getTime() >= msgTime)) {
+      set.add(msg.id);
+    }
+  }
+  return set;
+}
+
+// Map of messageId -> readers whose last-read lands on this message (for group avatars)
 function buildSeenByMap(messages: Message[], reads: ReadReceipt[], myName: string): Map<number, string[]> {
   const map = new Map<number, string[]>();
   for (const receipt of reads) {
     if (receipt.staffName === myName) continue;
     const readTime = new Date(receipt.lastReadAt).getTime();
-    // Find the last message this person has seen
     let lastSeenMsgId: number | null = null;
     for (const msg of messages) {
-      if (new Date(msg.createdAt).getTime() <= readTime) {
-        lastSeenMsgId = msg.id;
-      }
+      if (new Date(msg.createdAt).getTime() <= readTime) lastSeenMsgId = msg.id;
     }
     if (lastSeenMsgId !== null) {
       const existing = map.get(lastSeenMsgId) ?? [];
@@ -149,37 +159,45 @@ function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "xs"
   );
 }
 
-// ─── SeenBy ──────────────────────────────────────────────────────────────────
+// ─── DoubleTick ───────────────────────────────────────────────────────────────
 
-function SeenBy({ names, isMe, isGroup }: { names: string[]; isMe: boolean; isGroup: boolean }) {
-  if (!names.length) return null;
+function DoubleTick({ read }: { read: boolean }) {
   return (
-    <div className={`flex items-center gap-1 mt-0.5 ${isMe ? "justify-end" : "justify-start pl-9"}`}>
-      <CheckCheck className="w-3 h-3 text-primary shrink-0" />
-      {isGroup ? (
-        <div className="flex items-center gap-0.5">
-          {names.slice(0, 4).map((n) => (
-            <Avatar key={n} name={n} size="xs" />
-          ))}
-          {names.length > 4 && (
-            <span className="text-[9px] text-muted-foreground ml-0.5">+{names.length - 4}</span>
-          )}
-        </div>
-      ) : (
-        <span className="text-[10px] text-primary font-semibold">Seen</span>
-      )}
-    </div>
+    <svg
+      viewBox="0 0 16 11"
+      className="w-4 h-3 shrink-0 inline-block"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {/* first tick */}
+      <path
+        d="M1 5.5L4.5 9L10 2"
+        stroke={read ? "#3b82f6" : "#9ca3af"}
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* second tick (offset right) */}
+      <path
+        d="M5 5.5L8.5 9L14 2"
+        stroke={read ? "#3b82f6" : "#9ca3af"}
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
 // ─── MessageBubble ────────────────────────────────────────────────────────────
 
 function MessageBubble({
-  msg, isMe, showName, seenBy, isGroup,
+  msg, isMe, showName, isRead, seenBy, isGroup,
 }: {
   msg: Message;
   isMe: boolean;
   showName: boolean;
+  isRead: boolean;
   seenBy: string[];
   isGroup: boolean;
 }) {
@@ -198,11 +216,22 @@ function MessageBubble({
           }`}>
             {msg.message}
           </div>
-          <p className="text-[10px] text-muted-foreground px-1">{formatTime(msg.createdAt)}</p>
+          <div className={`flex items-center gap-1 px-1 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
+            <p className="text-[10px] text-muted-foreground">{formatTime(msg.createdAt)}</p>
+            {isMe && <DoubleTick read={isRead} />}
+          </div>
         </div>
       </div>
-      {isMe && seenBy.length > 0 && (
-        <SeenBy names={seenBy} isMe={isMe} isGroup={isGroup} />
+      {/* Group avatars under the last message each person has seen */}
+      {isMe && isGroup && seenBy.length > 0 && (
+        <div className="flex items-center gap-0.5 mt-0.5 pr-1">
+          {seenBy.slice(0, 4).map((n) => (
+            <Avatar key={n} name={n} size="xs" />
+          ))}
+          {seenBy.length > 4 && (
+            <span className="text-[9px] text-muted-foreground ml-0.5">+{seenBy.length - 4}</span>
+          )}
+        </div>
       )}
     </div>
   );
@@ -311,6 +340,7 @@ function ChatView({
     }
   }
 
+  const readSet = buildReadSet(messages, reads, myName);
   const seenByMap = buildSeenByMap(messages, reads, myName);
 
   // Group by day
@@ -371,6 +401,7 @@ function ChatView({
                 msg={msg}
                 isMe={msg.staffName === myName}
                 showName={isGroup && (i === 0 || items[i - 1].staffName !== msg.staffName)}
+                isRead={readSet.has(msg.id)}
                 seenBy={seenByMap.get(msg.id) ?? []}
                 isGroup={isGroup}
               />
