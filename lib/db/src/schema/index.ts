@@ -1,5 +1,6 @@
 export * from "./activityLogs";
 export * from "./auth";
+export * from "./bikes";
 export * from "./categories";
 export * from "./conversationReads";
 export * from "./menuItems";

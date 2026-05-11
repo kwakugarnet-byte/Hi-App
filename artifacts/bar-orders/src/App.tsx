@@ -13,6 +13,7 @@ import AdminStaff from "@/pages/admin-staff";
 import ChangePin from "@/pages/change-pin";
 import ActivityLog from "@/pages/activity-log";
 import AdminCategories from "@/pages/admin-categories";
+import Bikes from "@/pages/bikes";
 import Menu from "@/pages/menu";
 import ChatPanel from "@/components/ChatPanel";
 import { useAuth } from "@/hooks/useAuth";
@@ -208,6 +209,7 @@ function Router() {
       <Route path="/admin/staff" component={AdminStaff} />
       <Route path="/admin/activity-log" component={ActivityLog} />
       <Route path="/admin/categories" component={AdminCategories} />
+      <Route path="/bikes" component={Bikes} />
       <Route path="/change-pin" component={ChangePin} />
       <Route component={NotFound} />
     </Switch>

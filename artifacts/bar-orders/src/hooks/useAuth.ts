@@ -19,6 +19,7 @@ export function useAuth() {
   const isAdmin = role === "admin";
   const isWaitress = role === "waitress";
   const isBartender = role === "bartender";
+  const isBikeManager = role === "bike_manager";
 
   function logout() {
     logoutMutation.mutate(undefined, {
@@ -29,5 +30,5 @@ export function useAuth() {
     });
   }
 
-  return { user, isLoading, isAuthenticated, role, isAdmin, isWaitress, isBartender, logout };
+  return { user, isLoading, isAuthenticated, role, isAdmin, isWaitress, isBartender, isBikeManager, logout };
 }

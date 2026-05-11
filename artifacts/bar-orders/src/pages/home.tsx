@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { LogIn, Monitor, LogOut, Receipt, Settings, Users, KeyRound, AlertTriangle, CheckCircle2, Activity, BookOpen } from "lucide-react";
+import { LogIn, Monitor, LogOut, Receipt, Settings, Users, KeyRound, AlertTriangle, CheckCircle2, Activity, BookOpen, Bike } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import logo from "@/assets/logo.jpg";
 import {
@@ -21,16 +21,18 @@ const ROLE_LABEL: Record<string, string> = {
   admin: "Admin",
   waitress: "Waitress",
   bartender: "Bartender",
+  bike_manager: "Bike Manager",
 };
 
 const ROLE_COLOR: Record<string, string> = {
   admin: "bg-primary/20 text-primary",
   waitress: "bg-amber-500/20 text-amber-400",
   bartender: "bg-blue-500/20 text-blue-400",
+  bike_manager: "bg-teal-500/20 text-teal-400",
 };
 
 export default function Home() {
-  const { user, logout, role, isAdmin, isWaitress, isBartender } = useAuth();
+  const { user, logout, role, isAdmin, isWaitress, isBartender, isBikeManager } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -188,6 +190,17 @@ export default function Home() {
             </>
           )}
 
+          {isBikeManager && !isAdmin && (
+            <>
+              <Link href="/bikes" className="w-full">
+                <Button size="lg" className="w-full h-24 text-xl font-bold uppercase tracking-wider flex items-center justify-center gap-3">
+                  <Bike className="w-6 h-6" />
+                  Bike Management
+                </Button>
+              </Link>
+            </>
+          )}
+
           {isAdmin && (
             <>
               <Link href="/admin" className="w-full">
@@ -228,6 +241,12 @@ export default function Home() {
                 <Button size="lg" variant="outline" className="w-full h-16 text-base font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/30 text-primary/70 hover:bg-primary/10">
                   <BookOpen className="w-5 h-5" />
                   Manage Categories
+                </Button>
+              </Link>
+              <Link href="/bikes" className="w-full">
+                <Button size="lg" variant="outline" className="w-full h-16 text-base font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/30 text-primary/70 hover:bg-primary/10">
+                  <Bike className="w-5 h-5" />
+                  Bike Management
                 </Button>
               </Link>
               <Link href="/menu" className="w-full">

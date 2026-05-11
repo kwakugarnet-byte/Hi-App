@@ -1,6 +1,6 @@
 import { pgTable, serial, varchar, integer, timestamp } from "drizzle-orm/pg-core";
 
-export const staffRoles = ["admin", "waitress", "bartender"] as const;
+export const staffRoles = ["admin", "waitress", "bartender", "bike_manager"] as const;
 export type StaffRole = (typeof staffRoles)[number];
 
 export const staffTable = pgTable("staff", {
