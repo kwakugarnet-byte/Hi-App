@@ -14,6 +14,7 @@ import ChangePin from "@/pages/change-pin";
 import ActivityLog from "@/pages/activity-log";
 import AdminCategories from "@/pages/admin-categories";
 import Bikes from "@/pages/bikes";
+import BikeDetail from "@/pages/bike-detail";
 import Menu from "@/pages/menu";
 import ChatPanel from "@/components/ChatPanel";
 import { useAuth } from "@/hooks/useAuth";
@@ -210,6 +211,7 @@ function Router() {
       <Route path="/admin/activity-log" component={ActivityLog} />
       <Route path="/admin/categories" component={AdminCategories} />
       <Route path="/bikes" component={Bikes} />
+      <Route path="/bikes/:id" component={BikeDetail} />
       <Route path="/change-pin" component={ChangePin} />
       <Route component={NotFound} />
     </Switch>
