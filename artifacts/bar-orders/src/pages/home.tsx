@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { LogIn, Monitor, LogOut, Receipt, Settings, Users, KeyRound, AlertTriangle, CheckCircle2, Activity, BookOpen, Bike, Tag } from "lucide-react";
+import { LogIn, Monitor, LogOut, Receipt, Settings, Users, KeyRound, AlertTriangle, CheckCircle2, Activity, BookOpen, Bike, Tag, BarChart2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import logo from "@/assets/logo.jpg";
 import {
@@ -247,6 +247,12 @@ export default function Home() {
                 <Button size="lg" variant="outline" className="w-full h-16 text-base font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/30 text-primary/70 hover:bg-primary/10">
                   <Bike className="w-5 h-5" />
                   Bike Management
+                </Button>
+              </Link>
+              <Link href="/sales-report" className="w-full">
+                <Button size="lg" variant="outline" className="w-full h-16 text-base font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/30 text-primary/70 hover:bg-primary/10">
+                  <BarChart2 className="w-5 h-5" />
+                  Sales Report
                 </Button>
               </Link>
               <Link href="/menu" className="w-full">

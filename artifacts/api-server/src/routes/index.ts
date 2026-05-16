@@ -8,6 +8,7 @@ import shiftsRouter from "./shifts";
 import activityLogsRouter from "./activityLogs";
 import messagesRouter from "./messages";
 import bikesRouter from "./bikes";
+import reportsRouter from "./reports";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(shiftsRouter);
 router.use(activityLogsRouter);
 router.use(messagesRouter);
 router.use(bikesRouter);
+router.use(reportsRouter);
 
 export default router;
