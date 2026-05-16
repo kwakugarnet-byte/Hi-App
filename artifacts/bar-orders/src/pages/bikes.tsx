@@ -29,7 +29,7 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export default function BikesPage() {
-  const { isAdmin, isBikeManager } = useAuth();
+  const { isAdmin, isBikeManager, isLoading: authLoading } = useAuth();
   const [, navigate] = useLocation();
   const canAccess = isAdmin || isBikeManager;
 
@@ -99,6 +99,14 @@ export default function BikesPage() {
     acc[b.status as BikeStatus] = (acc[b.status as BikeStatus] ?? 0) + 1;
     return acc;
   }, {} as Record<BikeStatus, number>);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!canAccess) {
     return (

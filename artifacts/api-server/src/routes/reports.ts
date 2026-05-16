@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { and, eq, gte, lte, inArray } from "drizzle-orm";
-import { db, menuItemsTable, orderBatchesTable, orderItemsTable } from "@workspace/db";
+import { db, menuItemsTable, orderBatchesTable, orderItemsTable, staffTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -12,11 +12,31 @@ function requireAuth(req: Request, res: Response, next: () => void) {
   next();
 }
 
-// GET /reports/sales?from=YYYY-MM-DD&to=YYYY-MM-DD&category=<name>
-router.get("/reports/sales", requireAuth, async (req: Request, res: Response): Promise<void> => {
-  const { from, to, category } = req.query as Record<string, string | undefined>;
+function parseTimeHHMM(s: string | undefined): { h: number; m: number } | null {
+  if (!s) return null;
+  const match = /^(\d{1,2}):(\d{2})$/.exec(s.trim());
+  if (!match) return null;
+  const h = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10);
+  if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+  return { h, m };
+}
 
-  // Build date range — default to today
+function inTimeWindow(date: Date, fromHH: { h: number; m: number }, toHH: { h: number; m: number }): boolean {
+  const totalMins = date.getHours() * 60 + date.getMinutes();
+  const fromMins = fromHH.h * 60 + fromHH.m;
+  const toMins = toHH.h * 60 + toHH.m;
+  if (fromMins <= toMins) {
+    return totalMins >= fromMins && totalMins < toMins;
+  }
+  // wraps midnight (e.g. 22:00 - 06:00)
+  return totalMins >= fromMins || totalMins < toMins;
+}
+
+// GET /reports/sales?from=YYYY-MM-DD&to=YYYY-MM-DD&category=<name>&waiter=<name>&timeFrom=HH:MM&timeTo=HH:MM
+router.get("/reports/sales", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const { from, to, category, waiter, timeFrom, timeTo } = req.query as Record<string, string | undefined>;
+
   const today = new Date();
   const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
   const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
@@ -24,18 +44,32 @@ router.get("/reports/sales", requireAuth, async (req: Request, res: Response): P
   const fromDate = from ? new Date(from + "T00:00:00") : startOfToday;
   const toDate = to ? new Date(to + "T23:59:59") : endOfToday;
 
-  // Fetch batches in range (completed or paid — not pending/returned)
+  const parsedTimeFrom = parseTimeHHMM(timeFrom);
+  const parsedTimeTo = parseTimeHHMM(timeTo);
+  const hasTimeFilter = parsedTimeFrom !== null && parsedTimeTo !== null;
+
   const batchConditions = [
     gte(orderBatchesTable.createdAt, fromDate),
     lte(orderBatchesTable.createdAt, toDate),
     inArray(orderBatchesTable.status, ["completed", "paid"]),
   ];
-  const batches = await db
-    .select({ id: orderBatchesTable.id, createdAt: orderBatchesTable.createdAt })
+
+  let batchesRaw = await db
+    .select({ id: orderBatchesTable.id, createdAt: orderBatchesTable.createdAt, waitressName: orderBatchesTable.waitressName })
     .from(orderBatchesTable)
     .where(and(...batchConditions));
 
-  if (batches.length === 0) {
+  // Apply waiter filter
+  if (waiter) {
+    batchesRaw = batchesRaw.filter((b) => b.waitressName === waiter);
+  }
+
+  // Apply time-of-day filter
+  if (hasTimeFilter) {
+    batchesRaw = batchesRaw.filter((b) => inTimeWindow(b.createdAt, parsedTimeFrom!, parsedTimeTo!));
+  }
+
+  if (batchesRaw.length === 0) {
     res.set("Cache-Control", "no-store");
     res.json({
       from: fromDate.toISOString().slice(0, 10),
@@ -49,10 +83,9 @@ router.get("/reports/sales", requireAuth, async (req: Request, res: Response): P
     return;
   }
 
-  const batchIds = batches.map((b) => b.id);
-  const batchDateMap = new Map(batches.map((b) => [b.id, b.createdAt]));
+  const batchIds = batchesRaw.map((b) => b.id);
+  const batchDateMap = new Map(batchesRaw.map((b) => [b.id, b.createdAt]));
 
-  // Fetch all order items for these batches joined with menu items
   const rows = await db
     .select({
       batchId: orderItemsTable.batchId,
@@ -66,13 +99,10 @@ router.get("/reports/sales", requireAuth, async (req: Request, res: Response): P
     .innerJoin(menuItemsTable, eq(orderItemsTable.menuItemId, menuItemsTable.id))
     .where(inArray(orderItemsTable.batchId, batchIds));
 
-  // Apply category filter
   const filtered = category ? rows.filter((r) => r.category === category) : rows;
 
-  // Figure out which batch IDs actually appear in filtered rows (for totalOrders)
   const usedBatchIds = new Set(filtered.map((r) => r.batchId));
 
-  // Aggregate per product
   const productMap = new Map<number, { name: string; category: string; qty: number; revenuePence: number }>();
   for (const row of filtered) {
     const existing = productMap.get(row.menuItemId);
@@ -91,7 +121,6 @@ router.get("/reports/sales", requireAuth, async (req: Request, res: Response): P
 
   const items = [...productMap.values()].sort((a, b) => b.qty - a.qty);
 
-  // Aggregate per day
   const dayMap = new Map<string, { qty: number; revenuePence: number; orders: Set<number> }>();
   for (const row of filtered) {
     const batchDate = batchDateMap.get(row.batchId);
@@ -130,7 +159,7 @@ router.get("/reports/sales", requireAuth, async (req: Request, res: Response): P
   });
 });
 
-// GET /reports/sales/categories — list all distinct categories that have sales
+// GET /reports/sales/categories
 router.get("/reports/sales/categories", requireAuth, async (_req: Request, res: Response): Promise<void> => {
   const rows = await db
     .select({ category: menuItemsTable.category })
@@ -139,6 +168,16 @@ router.get("/reports/sales/categories", requireAuth, async (_req: Request, res: 
   const cats = [...new Set(rows.map((r) => r.category))];
   res.set("Cache-Control", "no-store");
   res.json(cats);
+});
+
+// GET /reports/sales/waiters — all staff who can take orders
+router.get("/reports/sales/waiters", requireAuth, async (_req: Request, res: Response): Promise<void> => {
+  const rows = await db
+    .select({ id: staffTable.id, name: staffTable.name, role: staffTable.role })
+    .from(staffTable)
+    .orderBy(staffTable.name);
+  res.set("Cache-Control", "no-store");
+  res.json(rows);
 });
 
 export default router;
