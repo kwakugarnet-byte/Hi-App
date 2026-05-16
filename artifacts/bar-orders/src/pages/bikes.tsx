@@ -35,6 +35,7 @@ export default function BikesPage() {
 
   const [bikes, setBikes] = useState<BikeRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [showAdd, setShowAdd] = useState(false);
   const [addName, setAddName] = useState("");
@@ -43,6 +44,7 @@ export default function BikesPage() {
   const [addColor, setAddColor] = useState("");
   const [addTarget, setAddTarget] = useState("250");
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
@@ -51,12 +53,14 @@ export default function BikesPage() {
     if (!canAccess) return;
     apiFetch<BikeRow[]>("/api/bikes")
       .then(setBikes)
+      .catch((e: Error) => setLoadError(e.message || "Failed to load bikes"))
       .finally(() => setLoading(false));
   }, [canAccess]);
 
   async function addBike() {
     if (!addName.trim() || saving) return;
     setSaving(true);
+    setSaveError(null);
     try {
       const target = Math.round(parseFloat(addTarget) * 100) || 25000;
       const bike = await apiFetch<BikeRow>("/api/bikes", {
@@ -73,7 +77,10 @@ export default function BikesPage() {
       setBikes((prev) => [...prev, bike]);
       setAddName(""); setAddReg(""); setAddRider(""); setAddColor(""); setAddTarget("250");
       setShowAdd(false);
-    } catch {} finally { setSaving(false); }
+    } catch (e) {
+      const err = e as Error;
+      setSaveError(err.message || "Failed to add bike. Please try again.");
+    } finally { setSaving(false); }
   }
 
   async function deleteBike(id: number) {
@@ -82,7 +89,10 @@ export default function BikesPage() {
       await apiFetch(`/api/bikes/${id}`, { method: "DELETE" });
       setBikes((prev) => prev.filter((b) => b.id !== id));
       setConfirmDelete(null);
-    } catch {} finally { setDeletingId(null); }
+    } catch (e) {
+      const err = e as Error;
+      setSaveError(err.message || "Failed to delete bike.");
+    } finally { setDeletingId(null); }
   }
 
   const counts = bikes.reduce((acc, b) => {
@@ -96,6 +106,23 @@ export default function BikesPage() {
         <div className="space-y-2">
           <p className="text-lg font-black text-foreground">Access Denied</p>
           <Link href="/" className="text-primary text-sm underline">Go home</Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center p-4 text-center">
+        <div className="space-y-3">
+          <AlertCircle className="w-10 h-10 text-destructive mx-auto" />
+          <p className="text-sm font-bold text-foreground">Failed to load bikes</p>
+          <p className="text-xs text-muted-foreground">{loadError}</p>
+          <button onClick={() => { setLoadError(null); setLoading(true); apiFetch<BikeRow[]>("/api/bikes").then(setBikes).catch((e: Error) => setLoadError(e.message)).finally(() => setLoading(false)); }}
+            className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-bold">
+            Retry
+          </button>
+          <div><Link href="/" className="text-primary text-sm underline">Go home</Link></div>
         </div>
       </div>
     );
@@ -168,6 +195,12 @@ export default function BikesPage() {
                   className="h-10 w-full pl-7 pr-3 rounded-xl bg-muted border border-border text-sm focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground" />
               </div>
             </div>
+            {saveError && (
+              <div className="flex items-start gap-2 p-2.5 rounded-xl bg-destructive/10 border border-destructive/30">
+                <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                <p className="text-xs text-destructive">{saveError}</p>
+              </div>
+            )}
             <button onClick={addBike} disabled={!addName.trim() || saving}
               className="w-full h-10 rounded-xl bg-primary text-primary-foreground text-sm font-bold disabled:opacity-40 hover:opacity-90">
               {saving ? "Adding…" : "Add Bike"}

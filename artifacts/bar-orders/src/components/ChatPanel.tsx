@@ -73,7 +73,7 @@ function setLastSeen(myName: string, conv: string, iso: string) {
 // ─── api helpers ─────────────────────────────────────────────────────────────
 
 async function apiFetch<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, { credentials: "include" });
+  const res = await fetch(`${BASE}${path}`, { credentials: "include", cache: "no-store" });
   if (!res.ok) throw new Error(`${res.status}`);
   return res.json();
 }
@@ -256,6 +256,7 @@ function ChatView({
   const [reads, setReads] = useState<ReadReceipt[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [atBottom, setAtBottom] = useState(true);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -326,6 +327,7 @@ function ChatView({
     const text = draft.trim();
     if (!text || sending) return;
     setSending(true);
+    setSendError(null);
     setDraft("");
     try {
       const msg = await sendMessage(text, conversation);
@@ -334,7 +336,11 @@ function ChatView({
       setLastSeen(myName, conversation, msg.createdAt);
       markRead(conversation).catch(() => {});
       setTimeout(() => scrollToBottom(true), 30);
-    } catch {} finally {
+    } catch (e) {
+      const err = e as Error;
+      setSendError(err.message || "Failed to send message");
+      setDraft(text);
+    } finally {
       setSending(false);
       inputRef.current?.focus();
     }
@@ -418,6 +424,14 @@ function ChatView({
         >
           <ChevronDown className="w-4 h-4" />
         </button>
+      )}
+
+      {/* Send error */}
+      {sendError && (
+        <div className="shrink-0 px-3 pb-1 flex items-center gap-1.5">
+          <span className="text-[11px] text-destructive flex-1">Failed to send: {sendError}</span>
+          <button onClick={() => setSendError(null)} className="text-[10px] text-muted-foreground hover:text-foreground underline">Dismiss</button>
+        </div>
       )}
 
       {/* Input */}

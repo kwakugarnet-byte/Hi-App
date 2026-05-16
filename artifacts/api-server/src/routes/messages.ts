@@ -36,6 +36,7 @@ router.get("/messages", requireAuth, async (req: Request, res: Response): Promis
         .limit(60)
         .then((r) => r.reverse());
 
+  res.set("Cache-Control", "no-store");
   res.json(rows.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() })));
 });
 
@@ -59,6 +60,7 @@ router.get("/messages/latest", requireAuth, async (req: Request, res: Response):
     }
   }
 
+  res.set("Cache-Control", "no-store");
   res.json(
     [...latestPerConv.entries()].map(([conv, row]) => ({
       conversation: conv,
