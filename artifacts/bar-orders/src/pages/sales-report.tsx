@@ -19,10 +19,11 @@ function formatDay(iso: string) {
 
 type SalesItem = { name: string; category: string; qty: number; revenuePence: number };
 type DayEntry = { date: string; qty: number; revenuePence: number; orders: number };
+type WaiterEntry = { name: string; orders: number; qty: number; revenuePence: number };
 type SalesData = {
   from: string; to: string;
   totalOrders: number; totalItemsSold: number; totalRevenuePence: number;
-  items: SalesItem[]; byDay: DayEntry[];
+  items: SalesItem[]; byDay: DayEntry[]; byWaiter: WaiterEntry[];
 };
 
 type Preset = "today" | "yesterday" | "week" | "month" | "custom";
@@ -421,6 +422,56 @@ export default function SalesReport() {
                           </div>
                         </div>
                         <p className="text-[11px] text-muted-foreground w-20 text-right shrink-0">{formatPrice(day.revenuePence)}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── Staff comparison table ───────────────────────────────── */}
+            {data.byWaiter.length > 0 && (
+              <div className="bg-card border border-border rounded-2xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+                  <User className="w-3.5 h-3.5 text-primary" />
+                  <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+                    Staff Performance
+                    {waiter ? ` — ${waiter}` : ""}
+                  </p>
+                </div>
+                {/* Header row */}
+                <div className="grid grid-cols-4 px-4 py-2 border-b border-border bg-muted/20">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Staff</p>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground text-center">Orders</p>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground text-center">Items</p>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground text-right">Revenue</p>
+                </div>
+                <div className="divide-y divide-border">
+                  {data.byWaiter.map((w, idx) => {
+                    const revPct = Math.round((w.revenuePence / (data.byWaiter[0]?.revenuePence || 1)) * 100);
+                    const isTop = idx === 0 && data.byWaiter.length > 1;
+                    return (
+                      <div key={w.name} className="px-4 py-3 space-y-1.5">
+                        <div className="grid grid-cols-4 items-center">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[10px] text-muted-foreground/40 tabular-nums w-4">#{idx + 1}</span>
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold truncate">{w.name}</p>
+                              {isTop && (
+                                <span className="text-[9px] font-black uppercase tracking-wider text-amber-400">Top seller</span>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-sm font-black tabular-nums text-center">{w.orders}</p>
+                          <p className="text-sm font-black tabular-nums text-center">{w.qty}</p>
+                          <p className="text-sm font-black tabular-nums text-right text-green-400">{formatPrice(w.revenuePence)}</p>
+                        </div>
+                        <div className="bg-muted rounded-full h-1 overflow-hidden">
+                          <div
+                            className={`h-1 rounded-full transition-all duration-500 ${isTop ? "bg-amber-400" : "bg-primary/50"}`}
+                            style={{ width: `${Math.max(revPct, 2)}%` }}
+                          />
+                        </div>
                       </div>
                     );
                   })}

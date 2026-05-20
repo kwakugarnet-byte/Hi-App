@@ -79,12 +79,14 @@ router.get("/reports/sales", requireAuth, async (req: Request, res: Response): P
       totalRevenuePence: 0,
       items: [],
       byDay: [],
+      byWaiter: [],
     });
     return;
   }
 
   const batchIds = batchesRaw.map((b) => b.id);
   const batchDateMap = new Map(batchesRaw.map((b) => [b.id, b.createdAt]));
+  const batchWaiterMap = new Map(batchesRaw.map((b) => [b.id, b.waitressName]));
 
   const rows = await db
     .select({
@@ -144,6 +146,23 @@ router.get("/reports/sales", requireAuth, async (req: Request, res: Response): P
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, d]) => ({ date, qty: d.qty, revenuePence: d.revenuePence, orders: d.orders.size }));
 
+  // Aggregate per waiter
+  const waiterMap = new Map<string, { orders: Set<number>; qty: number; revenuePence: number }>();
+  for (const row of filtered) {
+    const name = batchWaiterMap.get(row.batchId) ?? "Unknown";
+    const existing = waiterMap.get(name);
+    if (existing) {
+      existing.orders.add(row.batchId);
+      existing.qty += row.quantity;
+      existing.revenuePence += row.pricePence * row.quantity;
+    } else {
+      waiterMap.set(name, { orders: new Set([row.batchId]), qty: row.quantity, revenuePence: row.pricePence * row.quantity });
+    }
+  }
+  const byWaiter = [...waiterMap.entries()]
+    .map(([name, d]) => ({ name, orders: d.orders.size, qty: d.qty, revenuePence: d.revenuePence }))
+    .sort((a, b) => b.revenuePence - a.revenuePence);
+
   const totalItemsSold = items.reduce((s, i) => s + i.qty, 0);
   const totalRevenuePence = items.reduce((s, i) => s + i.revenuePence, 0);
 
@@ -156,6 +175,7 @@ router.get("/reports/sales", requireAuth, async (req: Request, res: Response): P
     totalRevenuePence,
     items,
     byDay,
+    byWaiter,
   });
 });
 
