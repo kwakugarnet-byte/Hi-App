@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
-import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
@@ -34,12 +38,18 @@ type LoginStep = "select" | "pin";
 function PinLogin() {
   const qc = useQueryClient();
   const [step, setStep] = useState<LoginStep>("select");
-  const [selectedStaff, setSelectedStaff] = useState<{ id: number; name: string } | null>(null);
+  const [selectedStaff, setSelectedStaff] = useState<{
+    id: number;
+    name: string;
+  } | null>(null);
   const [digits, setDigits] = useState<string[]>([]);
   const [error, setError] = useState(false);
   const [shake, setShake] = useState(false);
 
-  const { data: staff, isLoading } = useGetStaff({ query: { queryKey: ["staff"] } });
+  const { data: staffData, isLoading } = useGetStaff({
+    query: { queryKey: ["staff"] },
+  });
+  const staff = Array.isArray(staffData) ? staffData : [];
   const pinLogin = usePinLogin();
 
   function selectStaff(s: { id: number; name: string }) {
@@ -68,7 +78,7 @@ function PinLogin() {
             setDigits([]);
             setTimeout(() => setShake(false), 600);
           },
-        }
+        },
       );
     }
   }
@@ -88,7 +98,9 @@ function PinLogin() {
   if (isLoading) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center">
-        <div className="text-muted-foreground text-sm uppercase tracking-widest animate-pulse">Loading...</div>
+        <div className="text-muted-foreground text-sm uppercase tracking-widest animate-pulse">
+          Loading...
+        </div>
       </div>
     );
   }
@@ -97,12 +109,18 @@ function PinLogin() {
     <div className="min-h-[100dvh] w-full flex items-center justify-center p-4 bg-background">
       <div className="w-full max-w-sm space-y-8">
         <div className="flex justify-center">
-          <img src={logo} alt="Trendy" className="w-36 h-36 object-contain rounded-xl" />
+          <img
+            src={logo}
+            alt="Trendy"
+            className="w-36 h-36 object-contain rounded-xl"
+          />
         </div>
 
         {step === "select" ? (
           <>
-            <p className="text-center text-muted-foreground text-sm uppercase tracking-widest">Who are you?</p>
+            <p className="text-center text-muted-foreground text-sm uppercase tracking-widest">
+              Who are you?
+            </p>
             <div className="grid grid-cols-2 gap-3">
               {staff?.map((s) => (
                 <button
@@ -118,12 +136,18 @@ function PinLogin() {
         ) : (
           <>
             <div className="text-center space-y-1">
-              <p className="text-muted-foreground text-sm uppercase tracking-widest">Enter PIN for</p>
-              <p className="text-2xl font-black uppercase text-foreground">{selectedStaff?.name}</p>
+              <p className="text-muted-foreground text-sm uppercase tracking-widest">
+                Enter PIN for
+              </p>
+              <p className="text-2xl font-black uppercase text-foreground">
+                {selectedStaff?.name}
+              </p>
             </div>
 
             {/* PIN dots */}
-            <div className={`flex justify-center gap-5 transition-all ${shake ? "animate-[shake_0.5s_ease-in-out]" : ""}`}>
+            <div
+              className={`flex justify-center gap-5 transition-all ${shake ? "animate-[shake_0.5s_ease-in-out]" : ""}`}
+            >
               {[0, 1, 2, 3].map((i) => (
                 <div
                   key={i}
@@ -139,12 +163,14 @@ function PinLogin() {
             </div>
 
             {error && (
-              <p className="text-center text-destructive text-sm font-bold">Incorrect PIN. Try again.</p>
+              <p className="text-center text-destructive text-sm font-bold">
+                Incorrect PIN. Try again.
+              </p>
             )}
 
             {/* Numpad */}
             <div className="grid grid-cols-3 gap-3">
-              {["1","2","3","4","5","6","7","8","9"].map((d) => (
+              {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => (
                 <button
                   key={d}
                   onClick={() => pressDigit(d)}
@@ -188,7 +214,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   if (isLoading) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center">
-        <div className="text-muted-foreground text-sm uppercase tracking-widest animate-pulse">Loading...</div>
+        <div className="text-muted-foreground text-sm uppercase tracking-widest animate-pulse">
+          Loading...
+        </div>
       </div>
     );
   }
