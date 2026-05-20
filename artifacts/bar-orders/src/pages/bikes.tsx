@@ -6,7 +6,7 @@ import {
   Trash2, X, ChevronRight, AlertCircle, User, Hash,
 } from "lucide-react";
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 
 type BikeStatus = "available" | "rented" | "maintenance";
 type BikeRow = {

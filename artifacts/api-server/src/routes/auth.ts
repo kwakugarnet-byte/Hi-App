@@ -23,11 +23,13 @@ function getOrigin(req: Request): string {
   return `${proto}://${host}`;
 }
 
+const CROSS_ORIGIN = process.env.NODE_ENV === "production";
+
 function setSessionCookie(res: Response, sid: string) {
   res.cookie(SESSION_COOKIE, sid, {
     httpOnly: true,
     secure: true,
-    sameSite: "lax",
+    sameSite: CROSS_ORIGIN ? "none" : "lax",
     path: "/",
     maxAge: SESSION_TTL,
   });
@@ -37,7 +39,7 @@ function setOidcCookie(res: Response, name: string, value: string) {
   res.cookie(name, value, {
     httpOnly: true,
     secure: true,
-    sameSite: "lax",
+    sameSite: CROSS_ORIGIN ? "none" : "lax",
     path: "/",
     maxAge: OIDC_COOKIE_TTL,
   });

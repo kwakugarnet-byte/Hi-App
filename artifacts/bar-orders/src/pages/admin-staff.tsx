@@ -51,7 +51,7 @@ const PERM_GROUPS = Array.from(
   }, new Map<string, { key: string; label: string; group: string }[]>())
 );
 
-const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+const BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 
 function PinInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (

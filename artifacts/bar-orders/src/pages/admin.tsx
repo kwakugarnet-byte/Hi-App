@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 type DbCategory = { id: number; name: string };
 async function fetchCategories(): Promise<DbCategory[]> {
   const res = await fetch(`${BASE}/api/categories`);

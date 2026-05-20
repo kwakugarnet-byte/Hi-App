@@ -4,7 +4,7 @@ import {
   usePinLogout,
 } from "@workspace/api-client-react";
 
-const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+const BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 
 export function useAuth() {
   const queryClient = useQueryClient();

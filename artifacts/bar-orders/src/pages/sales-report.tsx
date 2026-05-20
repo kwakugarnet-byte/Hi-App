@@ -6,7 +6,7 @@ import {
   ChevronDown, Calendar, Filter, RefreshCw, AlertCircle, Clock, User,
 } from "lucide-react";
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 
 function formatPrice(pence: number) {
   return `₵${(pence / 100).toFixed(2)}`;

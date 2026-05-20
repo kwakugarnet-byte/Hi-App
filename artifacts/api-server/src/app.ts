@@ -27,7 +27,13 @@ app.use(
     },
   }),
 );
-app.use(cors({ credentials: true, origin: true }));
+const allowedOrigin = process.env.FRONTEND_URL;
+app.use(cors({
+  credentials: true,
+  origin: allowedOrigin
+    ? [allowedOrigin, /\.replit\.dev$/, /\.replit\.app$/]
+    : true,
+}));
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

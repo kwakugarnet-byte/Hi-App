@@ -8,7 +8,7 @@ import {
   CalendarRange, DollarSign, PenLine,
 } from "lucide-react";
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 
 type Tab = "overview" | "income" | "expenses" | "settings";
 type Period = "week" | "month" | "year" | "all" | "custom";
