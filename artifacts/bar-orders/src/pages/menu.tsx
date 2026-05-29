@@ -42,7 +42,7 @@ export default function Menu() {
     query: { queryKey: getGetMenuItemsQueryKey() },
   });
 
-  const [activeTab, setActiveTab] = useState<"menu" | "calculator" | "order">("menu");
+  const [activeTab, setActiveTab] = useState<"menu" | "calculator" | "order">("order");
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [copied, setCopied] = useState(false);
   const [showQR, setShowQR] = useState(false);
@@ -280,6 +280,14 @@ export default function Menu() {
         {!(activeTab === "order" && orderStep === "checkout") && (
           <div className="max-w-lg mx-auto px-4 pb-3 flex gap-2">
             <button
+              onClick={() => { setActiveTab("order"); setOrderStep("browse"); }}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wide border transition-colors relative ${
+                activeTab === "order" ? "bg-orange-500 text-black border-orange-500" : "border-border text-muted-foreground hover:border-orange-500/50 hover:text-foreground"
+              }`}
+            >
+              <ShoppingBag className="w-3.5 h-3.5" />Order
+            </button>
+            <button
               onClick={() => setActiveTab("menu")}
               className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wide border transition-colors ${
                 activeTab === "menu" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
@@ -297,14 +305,6 @@ export default function Menu() {
               {activeTab === "calculator" && cartItemCount > 0 && (
                 <span className="ml-1 min-w-[18px] h-4 px-1 rounded-full text-[10px] font-black bg-primary-foreground text-primary flex items-center justify-center">{cartItemCount}</span>
               )}
-            </button>
-            <button
-              onClick={() => { setActiveTab("order"); setOrderStep("browse"); }}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wide border transition-colors relative ${
-                activeTab === "order" ? "bg-orange-500 text-black border-orange-500" : "border-border text-muted-foreground hover:border-orange-500/50 hover:text-foreground"
-              }`}
-            >
-              <ShoppingBag className="w-3.5 h-3.5" />Order
             </button>
           </div>
         )}
