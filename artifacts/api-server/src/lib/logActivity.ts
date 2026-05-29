@@ -5,6 +5,7 @@ export type LogAction =
   | "logout"
   | "pin_changed"
   | "order_placed"
+  | "order_held"
   | "order_direct"
   | "order_completed"
   | "order_paid"
