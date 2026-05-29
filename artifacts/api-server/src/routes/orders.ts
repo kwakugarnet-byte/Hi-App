@@ -623,7 +623,8 @@ router.post("/order-batches/settle-waiter", async (req, res): Promise<void> => {
     .where(
       and(
         eq(orderBatchesTable.waitressName, waitressName),
-        ne(orderBatchesTable.status, "paid")
+        ne(orderBatchesTable.status, "paid"),
+        ne(orderBatchesTable.status, "on_hold")
       )
     );
 

@@ -387,6 +387,17 @@ export default function Bills() {
     return groupBatches(unpaid);
   }, [batches, selectedWaiter, isWaitress, myName]);
 
+  // Same as activeCustomers but excludes on_hold bar tabs — used for credit totals and settle
+  const tableActiveCustomers = useMemo(() => {
+    if (!batches) return [];
+    const unpaid = batches.filter((b) => {
+      if (b.status === "paid" || b.status === "on_hold") return false;
+      if (isWaitress && myName) return b.waitressName === myName;
+      return !selectedWaiter || b.waitressName === selectedWaiter;
+    });
+    return groupBatches(unpaid);
+  }, [batches, selectedWaiter, isWaitress, myName]);
+
   const historyCustomers = useMemo(() => {
     if (!batches) return [];
     const paid = batches.filter((b) => {
@@ -398,8 +409,8 @@ export default function Bills() {
   }, [batches, selectedWaiter, isWaitress, myName]);
 
   const grandTotal = useMemo(
-    () => activeCustomers.reduce((sum, c) => sum + c.total, 0),
-    [activeCustomers]
+    () => tableActiveCustomers.reduce((sum, c) => sum + c.total, 0),
+    [tableActiveCustomers]
   );
 
   const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
@@ -429,17 +440,17 @@ export default function Bills() {
     [filteredHistoryCustomers]
   );
 
-  // Credit owed per waiter — derived from already-filtered activeCustomers
+  // Credit owed per waiter — excludes on_hold bar tabs (those are admin-only debt)
   const waiterCredits = useMemo(() => {
     const map = new Map<string, { name: string; customers: number; total: number }>();
-    for (const c of activeCustomers) {
+    for (const c of tableActiveCustomers) {
       if (!map.has(c.waitressName)) map.set(c.waitressName, { name: c.waitressName, customers: 0, total: 0 });
       const entry = map.get(c.waitressName)!;
       entry.customers += 1;
       entry.total += c.total;
     }
     return [...map.values()].sort((a, b) => b.total - a.total);
-  }, [activeCustomers]);
+  }, [tableActiveCustomers]);
 
   // Sales per waiter from history (paid bills — filtered range)
   const waiterSales = useMemo(() => {
