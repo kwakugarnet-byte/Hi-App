@@ -273,6 +273,7 @@ export const GetOrderBatchesResponseItem = zod.object({
   createdAt: zod.string(),
   completedAt: zod.string().nullish(),
   status: zod.enum(["pending", "completed", "paid", "returned"]),
+  saleType: zod.string().nullish(),
   correctionItemIds: zod.array(zod.number()).nullish(),
   items: zod.array(
     zod.object({

@@ -139,7 +139,7 @@ router.post("/order-batches/direct", async (req, res): Promise<void> => {
 
   const [batch] = await db
     .insert(orderBatchesTable)
-    .values({ customerName, waitressName, status: "completed", completedAt: new Date() })
+    .values({ customerName, waitressName, status: "paid", saleType: "bar", completedAt: new Date() })
     .returning();
 
   if (items.length > 0) {

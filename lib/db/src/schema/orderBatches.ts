@@ -8,6 +8,7 @@ export const orderBatchesTable = pgTable("order_batches", {
   customerName: text("customer_name").notNull(),
   waitressName: text("waitress_name").notNull(),
   status: text("status").notNull().default("pending"),
+  saleType: text("sale_type").default("table"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   completedAt: timestamp("completed_at", { withTimezone: true }),
   correctionItemIds: json("correction_item_ids").$type<number[]>(),

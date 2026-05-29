@@ -21,6 +21,7 @@ import Bikes from "@/pages/bikes";
 import BikeDetail from "@/pages/bike-detail";
 import Menu from "@/pages/menu";
 import SalesReport from "@/pages/sales-report";
+import DirectSale from "@/pages/direct-sale";
 import ChatPanel from "@/components/ChatPanel";
 import { useAuth } from "@/hooks/useAuth";
 import { useGetStaff, usePinLogin } from "@workspace/api-client-react";
@@ -242,6 +243,7 @@ function Router() {
       <Route path="/bikes" component={Bikes} />
       <Route path="/bikes/:id" component={BikeDetail} />
       <Route path="/sales-report" component={SalesReport} />
+      <Route path="/direct-sale" component={DirectSale} />
       <Route path="/change-pin" component={ChangePin} />
       <Route component={NotFound} />
     </Switch>

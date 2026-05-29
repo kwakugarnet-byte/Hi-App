@@ -56,6 +56,9 @@ function AdminInner({ canManage, canPrice, canDelete }: { canManage: boolean; ca
   const [bulkEdits, setBulkEdits] = useState<Record<number, BulkRow>>({});
   const [savingBulk, setSavingBulk] = useState(false);
 
+  const [editScanId, setEditScanId] = useState<number | null>(null);
+  const [editScanValues, setEditScanValues] = useState<{ barcode: string; sku: string }>({ barcode: "", sku: "" });
+
   const categories = useMemo(() => {
     const dbNames = (dbCategories ?? []).map((c) => c.name);
     const itemCats = menuItems ? Array.from(new Set(menuItems.map((i) => i.category))) : [];
@@ -91,6 +94,24 @@ function AdminInner({ canManage, canPrice, canDelete }: { canManage: boolean; ca
   function exitBulkMode() {
     setBulkMode(false);
     setBulkEdits({});
+  }
+
+  async function saveEditScan() {
+    if (editScanId === null) return;
+    try {
+      await updateItem.mutateAsync({
+        params: { id: editScanId },
+        data: {
+          barcode: editScanValues.barcode.trim() || null,
+          sku: editScanValues.sku.trim() || null,
+        },
+      });
+      await qc.invalidateQueries({ queryKey: getGetMenuItemsQueryKey() });
+      setEditScanId(null);
+      toast({ title: "Code / barcode saved" });
+    } catch {
+      toast({ title: "Failed to save", variant: "destructive" });
+    }
   }
 
   function updateBulkRow(id: number, field: keyof BulkRow, value: string) {
@@ -501,53 +522,109 @@ function AdminInner({ canManage, canPrice, canDelete }: { canManage: boolean; ca
             {filtered.map((item) => {
               const isDeleting = confirmDelete === item.id;
               return (
-                <div key={item.id} className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-sm truncate">{item.name}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <p className="text-xs text-muted-foreground uppercase tracking-wide">{item.category}</p>
-                      {item.sku && <span className="text-[10px] font-mono text-muted-foreground/60 bg-muted/30 px-1.5 py-0.5 rounded">{item.sku}</span>}
-                      {item.barcode && <Barcode className="w-3 h-3 text-muted-foreground/40" />}
-                    </div>
-                  </div>
-                  <span className="text-primary font-black text-base shrink-0">{formatPrice(item.pricePence)}</span>
-
-                  {isDeleting ? (
-                    <div className="flex items-center gap-1 shrink-0">
-                      <span className="text-xs text-destructive font-bold mr-1">Delete?</span>
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-destructive text-white hover:opacity-80"
+                <div key={item.id} className={`bg-card border border-border rounded-xl transition-all ${editScanId === item.id ? "px-4 py-3 space-y-2" : "px-4 py-3 flex items-center gap-3"}`}>
+                  {editScanId === item.id ? (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-bold text-sm text-foreground">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">{item.category} · {formatPrice(item.pricePence)}</p>
+                        </div>
+                        <button
+                          onClick={() => setEditScanId(null)}
+                          className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Hash className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                          <Input
+                            placeholder="4-digit code (e.g. 0042)"
+                            value={editScanValues.sku}
+                            onChange={(e) => setEditScanValues((v) => ({ ...v, sku: e.target.value }))}
+                            className="pl-7 bg-background border-border focus-visible:ring-primary font-mono text-sm h-9"
+                            maxLength={10}
+                          />
+                        </div>
+                        <div className="relative flex-1">
+                          <Barcode className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                          <Input
+                            placeholder="Barcode (optional)"
+                            value={editScanValues.barcode}
+                            onChange={(e) => setEditScanValues((v) => ({ ...v, barcode: e.target.value }))}
+                            className="pl-7 bg-background border-border focus-visible:ring-primary font-mono text-sm h-9"
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        onClick={saveEditScan}
+                        disabled={updateItem.isPending}
+                        size="sm"
+                        className="w-full gap-2 font-bold uppercase tracking-wide"
                       >
-                        <Check className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setConfirmDelete(null)}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
+                        <Check className="w-3.5 h-3.5" />
+                        Save
+                      </Button>
+                    </>
                   ) : (
-                    <div className="flex items-center gap-1 shrink-0">
-                      {(canManage || canPrice) && (
-                        <button
-                          onClick={() => enterBulkMode()}
-                          className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors"
-                          title="Edit"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
+                    <>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm truncate">{item.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide">{item.category}</p>
+                          {item.sku && <span className="text-[10px] font-mono text-muted-foreground/60 bg-muted/30 px-1.5 py-0.5 rounded">{item.sku}</span>}
+                          {item.barcode && <Barcode className="w-3 h-3 text-muted-foreground/40" />}
+                        </div>
+                      </div>
+                      <span className="text-primary font-black text-base shrink-0">{formatPrice(item.pricePence)}</span>
+
+                      {isDeleting ? (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-xs text-destructive font-bold mr-1">Delete?</span>
+                          <button
+                            onClick={() => handleDelete(item.id)}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg bg-destructive text-white hover:opacity-80"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setConfirmDelete(null)}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => { setEditScanId(item.id); setEditScanValues({ sku: item.sku ?? "", barcode: item.barcode ?? "" }); }}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors"
+                            title="Set code / barcode"
+                          >
+                            <Hash className="w-4 h-4" />
+                          </button>
+                          {(canManage || canPrice) && (
+                            <button
+                              onClick={() => enterBulkMode()}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors"
+                              title="Edit all fields"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button
+                              onClick={() => setConfirmDelete(item.id)}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-destructive hover:border-destructive transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       )}
-                      {canDelete && (
-                        <button
-                          onClick={() => setConfirmDelete(item.id)}
-                          className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-destructive hover:border-destructive transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
+                    </>
                   )}
                 </div>
               );

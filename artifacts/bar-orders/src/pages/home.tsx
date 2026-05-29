@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { LogIn, Monitor, LogOut, Receipt, Settings, Users, KeyRound, AlertTriangle, CheckCircle2, Activity, BookOpen, Bike, Tag, BarChart2 } from "lucide-react";
+import { LogIn, Monitor, LogOut, Receipt, Settings, Users, KeyRound, AlertTriangle, CheckCircle2, Activity, BookOpen, Bike, Tag, BarChart2, ShoppingCart } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import logo from "@/assets/logo.jpg";
 import {
@@ -165,22 +165,16 @@ export default function Home() {
                   <span className="text-xl font-black tabular-nums shrink-0 text-emerald-400">{formatPrice(myBonusEarned)}</span>
                 </div>
               )}
-              <Link href="/bar" className="w-full">
+              <Link href="/direct-sale" className="w-full">
                 <Button size="lg" className="w-full h-24 text-xl font-bold uppercase tracking-wider flex items-center justify-center gap-3">
-                  <Monitor className="w-6 h-6" />
+                  <ShoppingCart className="w-6 h-6" />
+                  Direct Sale
+                </Button>
+              </Link>
+              <Link href="/bar" className="w-full">
+                <Button size="lg" variant="outline" className="w-full h-20 text-lg font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/50 text-primary hover:bg-primary/10">
+                  <Monitor className="w-5 h-5" />
                   Bar Display
-                </Button>
-              </Link>
-              <Link href="/waitress" className="w-full">
-                <Button size="lg" variant="outline" className="w-full h-20 text-lg font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/50 text-primary hover:bg-primary/10">
-                  <LogIn className="w-5 h-5" />
-                  Take Order
-                </Button>
-              </Link>
-              <Link href="/bills" className="w-full">
-                <Button size="lg" variant="outline" className="w-full h-20 text-lg font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/50 text-primary hover:bg-primary/10">
-                  <Receipt className="w-5 h-5" />
-                  All Active Bills
                 </Button>
               </Link>
               <Link href="/menu" className="w-full">

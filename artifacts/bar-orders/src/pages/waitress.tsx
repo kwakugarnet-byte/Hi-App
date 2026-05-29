@@ -746,6 +746,6 @@ function WaitressInner() {
 export default function Waitress() {
   const { role, isLoading: authLoading } = useAuth();
   if (authLoading) return null;
-  if (role !== "waitress" && role !== "bartender" && role !== "admin") return <Redirect to="/" />;
+  if (role !== "waitress" && role !== "admin") return <Redirect to="/" />;
   return <WaitressInner />;
 }
