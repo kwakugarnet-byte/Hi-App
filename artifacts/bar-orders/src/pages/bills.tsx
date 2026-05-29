@@ -848,7 +848,12 @@ export default function Bills() {
             {customer.rounds.map((round, idx) => (
               <div key={round.id} className={idx > 0 ? "border-t border-border/50" : ""}>
                 <div className="px-4 pt-2.5 pb-1 flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70">Round {idx + 1}</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70">
+                    {round.status === "on_hold" ? "BAR HOLD" : `Round ${idx + 1}`}
+                  </span>
+                  {round.status === "on_hold" && (
+                    <span className="text-[9px] font-black uppercase tracking-widest text-red-400 border border-red-500/40 bg-red-500/10 rounded px-1.5 py-0.5 ml-1">Unpaid</span>
+                  )}
                   <div className="flex items-center gap-3">
                     {(isAdmin || isBartender) && round.status !== "returned" && (
                       <>
@@ -891,7 +896,7 @@ export default function Bills() {
                 </div>
               </div>
             ))}
-            {(customer.overallStatus === "completed" || (isAdmin && customer.rounds.every(r => r.status === "completed" || r.status === "returned"))) && (isAdmin || isBartender) && (() => {
+            {(customer.overallStatus === "completed" || (isAdmin && customer.rounds.every(r => r.status === "completed" || r.status === "returned" || r.status === "on_hold"))) && (isAdmin || isBartender) && (() => {
               const isOld = isOlderThan24Hours(customer.firstOrderAt);
               const customerKey = `${customer.waitressName}|||${customer.customerName}`;
 

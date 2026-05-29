@@ -185,6 +185,12 @@ export default function Home() {
                   <span className="text-xl font-black tabular-nums shrink-0 text-emerald-400">{formatPrice(myBonusEarned)}</span>
                 </div>
               )}
+              <Link href="/bills" className="w-full">
+                <Button size="lg" variant="outline" className="w-full h-16 text-base font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/50 text-primary hover:bg-primary/10">
+                  <Receipt className="w-5 h-5" />
+                  Active Bills
+                </Button>
+              </Link>
               <Link href="/direct-sale" className="w-full">
                 <Button size="lg" className="w-full h-24 text-xl font-bold uppercase tracking-wider flex items-center justify-center gap-3">
                   <ShoppingCart className="w-6 h-6" />
