@@ -263,12 +263,6 @@ export default function Home() {
                   Manage Categories
                 </Button>
               </Link>
-              <Link href="/bikes" className="w-full">
-                <Button size="lg" variant="outline" className="w-full h-16 text-base font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/30 text-primary/70 hover:bg-primary/10">
-                  <Bike className="w-5 h-5" />
-                  Bike Management
-                </Button>
-              </Link>
               <Link href="/sales-report" className="w-full">
                 <Button size="lg" variant="outline" className="w-full h-16 text-base font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/30 text-primary/70 hover:bg-primary/10">
                   <BarChart2 className="w-5 h-5" />
