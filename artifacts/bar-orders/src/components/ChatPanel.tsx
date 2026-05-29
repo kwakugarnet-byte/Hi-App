@@ -109,7 +109,11 @@ async function sendMessage(message: string, conversation: string): Promise<Messa
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message, conversation }),
   });
-  if (!res.ok) throw new Error("Failed to send");
+  if (!res.ok) {
+    let detail = "";
+    try { const j = await res.json(); detail = j?.error ? `: ${j.error}` : ""; } catch {}
+    throw new Error(`${res.status}${detail}`);
+  }
   return res.json();
 }
 
