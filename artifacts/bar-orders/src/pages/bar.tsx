@@ -1,5 +1,5 @@
 import { Link, Redirect } from "wouter";
-import { ArrowLeft, CheckCircle2, Clock, User, UserCog } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, MapPin, Phone, ShoppingBag, Truck, User, UserCog, X } from "lucide-react";
 import {
   useGetOrderBatches,
   useCompleteOrderBatch,
@@ -12,8 +12,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
+
+const BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 
 type BatchItem = { menuItemName: string; menuItemId: number; quantity: number; pricePence: number };
 
@@ -30,6 +32,17 @@ type CustomerGroup = {
   firstOrderAt: string;
   rounds: BatchRound[];
   hasPending: boolean;
+};
+
+type CustomerOrder = {
+  id: number;
+  customerName: string;
+  phone: string | null;
+  orderType: string | null;
+  deliveryLocation: string | null;
+  status: string;
+  createdAt: string;
+  items: BatchItem[];
 };
 
 function groupByCustomer(
@@ -70,6 +83,7 @@ export default function Bar() {
   const queryClient = useQueryClient();
   const { role, isLoading: authLoading } = useAuth();
   const [selectedWaiter, setSelectedWaiter] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<number | null>(null);
 
   const { data: batches, isLoading, refetch } = useGetOrderBatches({
     query: {
@@ -89,9 +103,30 @@ export default function Bar() {
 
   const completeBatch = useCompleteOrderBatch();
 
+  // ── Customer orders (saleType === "customer_order") ──────────────────────
+  const incomingOrders = useMemo((): CustomerOrder[] => {
+    if (!batches) return [];
+    return (batches as Array<typeof batches[number] & { phone?: string | null; orderType?: string | null; deliveryLocation?: string | null }>)
+      .filter((b) => b.saleType === "customer_order" && b.status !== "paid" && b.status !== "returned")
+      .map((b) => ({
+        id: b.id,
+        customerName: b.customerName,
+        phone: b.phone ?? null,
+        orderType: b.orderType ?? null,
+        deliveryLocation: b.deliveryLocation ?? null,
+        status: b.status,
+        createdAt: b.createdAt,
+        items: b.items,
+      }))
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }, [batches]);
+
+  // ── Regular table orders (exclude customer orders and bar holds) ─────────
   const waiterNames = useMemo(() => {
     if (!batches) return [];
-    const active = batches.filter((b) => b.status !== "paid" && b.status !== "returned" && b.saleType !== "bar");
+    const active = batches.filter(
+      (b) => b.status !== "paid" && b.status !== "returned" && b.saleType !== "bar" && b.saleType !== "customer_order"
+    );
     return [...new Set(active.map((b) => b.waitressName))].sort();
   }, [batches]);
 
@@ -102,6 +137,7 @@ export default function Bar() {
         b.status !== "paid" &&
         b.status !== "returned" &&
         b.saleType !== "bar" &&
+        b.saleType !== "customer_order" &&
         (!selectedWaiter || b.waitressName === selectedWaiter)
     );
     return groupByCustomer(active);
@@ -120,11 +156,54 @@ export default function Bar() {
     }
   };
 
+  const handleAcceptOrder = useCallback(async (order: CustomerOrder) => {
+    try {
+      await completeBatch.mutateAsync({ id: order.id });
+      await queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
+      toast({ title: "Order Accepted", description: `${order.customerName}'s order is being prepared.` });
+    } catch {
+      toast({ title: "Error", description: "Could not accept order.", variant: "destructive" });
+    }
+  }, [completeBatch, queryClient, toast]);
+
+  const handleRejectOrder = useCallback(async (order: CustomerOrder) => {
+    setRejectingId(order.id);
+    try {
+      const res = await fetch(`${BASE}/api/order-batches/${order.id}/reject`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error();
+      await queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
+      toast({ title: "Order Rejected", description: `${order.customerName}'s order has been rejected.` });
+    } catch {
+      toast({ title: "Error", description: "Could not reject order.", variant: "destructive" });
+    } finally {
+      setRejectingId(null);
+    }
+  }, [queryClient, toast]);
+
+  const handleCustomerOrderDone = useCallback(async (order: CustomerOrder) => {
+    try {
+      const res = await fetch(`${BASE}/api/order-batches/${order.id}/pay`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customerName: order.customerName, waitressName: "Online" }),
+      });
+      if (!res.ok) throw new Error();
+      await queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
+      toast({ title: "Order Done", description: `${order.customerName}'s order marked as complete.` });
+    } catch {
+      toast({ title: "Error", description: "Could not complete order.", variant: "destructive" });
+    }
+  }, [queryClient, toast]);
+
   if (!authLoading && role !== "bartender" && role !== "admin") {
     return <Redirect to="/" />;
   }
 
-  const allClear = preparingGroups.length === 0;
+  const allClear = preparingGroups.length === 0 && incomingOrders.length === 0;
 
   return (
     <div className="min-h-[100dvh] bg-background text-foreground flex flex-col">
@@ -139,7 +218,12 @@ export default function Bar() {
             <div>
               <h1 className="text-2xl font-black uppercase tracking-widest text-primary leading-none">Bar Display</h1>
               <p className="text-sm font-bold text-muted-foreground tracking-widest uppercase mt-1">
-                {preparingGroups.length} Order{preparingGroups.length !== 1 ? "s" : ""} Preparing
+                {preparingGroups.length} Preparing
+                {incomingOrders.filter((o) => o.status === "pending").length > 0 && (
+                  <span className="ml-2 text-orange-400">
+                    · {incomingOrders.filter((o) => o.status === "pending").length} New
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -189,6 +273,121 @@ export default function Bar() {
           </div>
         ) : (
           <>
+            {/* ── Incoming Customer Orders ─────────────────────────────── */}
+            {incomingOrders.length > 0 && (
+              <section>
+                <h2 className="text-xs font-black uppercase tracking-widest text-orange-400 mb-4 px-1 flex items-center gap-2">
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                  Customer Orders
+                  <span className="bg-orange-400/20 text-orange-400 px-1.5 py-0.5 rounded-full text-[10px]">
+                    {incomingOrders.length}
+                  </span>
+                </h2>
+                <div className="flex gap-6 items-start overflow-x-auto pb-2">
+                  {incomingOrders.map((order) => (
+                    <Card
+                      key={order.id}
+                      className={`w-80 shrink-0 bg-card border-border shadow-xl flex flex-col overflow-hidden rounded-xl border-t-4 ${
+                        order.status === "pending" ? "border-t-orange-500" : "border-t-blue-500"
+                      }`}
+                    >
+                      <CardContent className="p-0 flex flex-col h-full">
+                        <div className={`p-5 border-b border-border ${order.status === "pending" ? "bg-orange-500/5" : "bg-blue-500/5"}`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                              order.status === "pending"
+                                ? "bg-orange-500/20 text-orange-400"
+                                : "bg-blue-500/20 text-blue-400"
+                            }`}>
+                              {order.status === "pending" ? "New Order" : "In Progress"}
+                            </span>
+                            {order.orderType && (
+                              <span className={`flex items-center gap-1 text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full ${
+                                order.orderType === "delivery"
+                                  ? "bg-purple-500/20 text-purple-400"
+                                  : "bg-green-500/20 text-green-400"
+                              }`}>
+                                {order.orderType === "delivery"
+                                  ? <><Truck className="w-3 h-3" /> Delivery</>
+                                  : <><ShoppingBag className="w-3 h-3" /> Pickup</>
+                                }
+                              </span>
+                            )}
+                          </div>
+                          <h2 className="text-2xl font-black uppercase tracking-tight text-foreground truncate" title={order.customerName}>
+                            {order.customerName}
+                          </h2>
+                          <div className="mt-2 space-y-1">
+                            {order.phone && (
+                              <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
+                                <Phone className="w-3 h-3 shrink-0" />
+                                <span>{order.phone}</span>
+                              </div>
+                            )}
+                            {order.deliveryLocation && (
+                              <div className="flex items-start gap-1.5 text-xs font-bold text-purple-400">
+                                <MapPin className="w-3 h-3 shrink-0 mt-0.5" />
+                                <span className="break-words">{order.deliveryLocation}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Clock className="w-3 h-3" />
+                              {format(new Date(order.createdAt), "h:mm a")}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-5 flex-1 bg-card space-y-2">
+                          {order.items.map((item, i) => (
+                            <div key={i} className="flex justify-between items-center py-1.5 border-b border-border/50 last:border-0">
+                              <span className="text-base font-bold tracking-tight">{item.menuItemName}</span>
+                              <span className="text-xl font-black text-primary px-2.5 py-0.5 bg-primary/10 rounded-md">
+                                x{item.quantity}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="p-4 pt-0 mt-auto space-y-2">
+                          {order.status === "pending" ? (
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 border-destructive/50 text-destructive hover:bg-destructive/10 font-black uppercase text-xs"
+                                onClick={() => handleRejectOrder(order)}
+                                disabled={rejectingId === order.id}
+                              >
+                                <X className="w-3.5 h-3.5 mr-1" />
+                                Reject
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="flex-1 bg-orange-500 hover:bg-orange-400 text-black font-black uppercase text-xs"
+                                onClick={() => handleAcceptOrder(order)}
+                                disabled={completeBatch.isPending}
+                              >
+                                Accept
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              size="lg"
+                              className="w-full h-14 text-lg font-black uppercase tracking-widest active:scale-[0.98] transition-transform"
+                              onClick={() => handleCustomerOrderDone(order)}
+                            >
+                              Done
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* ── Table Orders ─────────────────────────────────────────── */}
             {preparingGroups.length > 0 && (
               <section>
                 <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4 px-1">

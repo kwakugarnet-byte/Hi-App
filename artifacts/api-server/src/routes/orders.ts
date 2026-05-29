@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { z } from "zod";
 import { and, desc, eq, gte, inArray, lte, ne } from "drizzle-orm";
 import { db, menuItemsTable, orderBatchesTable, orderItemsTable, shiftsTable, partialPaymentsTable } from "@workspace/db";
 import {
@@ -606,6 +607,104 @@ router.post("/partial-payments", async (req, res): Promise<void> => {
     amountPence: Math.round(amountPence),
   });
   res.status(201).json({ ...row, createdAt: row.createdAt.toISOString() });
+});
+
+// ─── Public customer order endpoint (no auth required) ──────────────────────
+const PublicOrderBody = z.object({
+  customerName: z.string().min(1).max(100),
+  phone: z.string().min(1).max(30),
+  orderType: z.enum(["pickup", "delivery"]),
+  deliveryLocation: z.string().max(200).optional(),
+  items: z.array(z.object({
+    menuItemId: z.number().int().positive(),
+    quantity: z.number().int().positive(),
+  })).min(1).max(30),
+});
+
+router.post("/public/order", async (req, res): Promise<void> => {
+  const parsed = PublicOrderBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid order details" });
+    return;
+  }
+
+  const { customerName, phone, orderType, deliveryLocation, items } = parsed.data;
+
+  // Validate menu item IDs exist
+  const menuItemIds = [...new Set(items.map((i) => i.menuItemId))];
+  const existingItems = await db
+    .select({ id: menuItemsTable.id })
+    .from(menuItemsTable)
+    .where(inArray(menuItemsTable.id, menuItemIds));
+
+  if (existingItems.length !== menuItemIds.length) {
+    res.status(400).json({ error: "One or more menu items not found" });
+    return;
+  }
+
+  const [batch] = await db
+    .insert(orderBatchesTable)
+    .values({
+      customerName,
+      waitressName: "Online",
+      status: "pending",
+      saleType: "customer_order",
+      phone,
+      orderType,
+      deliveryLocation: deliveryLocation ?? null,
+    })
+    .returning();
+
+  await db.insert(orderItemsTable).values(
+    items.map((item) => ({
+      batchId: batch.id,
+      menuItemId: item.menuItemId,
+      quantity: item.quantity,
+    }))
+  );
+
+  await logActivity("Customer", "customer", "customer_order_placed", {
+    batchId: batch.id,
+    customerName,
+    orderType,
+    itemCount: items.length,
+  });
+
+  res.status(201).json({ id: batch.id });
+});
+
+// ─── Reject a customer order ─────────────────────────────────────────────────
+router.post("/order-batches/:id/reject", async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(rawId, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid batch id" });
+    return;
+  }
+
+  const [batch] = await db
+    .update(orderBatchesTable)
+    .set({ status: "returned" })
+    .where(and(eq(orderBatchesTable.id, id), eq(orderBatchesTable.saleType, "customer_order")))
+    .returning();
+
+  if (!batch) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+
+  const actor = actorFromReq(req);
+  await logActivity(actor.name, actor.role, "customer_order_rejected", {
+    batchId: id,
+    customerName: batch.customerName,
+  });
+
+  res.json({ ok: true });
 });
 
 router.post("/order-batches/settle-waiter", async (req, res): Promise<void> => {
