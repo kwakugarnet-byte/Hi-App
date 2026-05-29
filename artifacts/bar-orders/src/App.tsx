@@ -24,6 +24,7 @@ import SalesReport from "@/pages/sales-report";
 import DirectSale from "@/pages/direct-sale";
 import ChatPanel from "@/components/ChatPanel";
 import { useAuth } from "@/hooks/useAuth";
+import { useIdleLogout } from "@/hooks/useIdleLogout";
 import { useGetStaff, usePinLogin } from "@workspace/api-client-react";
 import { Delete } from "lucide-react";
 import logo from "@/assets/logo.jpg";
@@ -209,8 +210,27 @@ function PinLogin() {
   );
 }
 
+function IdleWarning({ countdown, onDismiss }: { countdown: number; onDismiss: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <div className="bg-card border border-border rounded-2xl p-8 mx-4 max-w-sm w-full text-center shadow-2xl">
+        <div className="text-5xl font-black tabular-nums text-amber-400 mb-2">{countdown}</div>
+        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-1">Logging out due to inactivity</p>
+        <p className="text-sm text-muted-foreground mb-6">Tap anywhere or press a key to stay logged in</p>
+        <button
+          onClick={onDismiss}
+          className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-bold uppercase tracking-widest text-sm hover:opacity-90 transition-opacity"
+        >
+          Stay Logged In
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const { isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated, logout } = useAuth();
+  const { countdown, dismiss } = useIdleLogout(logout, isAuthenticated);
 
   if (isLoading) {
     return (
@@ -226,7 +246,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     return <PinLogin />;
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      {countdown !== null && <IdleWarning countdown={countdown} onDismiss={dismiss} />}
+    </>
+  );
 }
 
 function Router() {
