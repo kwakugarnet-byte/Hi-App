@@ -45,6 +45,9 @@ function DirectSaleInner() {
   const [justAdded, setJustAdded] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const [pendingItem, setPendingItem] = useState<{ menuItemId: number; name: string; pricePence: number } | null>(null);
+  const [pendingQty, setPendingQty] = useState("1");
+
   const categories = useMemo(() => {
     const cats = Array.from(new Set(menuItems.map((i) => i.category))).sort();
     return ["All", ...cats];
@@ -66,17 +69,46 @@ function DirectSaleInner() {
     setTimeout(() => setJustAdded(null), 1400);
   }
 
-  function addItem(menuItemId: number) {
+  function addItem(menuItemId: number, qty = 1) {
     const item = menuItems.find((m) => m.id === menuItemId);
     if (!item) return;
     setCurrentItems((prev) => {
       const existing = prev[menuItemId];
       return {
         ...prev,
-        [menuItemId]: { menuItemId, name: item.name, pricePence: item.pricePence, quantity: (existing?.quantity ?? 0) + 1 },
+        [menuItemId]: { menuItemId, name: item.name, pricePence: item.pricePence, quantity: (existing?.quantity ?? 0) + qty },
       };
     });
-    flashAdded(item.name);
+    flashAdded(`${item.name}${qty > 1 ? ` ×${qty}` : ""}`);
+  }
+
+  function openQtyPrompt(menuItemId: number) {
+    const item = menuItems.find((m) => m.id === menuItemId);
+    if (!item) return;
+    setPendingItem({ menuItemId, name: item.name, pricePence: item.pricePence });
+    setPendingQty("1");
+  }
+
+  function confirmQty() {
+    if (!pendingItem) return;
+    const qty = Math.max(1, parseInt(pendingQty, 10) || 1);
+    addItem(pendingItem.menuItemId, qty);
+    setPendingItem(null);
+    setPendingQty("1");
+    setTimeout(() => barcodeRef.current?.focus(), 100);
+  }
+
+  function pressQtyDigit(d: string) {
+    setPendingQty((prev) => {
+      const next = prev === "1" && d !== "0" ? d : prev === "0" ? d : prev + d;
+      const num = parseInt(next, 10);
+      if (isNaN(num) || num > 999) return prev;
+      return next;
+    });
+  }
+
+  function backspaceQty() {
+    setPendingQty((prev) => (prev.length <= 1 ? "1" : prev.slice(0, -1)));
   }
 
   function removeItem(menuItemId: number) {
@@ -97,8 +129,8 @@ function DirectSaleInner() {
       if (!val) return;
       const match = menuItems.find((m) => m.barcode === val);
       if (match) {
-        addItem(match.id);
         setBarcodeValue("");
+        openQtyPrompt(match.id);
       } else {
         toast({ title: "Barcode not found", description: val, variant: "destructive" });
         setBarcodeValue("");
@@ -115,10 +147,9 @@ function DirectSaleInner() {
       const code = next.join("");
       const match = menuItems.find((m) => m.sku === code);
       if (match) {
-        addItem(match.id);
         setShowNumpad(false);
         setCodeDigits([]);
-        setTimeout(() => barcodeRef.current?.focus(), 100);
+        openQtyPrompt(match.id);
       } else {
         setCodeError(true);
         setTimeout(() => { setCodeDigits([]); setCodeError(false); }, 900);
@@ -441,6 +472,66 @@ function DirectSaleInner() {
                 <Delete className="w-5 h-5" />
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Quantity prompt overlay ── */}
+      {pendingItem && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur flex items-end justify-center">
+          <div className="bg-card border border-border border-b-0 w-full max-w-sm px-5 pt-5 pb-8 rounded-t-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-black uppercase tracking-widest text-foreground">How many?</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{pendingItem.name} · {formatPrice(pendingItem.pricePence)} each</p>
+              </div>
+              <button
+                onClick={() => { setPendingItem(null); setTimeout(() => barcodeRef.current?.focus(), 100); }}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Quantity display */}
+            <div className="flex items-center justify-center">
+              <span className="text-6xl font-black tabular-nums text-foreground">{pendingQty}</span>
+            </div>
+
+            {/* Numpad */}
+            <div className="grid grid-cols-3 gap-3">
+              {["1","2","3","4","5","6","7","8","9"].map((d) => (
+                <button
+                  key={d}
+                  onClick={() => pressQtyDigit(d)}
+                  className="h-14 rounded-xl bg-background border border-border text-2xl font-bold text-foreground hover:border-primary hover:bg-primary/10 active:scale-95 transition-all"
+                >
+                  {d}
+                </button>
+              ))}
+              <div />
+              <button
+                onClick={() => pressQtyDigit("0")}
+                className="h-14 rounded-xl bg-background border border-border text-2xl font-bold text-foreground hover:border-primary hover:bg-primary/10 active:scale-95 transition-all"
+              >
+                0
+              </button>
+              <button
+                onClick={backspaceQty}
+                className="h-14 rounded-xl bg-transparent border border-border text-muted-foreground hover:text-foreground hover:border-foreground active:scale-95 transition-all flex items-center justify-center"
+              >
+                <Delete className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Confirm */}
+            <button
+              onClick={confirmQty}
+              className="w-full h-14 rounded-xl bg-primary text-primary-foreground font-black text-base uppercase tracking-wide hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+            >
+              <Check className="w-5 h-5" />
+              Add {pendingQty} × {pendingItem.name}
+            </button>
           </div>
         </div>
       )}
