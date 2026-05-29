@@ -449,17 +449,18 @@ function WaitressInner() {
   return (
     <div className="min-h-[100dvh] bg-background text-foreground flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-card border-b border-border px-4 py-3 flex items-center justify-between shrink-0">
-        <Link href="/">
-          <Button variant="ghost" size="icon" className="text-muted-foreground">
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-        </Link>
-        <div className="text-center">
-          <h1 className="text-xl font-bold uppercase tracking-wide text-primary">New Order</h1>
-          <p className="text-xs text-muted-foreground">{waitressName}</p>
+      <header className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border">
+        <div className="flex items-center gap-3 px-4 py-3 w-full">
+          <Link href="/">
+            <button className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+          </Link>
+          <div className="flex-1">
+            <p className="font-black text-sm uppercase tracking-widest text-foreground">Take Order</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{waitressName}</p>
+          </div>
         </div>
-        <div className="w-10" />
       </header>
 
       {/* Returned orders alert */}
@@ -644,7 +645,7 @@ function WaitressInner() {
                               : "border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground"
                           }`}
                         >
-                          <span className="block font-semibold text-sm leading-snug">{item.name}</span>
+                          <span className="block font-bold text-sm leading-snug">{item.name}</span>
                           {item.sku && (
                             <span className="block text-[10px] text-muted-foreground/60 mt-0.5 font-mono tracking-wider">{item.sku}</span>
                           )}

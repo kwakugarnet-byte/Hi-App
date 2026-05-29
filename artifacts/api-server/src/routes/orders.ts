@@ -128,6 +128,61 @@ router.post("/order-batches", async (req, res): Promise<void> => {
   res.status(201).json(result);
 });
 
+router.post("/order-batches/hold", async (req, res): Promise<void> => {
+  const parsed = CreateOrderBatchBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const { customerName, waitressName, items } = parsed.data;
+
+  const [batch] = await db
+    .insert(orderBatchesTable)
+    .values({ customerName, waitressName, status: "on_hold", saleType: "bar" })
+    .returning();
+
+  if (items.length > 0) {
+    await db.insert(orderItemsTable).values(
+      items.map((item) => ({ batchId: batch.id, menuItemId: item.menuItemId, quantity: item.quantity }))
+    );
+  }
+
+  const orderItems = await db
+    .select({
+      id: orderItemsTable.id,
+      batchId: orderItemsTable.batchId,
+      menuItemId: orderItemsTable.menuItemId,
+      menuItemName: menuItemsTable.name,
+      pricePence: menuItemsTable.pricePence,
+      quantity: orderItemsTable.quantity,
+    })
+    .from(orderItemsTable)
+    .innerJoin(menuItemsTable, eq(orderItemsTable.menuItemId, menuItemsTable.id))
+    .where(eq(orderItemsTable.batchId, batch.id));
+
+  const actor = actorFromReq(req);
+  const totalPence = orderItems.reduce((s, i) => s + i.pricePence * i.quantity, 0);
+  await logActivity(actor.name, actor.role, "order_held", {
+    batchId: batch.id,
+    customerName,
+    totalPence,
+  });
+
+  res.status(201).json({
+    ...batch,
+    createdAt: batch.createdAt.toISOString(),
+    completedAt: batch.completedAt ? batch.completedAt.toISOString() : null,
+    items: orderItems.map((item) => ({
+      id: item.id,
+      menuItemId: item.menuItemId,
+      menuItemName: item.menuItemName,
+      pricePence: item.pricePence,
+      quantity: item.quantity,
+    })),
+  });
+});
+
 router.post("/order-batches/direct", async (req, res): Promise<void> => {
   const parsed = CreateOrderBatchBody.safeParse(req.body);
   if (!parsed.success) {

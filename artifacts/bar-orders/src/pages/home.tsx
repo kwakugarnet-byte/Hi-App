@@ -74,6 +74,13 @@ export default function Home() {
 
   const myBonusEarned = Math.round(myTodayPaid * myBonusPercent / 100);
 
+  const myBarHolds = useMemo(() => {
+    if (!batches || !isBartender || !displayName) return [];
+    return batches.filter((b) => (b.status as string) === "on_hold" && b.saleType === "bar" && b.waitressName === displayName);
+  }, [batches, isBartender, displayName]);
+
+  const myBarHoldsTotal = myBarHolds.reduce((sum, b) => sum + b.items.reduce((s, i) => s + i.pricePence * i.quantity, 0), 0);
+
   // Permission-based access flags for non-admin staff
   const canManageProducts = !isAdmin && (hasPermission("manage_products") || hasPermission("change_prices"));
   const canManageCategories = !isAdmin && hasPermission("manage_categories");
@@ -154,6 +161,19 @@ export default function Home() {
 
           {isBartender && (
             <>
+              {/* Bar outstanding holds card */}
+              {myBarHolds.length > 0 && (
+                <Link href="/bills" className="w-full">
+                  <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 flex items-center gap-3 hover:bg-red-500/15 transition-colors">
+                    <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-black uppercase tracking-widest text-red-400">Bar Outstanding</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{myBarHolds.length} unpaid hold{myBarHolds.length !== 1 ? "s" : ""} · only admin can clear</p>
+                    </div>
+                    <span className="text-xl font-black tabular-nums shrink-0 text-red-400">{formatPrice(myBarHoldsTotal)}</span>
+                  </div>
+                </Link>
+              )}
               {/* Bonus card for bartender */}
               {myBonusPercent > 0 && (
                 <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 flex items-center gap-3">

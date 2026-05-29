@@ -272,7 +272,7 @@ export const GetOrderBatchesResponseItem = zod.object({
   waitressName: zod.string(),
   createdAt: zod.string(),
   completedAt: zod.string().nullish(),
-  status: zod.enum(["pending", "completed", "paid", "returned"]),
+  status: zod.enum(["pending", "completed", "paid", "returned", "on_hold"]),
   saleType: zod.string().nullish(),
   correctionItemIds: zod.array(zod.number()).nullish(),
   items: zod.array(

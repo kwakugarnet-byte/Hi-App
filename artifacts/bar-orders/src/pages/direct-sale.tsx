@@ -14,7 +14,7 @@ function formatPrice(pence: number) {
 }
 
 type SaleItem = { menuItemId: number; name: string; pricePence: number; quantity: number };
-type HeldSale = { id: string; label: string; items: SaleItem[] };
+type HeldSale = { id: string; label: string; items: SaleItem[]; batchId?: number };
 
 function DirectSaleInner() {
   const { user } = useAuth();
@@ -44,6 +44,7 @@ function DirectSaleInner() {
   const [search, setSearch] = useState("");
   const [justAdded, setJustAdded] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [recalledBatchId, setRecalledBatchId] = useState<number | null>(null);
 
   const [pendingItem, setPendingItem] = useState<{ menuItemId: number; name: string; pricePence: number } | null>(null);
   const [pendingQty, setPendingQty] = useState("1");
@@ -169,15 +170,34 @@ function DirectSaleInner() {
     setTimeout(() => barcodeRef.current?.focus(), 100);
   }
 
-  function holdSale() {
-    if (!hasItems) return;
+  async function holdSale() {
+    if (!hasItems || submitting) return;
+    setSubmitting(true);
     const label = customerLabel.trim() || `Customer ${heldSales.length + 1}`;
-    const id = Date.now().toString();
-    setHeldSales((prev) => [...prev, { id, label, items: currentList }]);
-    setCurrentItems({});
-    setCustomerLabel("");
-    toast({ title: `"${label}" put on hold`, description: `${currentList.length} item(s) · ${formatPrice(total)}` });
-    setTimeout(() => barcodeRef.current?.focus(), 100);
+    try {
+      const res = await fetch(`${BASE}/api/order-batches/hold`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          waitressName: displayName,
+          customerName: label,
+          items: currentList.map((i) => ({ menuItemId: i.menuItemId, quantity: i.quantity })),
+        }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      const id = Date.now().toString();
+      setHeldSales((prev) => [...prev, { id, label, items: currentList, batchId: data.id }]);
+      setCurrentItems({});
+      setCustomerLabel("");
+      toast({ title: `"${label}" put on hold`, description: `${currentList.length} item(s) · ${formatPrice(total)}` });
+      setTimeout(() => barcodeRef.current?.focus(), 100);
+    } catch {
+      toast({ title: "Failed to save hold", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function recallSale(heldId: string) {
@@ -197,6 +217,7 @@ function DirectSaleInner() {
     held.items.forEach((i) => { itemsMap[i.menuItemId] = i; });
     setCurrentItems(itemsMap);
     setCustomerLabel(held.label);
+    setRecalledBatchId(held.batchId ?? null);
     setShowHoldPanel(false);
   }
 
@@ -209,19 +230,28 @@ function DirectSaleInner() {
     setSubmitting(true);
     try {
       const customerName = customerLabel.trim() || "Bar Customer";
-      const res = await fetch(`${BASE}/api/order-batches/direct`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          waitressName: displayName,
-          customerName,
-          items: currentList.map((i) => ({ menuItemId: i.menuItemId, quantity: i.quantity })),
-        }),
-      });
+      let res: Response;
+      if (recalledBatchId) {
+        res = await fetch(`${BASE}/api/order-batches/${recalledBatchId}/pay`, {
+          method: "POST",
+          credentials: "include",
+        });
+      } else {
+        res = await fetch(`${BASE}/api/order-batches/direct`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            waitressName: displayName,
+            customerName,
+            items: currentList.map((i) => ({ menuItemId: i.menuItemId, quantity: i.quantity })),
+          }),
+        });
+      }
       if (!res.ok) throw new Error("Failed");
       setCurrentItems({});
       setCustomerLabel("");
+      setRecalledBatchId(null);
       toast({ title: "Payment recorded!", description: `${customerName} · ${formatPrice(total)}` });
       setTimeout(() => barcodeRef.current?.focus(), 100);
     } catch {
@@ -509,7 +539,12 @@ function DirectSaleInner() {
                   {d}
                 </button>
               ))}
-              <div />
+              <button
+                onClick={() => setPendingQty("1")}
+                className="h-14 rounded-xl bg-transparent border border-border text-muted-foreground font-bold text-lg hover:text-foreground hover:border-foreground active:scale-95 transition-all"
+              >
+                C
+              </button>
               <button
                 onClick={() => pressQtyDigit("0")}
                 className="h-14 rounded-xl bg-background border border-border text-2xl font-bold text-foreground hover:border-primary hover:bg-primary/10 active:scale-95 transition-all"
