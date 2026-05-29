@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Link, Redirect } from "wouter";
-import { ArrowLeft, Plus, Pencil, Trash2, Check, X, Layers, Tag } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Check, X, Layers, Tag, Barcode, Hash } from "lucide-react";
 import {
   useGetMenuItems,
   useCreateMenuItem,
@@ -28,8 +28,8 @@ function formatPrice(pence: number) {
   return `₵${(pence / 100).toFixed(2)}`;
 }
 
-type AddState = { name: string; category: string; pricePence: string } | null;
-type BulkRow = { name: string; category: string; pricePence: string };
+type AddState = { name: string; category: string; pricePence: string; barcode: string; sku: string } | null;
+type BulkRow = { name: string; category: string; pricePence: string; barcode: string; sku: string };
 
 function AdminInner({ canManage, canPrice, canDelete }: { canManage: boolean; canPrice: boolean; canDelete: boolean }) {
   const { toast } = useToast();
@@ -79,6 +79,8 @@ function AdminInner({ canManage, canPrice, canDelete }: { canManage: boolean; ca
         name: item.name,
         category: item.category,
         pricePence: (item.pricePence / 100).toFixed(2),
+        barcode: item.barcode ?? "",
+        sku: item.sku ?? "",
       };
     }
     setBulkEdits(seed);
@@ -108,7 +110,9 @@ function AdminInner({ canManage, canPrice, canDelete }: { canManage: boolean; ca
       const nameChanged = canManage && row.name.trim() !== item.name;
       const catChanged = canManage && row.category !== item.category;
       const priceChanged = canPrice && price !== item.pricePence;
-      return nameChanged || catChanged || priceChanged;
+      const barcodeChanged = canManage && (row.barcode.trim() || null) !== (item.barcode ?? null);
+      const skuChanged = canManage && (row.sku.trim() || null) !== (item.sku ?? null);
+      return nameChanged || catChanged || priceChanged || barcodeChanged || skuChanged;
     });
 
     if (changed.length === 0) {
@@ -133,7 +137,7 @@ function AdminInner({ canManage, canPrice, canDelete }: { canManage: boolean; ca
         changed.map((item) => {
           const row = bulkEdits[item.id];
           const data: Record<string, unknown> = {};
-          if (canManage) { data.name = row.name.trim(); data.category = row.category; }
+          if (canManage) { data.name = row.name.trim(); data.category = row.category; data.barcode = row.barcode.trim() || null; data.sku = row.sku.trim() || null; }
           if (canPrice) { data.pricePence = Math.round(parseFloat(row.pricePence) * 100); }
           return updateItem.mutateAsync({ id: item.id, data: data as Parameters<typeof updateItem.mutateAsync>[0]["data"] });
         })
@@ -149,7 +153,7 @@ function AdminInner({ canManage, canPrice, canDelete }: { canManage: boolean; ca
   }
 
   function startAdd() {
-    setAdding({ name: "", category: categories[0] ?? "", pricePence: "" });
+    setAdding({ name: "", category: categories[0] ?? "", pricePence: "", barcode: "", sku: "" });
     setBulkMode(false);
   }
 
@@ -161,7 +165,7 @@ function AdminInner({ canManage, canPrice, canDelete }: { canManage: boolean; ca
       return;
     }
     createItem.mutate(
-      { data: { name: adding.name.trim(), category: adding.category, pricePence: Math.round(price * 100) } },
+      { data: { name: adding.name.trim(), category: adding.category, pricePence: Math.round(price * 100), barcode: adding.barcode.trim() || null, sku: adding.sku.trim() || null } },
       {
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: getGetMenuItemsQueryKey() });
@@ -201,7 +205,9 @@ function AdminInner({ canManage, canPrice, canDelete }: { canManage: boolean; ca
       const nameChanged = canManage && row.name.trim() !== item.name;
       const catChanged = canManage && row.category !== item.category;
       const priceChanged = canPrice && price !== item.pricePence;
-      return nameChanged || catChanged || priceChanged;
+      const barcodeChanged = canManage && (row.barcode.trim() || null) !== (item.barcode ?? null);
+      const skuChanged = canManage && (row.sku.trim() || null) !== (item.sku ?? null);
+      return nameChanged || catChanged || priceChanged || barcodeChanged || skuChanged;
     }).length;
   }, [menuItems, bulkEdits, bulkMode, canManage, canPrice]);
 
@@ -325,6 +331,27 @@ function AdminInner({ canManage, canPrice, canDelete }: { canManage: boolean; ca
                   value={adding.pricePence}
                   onChange={(e) => setAdding({ ...adding, pricePence: e.target.value })}
                   className="pl-7 bg-background border-border focus-visible:ring-primary"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                <Input
+                  placeholder="4-digit code (e.g. 0042)"
+                  value={adding.sku}
+                  onChange={(e) => setAdding({ ...adding, sku: e.target.value })}
+                  className="pl-8 bg-background border-border focus-visible:ring-primary font-mono text-sm"
+                  maxLength={10}
+                />
+              </div>
+              <div className="relative flex-1">
+                <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                <Input
+                  placeholder="Barcode (optional)"
+                  value={adding.barcode}
+                  onChange={(e) => setAdding({ ...adding, barcode: e.target.value })}
+                  className="pl-8 bg-background border-border focus-visible:ring-primary font-mono text-sm"
                 />
               </div>
             </div>
@@ -477,7 +504,11 @@ function AdminInner({ canManage, canPrice, canDelete }: { canManage: boolean; ca
                 <div key={item.id} className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-sm truncate">{item.name}</p>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">{item.category}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">{item.category}</p>
+                      {item.sku && <span className="text-[10px] font-mono text-muted-foreground/60 bg-muted/30 px-1.5 py-0.5 rounded">{item.sku}</span>}
+                      {item.barcode && <Barcode className="w-3 h-3 text-muted-foreground/40" />}
+                    </div>
                   </div>
                   <span className="text-primary font-black text-base shrink-0">{formatPrice(item.pricePence)}</span>
 

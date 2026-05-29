@@ -7,6 +7,8 @@ export const menuItemsTable = pgTable("menu_items", {
   name: text("name").notNull(),
   category: text("category").notNull(),
   pricePence: integer("price_pence").notNull().default(0),
+  barcode: text("barcode"),
+  sku: text("sku"),
 });
 
 export const insertMenuItemSchema = createInsertSchema(menuItemsTable).omit({ id: true });

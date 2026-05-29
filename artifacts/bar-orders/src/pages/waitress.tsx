@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Link, Redirect } from "wouter";
-import { ArrowLeft, Send, Plus, Minus, Trash2, AlertTriangle, RotateCcw, CheckCircle2, Search, X } from "lucide-react";
+import { ArrowLeft, Send, Plus, Minus, Trash2, AlertTriangle, RotateCcw, CheckCircle2, Search, X, ScanLine } from "lucide-react";
 import {
   useGetMenuItems,
   useGetOrderBatches,
@@ -45,6 +45,48 @@ function WaitressInner() {
   const [selected, setSelected] = useState<Record<number, SelectedItem>>({});
   const [nameError, setNameError] = useState(false);
   const [voidConfirmId, setVoidConfirmId] = useState<number | null>(null);
+  const [quickCode, setQuickCode] = useState("");
+  const [quickFlash, setQuickFlash] = useState<string | null>(null);
+  const quickInputRef = useRef<HTMLInputElement>(null);
+
+  function flashFeedback(msg: string) {
+    setQuickFlash(msg);
+    setTimeout(() => setQuickFlash(null), 1800);
+  }
+
+  function tryQuickAdd(value: string, isEnter = false) {
+    if (!menuItems || !value.trim()) return;
+    const v = value.trim();
+
+    if (isEnter) {
+      const byBarcode = menuItems.find((i) => i.barcode && i.barcode === v);
+      if (byBarcode) {
+        addItem(byBarcode.id, byBarcode.name);
+        setQuickCode("");
+        flashFeedback(`+ ${byBarcode.name}`);
+        return;
+      }
+    }
+
+    const bySku = menuItems.filter((i) => i.sku && i.sku === v);
+    if (bySku.length === 1) {
+      addItem(bySku[0].id, bySku[0].name);
+      setQuickCode("");
+      flashFeedback(`+ ${bySku[0].name}`);
+      return;
+    }
+
+    if (isEnter && bySku.length === 0) {
+      flashFeedback("No match found");
+    }
+  }
+
+  function handleQuickChange(val: string) {
+    setQuickCode(val);
+    if (/^\d{4}$/.test(val)) {
+      tryQuickAdd(val, false);
+    }
+  }
 
   // Returned batches for this waitress (need correction)
   const returnedBatches = useMemo(() => {
@@ -184,7 +226,9 @@ function WaitressInner() {
     if (!menuItems) return [];
     const q = searchQuery.trim().toLowerCase();
     if (q) {
-      return [...menuItems].filter((i) => i.name.toLowerCase().includes(q)).sort((a, b) => a.name.localeCompare(b.name));
+      return [...menuItems].filter((i) =>
+        i.name.toLowerCase().includes(q) || (i.sku && i.sku.toLowerCase().includes(q))
+      ).sort((a, b) => a.name.localeCompare(b.name));
     }
     if (currentTab === "All") {
       return [...menuItems].sort((a, b) => a.name.localeCompare(b.name));
@@ -492,44 +536,35 @@ function WaitressInner() {
 
       {/* ── Order form ── */}
       <>
-          {/* Customer name */}
-          <div className="px-4 pt-4 pb-3 shrink-0 border-b border-border bg-card space-y-3">
-            {activeCustomers.length > 0 && (
-              <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
-                  Active Customers
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {activeCustomers.map((name) => (
-                    <button
-                      key={name}
-                      type="button"
-                      onClick={() => { setCustomerName(name); setNameError(false); }}
-                      className={`px-3 py-1.5 rounded-full text-sm font-bold uppercase tracking-wide border transition-all ${
-                        customerName === name
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-card border-border text-muted-foreground hover:border-primary/60 hover:text-foreground"
-                      }`}
-                    >
-                      {name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
-                {activeCustomers.length > 0 ? "Or New Customer" : "Customer Name"}
-              </label>
-              <Input
-                value={customerName}
-                onChange={(e) => { setCustomerName(e.target.value); setNameError(false); }}
-                placeholder="E.g. Table 4 / John"
-                className={`h-12 text-lg bg-background border-border focus-visible:ring-primary ${nameError ? "border-destructive" : ""}`}
+          {/* Quick Add / Barcode scan bar */}
+          <div className="shrink-0 px-4 pt-3 pb-2 border-b border-border bg-card">
+            <div className="relative">
+              <ScanLine className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <input
+                ref={quickInputRef}
+                type="text"
+                value={quickCode}
+                onChange={(e) => handleQuickChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    tryQuickAdd(quickCode, true);
+                  }
+                }}
+                placeholder="Scan barcode or type 4-digit code…"
+                className="w-full h-10 pl-9 pr-9 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
               />
-              {nameError && <p className="text-destructive text-xs mt-1">Customer name is required</p>}
+              {quickCode && (
+                <button onClick={() => setQuickCode("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
+            {quickFlash && (
+              <p className={`text-xs font-bold mt-1.5 px-1 ${quickFlash.startsWith("+") ? "text-primary" : "text-destructive"}`}>
+                {quickFlash}
+              </p>
+            )}
           </div>
 
           {/* Category tabs */}
@@ -610,6 +645,9 @@ function WaitressInner() {
                           }`}
                         >
                           <span className="block font-semibold text-sm leading-snug">{item.name}</span>
+                          {item.sku && (
+                            <span className="block text-[10px] text-muted-foreground/60 mt-0.5 font-mono tracking-wider">{item.sku}</span>
+                          )}
                           {searchQuery && (
                             <span className="block text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wide">{item.category}</span>
                           )}
@@ -627,10 +665,10 @@ function WaitressInner() {
             </div>
           )}
 
-          {/* Order summary + send */}
+          {/* Order summary + customer name + send */}
           <div className="shrink-0 border-t border-border bg-card">
             {selectedList.length > 0 && (
-              <div className="px-4 pt-3 pb-2 space-y-2 max-h-48 overflow-y-auto">
+              <div className="px-4 pt-3 pb-2 space-y-2 max-h-40 overflow-y-auto">
                 <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                   Order ({totalItems} item{totalItems !== 1 ? "s" : ""})
                 </p>
@@ -659,14 +697,43 @@ function WaitressInner() {
               </div>
             )}
 
-            <div className="p-4">
+            {/* Customer name — entered after items */}
+            <div className={`px-4 pt-3 pb-2 space-y-2 ${selectedList.length > 0 ? "border-t border-border" : ""}`}>
+              {activeCustomers.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {activeCustomers.map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => { setCustomerName(n); setNameError(false); }}
+                      className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border transition-all ${
+                        customerName === n
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-card border-border text-muted-foreground hover:border-primary/60 hover:text-foreground"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <Input
+                value={customerName}
+                onChange={(e) => { setCustomerName(e.target.value); setNameError(false); }}
+                placeholder={activeCustomers.length > 0 ? "New customer or select above…" : "Customer name (Table 4, John…)"}
+                className={`h-11 bg-background border-border focus-visible:ring-primary ${nameError ? "border-destructive" : ""}`}
+              />
+              {nameError && <p className="text-destructive text-xs">Customer name is required</p>}
+            </div>
+
+            <div className="px-4 pb-4">
               <Button
                 onClick={handleSend}
                 size="lg"
-                className="w-full h-16 text-xl font-bold uppercase tracking-wider gap-3"
+                className="w-full h-14 text-lg font-bold uppercase tracking-wider gap-3"
                 disabled={createOrder.isPending}
               >
-                <Send className="w-6 h-6" />
+                <Send className="w-5 h-5" />
                 {createOrder.isPending ? "Sending..." : selectedList.length === 0 ? "Send to Bar" : `Send ${totalItems} Item${totalItems !== 1 ? "s" : ""} to Bar`}
               </Button>
             </div>

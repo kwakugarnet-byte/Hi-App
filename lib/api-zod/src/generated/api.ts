@@ -214,6 +214,8 @@ export const GetMenuItemsResponseItem = zod.object({
   name: zod.string(),
   category: zod.string(),
   pricePence: zod.number(),
+  barcode: zod.string().nullable().optional(),
+  sku: zod.string().nullable().optional(),
 });
 export const GetMenuItemsResponse = zod.array(GetMenuItemsResponseItem);
 
@@ -226,6 +228,8 @@ export const CreateMenuItemBody = zod.object({
   name: zod.string(),
   category: zod.string(),
   pricePence: zod.number().min(createMenuItemBodyPricePenceMin),
+  barcode: zod.string().nullable().optional(),
+  sku: zod.string().nullable().optional(),
 });
 
 /**
@@ -241,6 +245,8 @@ export const UpdateMenuItemBody = zod.object({
   name: zod.string(),
   category: zod.string(),
   pricePence: zod.number().min(updateMenuItemBodyPricePenceMin),
+  barcode: zod.string().nullable().optional(),
+  sku: zod.string().nullable().optional(),
 });
 
 export const UpdateMenuItemResponse = zod.object({

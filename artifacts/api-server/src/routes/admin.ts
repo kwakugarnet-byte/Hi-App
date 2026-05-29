@@ -97,11 +97,13 @@ router.patch("/menu-items/:id", async (req: Request, res: Response): Promise<voi
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const { name, category, pricePence } = req.body;
+  const { name, category, pricePence, barcode, sku } = req.body;
   const updates: Record<string, unknown> = {};
   if (canManage) {
     if (name !== undefined && typeof name === "string" && name.trim()) updates.name = name.trim();
     if (category !== undefined && typeof category === "string" && category.trim()) updates.category = category.trim();
+    if (barcode !== undefined) updates.barcode = barcode === "" ? null : String(barcode);
+    if (sku !== undefined) updates.sku = sku === "" ? null : String(sku);
   }
   if (canPrice && pricePence !== undefined) {
     const p = Number(pricePence);
