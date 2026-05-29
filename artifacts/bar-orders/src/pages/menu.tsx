@@ -87,7 +87,10 @@ export default function Menu() {
 
   const categories = useMemo(() => {
     if (!menuItems) return [];
-    return Array.from(new Set(menuItems.map((i) => i.category))).sort();
+    const all = Array.from(new Set(menuItems.map((i) => i.category)));
+    const food = all.filter((c) => !DRINK_CATEGORIES.has(c)).sort();
+    const drinks = all.filter((c) => DRINK_CATEGORIES.has(c)).sort();
+    return [...food, ...drinks];
   }, [menuItems]);
 
   // Separate food vs drinks
