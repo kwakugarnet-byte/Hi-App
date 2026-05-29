@@ -172,8 +172,12 @@ function DirectSaleInner() {
 
   async function holdSale() {
     if (!hasItems || submitting) return;
+    if (!customerLabel.trim()) {
+      toast({ title: "Customer name required", description: "Enter a name before putting the order on hold", variant: "destructive" });
+      return;
+    }
     setSubmitting(true);
-    const label = customerLabel.trim() || `Customer ${heldSales.length + 1}`;
+    const label = customerLabel.trim();
     try {
       const res = await fetch(`${BASE}/api/order-batches/hold`, {
         method: "POST",
@@ -409,7 +413,7 @@ function DirectSaleInner() {
             </div>
             <input
               type="text"
-              placeholder="Customer name (optional)"
+              placeholder="Customer name (required to hold)"
               value={customerLabel}
               onChange={(e) => setCustomerLabel(e.target.value)}
               className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary text-foreground"
@@ -417,7 +421,8 @@ function DirectSaleInner() {
             <div className="flex gap-2">
               <button
                 onClick={holdSale}
-                className="flex-1 h-12 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-400 text-sm font-bold uppercase tracking-wide hover:bg-amber-500/20 transition-colors flex items-center justify-center gap-2"
+                disabled={!customerLabel.trim() || submitting}
+                className="flex-1 h-12 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-400 text-sm font-bold uppercase tracking-wide hover:bg-amber-500/20 transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Clock className="w-4 h-4" />
                 Hold
