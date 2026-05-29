@@ -20,6 +20,7 @@ async function fetchCategories(): Promise<Category[]> {
 async function createCategory(name: string): Promise<Category> {
   const res = await fetch(`${BASE}/api/categories`, {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
   });
@@ -31,7 +32,7 @@ async function createCategory(name: string): Promise<Category> {
 }
 
 async function deleteCategory(id: number): Promise<void> {
-  const res = await fetch(`${BASE}/api/categories/${id}`, { method: "DELETE" });
+  const res = await fetch(`${BASE}/api/categories/${id}`, { method: "DELETE", credentials: "include" });
   if (!res.ok) throw new Error("Failed to delete category");
 }
 
