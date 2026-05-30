@@ -775,40 +775,50 @@ export default function Menu() {
         </div>
       )}
 
-      {/* Order tab sticky footer — browse step */}
-      {activeTab === "order" && !submitted && orderStep === "browse" && (
+      {/* Order tab sticky footer — always visible on Order tab */}
+      {activeTab === "order" && (
         <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg">
-          {/* Call button — always shown */}
-          {barOrderPhone && (
-            <div className="max-w-lg mx-auto px-4 pt-3">
+          {/* Call button — permanent, green */}
+          <div className="max-w-lg mx-auto px-4 pt-3">
+            {barOrderPhone ? (
               <a
                 href={`tel:${barOrderPhone}`}
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-border text-sm font-bold text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-green-600 hover:bg-green-500 text-white font-black uppercase tracking-wide text-sm transition-colors"
               >
                 <Phone className="w-4 h-4" />
-                Call to order or check on your order · {barOrderPhone}
+                Call Us · {barOrderPhone}
               </a>
-            </div>
-          )}
-          {cartItemCount > 0 ? (
-            <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between gap-4">
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">{cartItemCount} item{cartItemCount !== 1 ? "s" : ""}</p>
-                <p className="text-xl font-black text-foreground tabular-nums">{formatPrice(cartTotal)}</p>
+            ) : (
+              <div className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-green-600/30 text-green-500/60 font-black uppercase tracking-wide text-sm cursor-default">
+                <Phone className="w-4 h-4" />
+                Call Us to Order or Check Your Order
               </div>
-              <button
-                onClick={() => setOrderStep("checkout")}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-orange-500 hover:bg-orange-400 text-black font-black uppercase tracking-wide text-sm transition-colors"
-              >
-                <ShoppingBag className="w-4 h-4" />
-                Review Order
-              </button>
-            </div>
-          ) : (
-            <div className="max-w-lg mx-auto px-4 py-3">
-              <p className="text-center text-xs text-muted-foreground font-semibold">Add items above to place an order</p>
-            </div>
+            )}
+          </div>
+          {/* Cart / action area — only in browse step */}
+          {!submitted && orderStep === "browse" && (
+            cartItemCount > 0 ? (
+              <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">{cartItemCount} item{cartItemCount !== 1 ? "s" : ""}</p>
+                  <p className="text-xl font-black text-foreground tabular-nums">{formatPrice(cartTotal)}</p>
+                </div>
+                <button
+                  onClick={() => setOrderStep("checkout")}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-orange-500 hover:bg-orange-400 text-black font-black uppercase tracking-wide text-sm transition-colors"
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  Review Order
+                </button>
+              </div>
+            ) : (
+              <div className="max-w-lg mx-auto px-4 py-3">
+                <p className="text-center text-xs text-muted-foreground font-semibold">Add items above to place an order</p>
+              </div>
+            )
           )}
+          {/* Spacing for checkout and tracking steps */}
+          {(submitted || orderStep === "checkout") && <div className="pb-3" />}
         </div>
       )}
     </div>

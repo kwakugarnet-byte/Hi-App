@@ -31,7 +31,7 @@ function formatPrice(pence: number) {
 type AddState = { name: string; category: string; pricePence: string; barcode: string; sku: string } | null;
 type BulkRow = { name: string; category: string; pricePence: string; barcode: string; sku: string };
 
-function AdminInner({ canManage, canPrice, canDelete }: { canManage: boolean; canPrice: boolean; canDelete: boolean }) {
+function AdminInner({ canManage, canPrice, canDelete, isAdmin }: { canManage: boolean; canPrice: boolean; canDelete: boolean; isAdmin: boolean }) {
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -323,8 +323,8 @@ function AdminInner({ canManage, canPrice, canDelete }: { canManage: boolean; ca
         )}
       </header>
 
-      {/* Order Phone Setting */}
-      {!bulkMode && canManage && (
+      {/* Order Phone Setting — admin only */}
+      {!bulkMode && isAdmin && (
         <div className="shrink-0 border-b border-border bg-card px-4 py-3 flex items-center gap-3">
           <Phone className="w-4 h-4 text-muted-foreground shrink-0" />
           <span className="text-xs font-black uppercase tracking-widest text-muted-foreground shrink-0">Order Line</span>
@@ -702,5 +702,5 @@ export default function Admin() {
 
   if (!canManage && !canPrice) return <Redirect to="/" />;
 
-  return <AdminInner canManage={canManage} canPrice={canPrice} canDelete={canDelete} />;
+  return <AdminInner canManage={canManage} canPrice={canPrice} canDelete={canDelete} isAdmin={isAdmin} />;
 }
