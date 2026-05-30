@@ -278,6 +278,7 @@ export const GetOrderBatchesResponseItem = zod.object({
   orderType: zod.string().nullish(),
   deliveryLocation: zod.string().nullish(),
   correctionItemIds: zod.array(zod.number()).nullish(),
+  rejectionReason: zod.string().nullish(),
   items: zod.array(
     zod.object({
       id: zod.number(),

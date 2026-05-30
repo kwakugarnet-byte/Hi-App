@@ -1,5 +1,5 @@
 import { Link, Redirect } from "wouter";
-import { ArrowLeft, CheckCircle2, Clock, MapPin, Phone, ShoppingBag, Truck, User, UserCog, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, MapPin, Phone, ShoppingBag, Truck, User, UserCog, X, AlertCircle } from "lucide-react";
 import {
   useGetOrderBatches,
   useCompleteOrderBatch,
@@ -84,6 +84,15 @@ export default function Bar() {
   const { role, isLoading: authLoading } = useAuth();
   const [selectedWaiter, setSelectedWaiter] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<number | null>(null);
+  const [rejectModal, setRejectModal] = useState<CustomerOrder | null>(null);
+  const [selectedReason, setSelectedReason] = useState<string>("");
+  const [customReason, setCustomReason] = useState<string>("");
+
+  const REJECTION_REASONS = [
+    "Sorry, we are currently closed",
+    "Sorry, this item is not available at the moment",
+    "Sorry, we are not working today",
+  ];
 
   const { data: batches, isLoading, refetch } = useGetOrderBatches({
     query: {
@@ -166,22 +175,33 @@ export default function Bar() {
     }
   }, [completeBatch, queryClient, toast]);
 
-  const handleRejectOrder = useCallback(async (order: CustomerOrder) => {
-    setRejectingId(order.id);
+  const handleOpenRejectModal = useCallback((order: CustomerOrder) => {
+    setRejectModal(order);
+    setSelectedReason(REJECTION_REASONS[0]);
+    setCustomReason("");
+  }, []);
+
+  const handleConfirmReject = useCallback(async () => {
+    if (!rejectModal) return;
+    const reason = selectedReason === "__custom__" ? customReason.trim() : selectedReason;
+    setRejectingId(rejectModal.id);
     try {
-      const res = await fetch(`${BASE}/api/order-batches/${order.id}/reject`, {
+      const res = await fetch(`${BASE}/api/order-batches/${rejectModal.id}/reject`, {
         method: "POST",
         credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
       });
       if (!res.ok) throw new Error();
       await queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
-      toast({ title: "Order Rejected", description: `${order.customerName}'s order has been rejected.` });
+      toast({ title: "Order Rejected", description: `${rejectModal.customerName}'s order has been rejected.` });
+      setRejectModal(null);
     } catch {
       toast({ title: "Error", description: "Could not reject order.", variant: "destructive" });
     } finally {
       setRejectingId(null);
     }
-  }, [queryClient, toast]);
+  }, [rejectModal, selectedReason, customReason, queryClient, toast]);
 
   const handleCustomerOrderDone = useCallback(async (order: CustomerOrder) => {
     try {
@@ -355,7 +375,7 @@ export default function Bar() {
                                 size="sm"
                                 variant="outline"
                                 className="flex-1 border-destructive/50 text-destructive hover:bg-destructive/10 font-black uppercase text-xs"
-                                onClick={() => handleRejectOrder(order)}
+                                onClick={() => handleOpenRejectModal(order)}
                                 disabled={rejectingId === order.id}
                               >
                                 <X className="w-3.5 h-3.5 mr-1" />
@@ -449,6 +469,81 @@ export default function Bar() {
           </>
         )}
       </main>
+
+      {/* ── Rejection Reason Modal ─────────────────────────────────── */}
+      {rejectModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-sm shadow-2xl space-y-4 p-5">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-full bg-destructive/10 flex items-center justify-center shrink-0">
+                <AlertCircle className="w-5 h-5 text-destructive" />
+              </div>
+              <div>
+                <h2 className="text-base font-black text-foreground">Reject Order</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Select a reason for <span className="font-bold text-foreground">{rejectModal.customerName}</span>. They'll see this message.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {REJECTION_REASONS.map((reason) => (
+                <button
+                  key={reason}
+                  type="button"
+                  onClick={() => setSelectedReason(reason)}
+                  className={`w-full text-left px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                    selectedReason === reason
+                      ? "border-destructive bg-destructive/10 text-destructive"
+                      : "border-border text-muted-foreground hover:border-destructive/40 hover:text-foreground"
+                  }`}
+                >
+                  {reason}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setSelectedReason("__custom__")}
+                className={`w-full text-left px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                  selectedReason === "__custom__"
+                    ? "border-amber-500 bg-amber-500/10 text-amber-400"
+                    : "border-border text-muted-foreground hover:border-amber-500/40 hover:text-foreground"
+                }`}
+              >
+                Write a custom reason…
+              </button>
+              {selectedReason === "__custom__" && (
+                <textarea
+                  autoFocus
+                  rows={2}
+                  placeholder="Type your reason here…"
+                  value={customReason}
+                  onChange={(e) => setCustomReason(e.target.value)}
+                  className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-amber-500/60 resize-none"
+                />
+              )}
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setRejectModal(null)}
+                disabled={rejectingId !== null}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-black uppercase text-xs"
+                onClick={handleConfirmReject}
+                disabled={rejectingId !== null || (selectedReason === "__custom__" && !customReason.trim())}
+              >
+                {rejectingId !== null ? "Rejecting…" : "Confirm Reject"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useGetMenuItems, getGetMenuItemsQueryKey } from "@workspace/api-client-react";
 import { QRCodeSVG } from "qrcode.react";
 import {
@@ -60,6 +60,40 @@ export default function Menu() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Order tracking
+  const [placedOrderId, setPlacedOrderId] = useState<number | null>(null);
+  const [trackingStatus, setTrackingStatus] = useState<string>("pending");
+  const [trackingRejectionReason, setTrackingRejectionReason] = useState<string | null>(null);
+
+  // Call button phone number (fetched from settings)
+  const [barOrderPhone, setBarOrderPhone] = useState<string | null>(null);
+
+  // Fetch the bar's order phone number on mount
+  useEffect(() => {
+    fetch(`${BASE}/api/public/settings/order-phone`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data?.phone) setBarOrderPhone(data.phone); })
+      .catch(() => {});
+  }, []);
+
+  // Poll order status after placing
+  useEffect(() => {
+    if (!submitted || !placedOrderId) return;
+    let alive = true;
+    const poll = async () => {
+      try {
+        const r = await fetch(`${BASE}/api/public/order/${placedOrderId}`);
+        if (!r.ok || !alive) return;
+        const data = await r.json();
+        setTrackingStatus(data.status);
+        setTrackingRejectionReason(data.rejectionReason ?? null);
+      } catch {}
+    };
+    poll();
+    const interval = setInterval(poll, 4000);
+    return () => { alive = false; clearInterval(interval); };
+  }, [submitted, placedOrderId]);
 
   const base = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
   const menuUrl = `${window.location.origin}${base}/menu`;
@@ -165,6 +199,10 @@ export default function Menu() {
         const data = await res.json().catch(() => ({}));
         throw new Error((data as { error?: string }).error ?? `Error ${res.status}`);
       }
+      const json = await res.json();
+      setPlacedOrderId(json.id ?? null);
+      setTrackingStatus("pending");
+      setTrackingRejectionReason(null);
       setSubmitted(true);
       clearCart();
     } catch (err) {
@@ -429,20 +467,69 @@ export default function Menu() {
       {activeTab === "order" && (
         <div className="max-w-lg mx-auto px-4 py-5 pb-36">
 
-          {/* ── SUCCESS SCREEN ── */}
+          {/* ── TRACKING SCREEN ── */}
           {submitted ? (
-            <div className="flex flex-col items-center justify-center pt-10 gap-6 text-center">
-              <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center">
-                <CheckCircle2 className="w-10 h-10 text-green-500" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-black uppercase tracking-wide text-foreground">Order Placed!</h2>
-                <p className="text-sm text-muted-foreground mt-2 max-w-xs">
-                  Your order has been sent to the bar. We'll get it ready for you shortly.
-                </p>
-              </div>
-              <button onClick={startNewOrder} className="px-6 py-3 rounded-xl bg-orange-500 text-black font-black uppercase tracking-wide text-sm hover:bg-orange-400 transition-colors">
-                Back to Menu
+            <div className="flex flex-col items-center pt-10 gap-6 text-center max-w-xs mx-auto">
+
+              {trackingStatus === "pending" && (
+                <>
+                  <div className="w-20 h-20 rounded-full bg-orange-500/10 flex items-center justify-center">
+                    <Loader2 className="w-10 h-10 text-orange-400 animate-spin" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-black uppercase tracking-wide text-foreground">Order Sent!</h2>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Your order is with the bar — waiting for them to confirm it.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-orange-400 font-bold animate-pulse">
+                    <span className="w-2 h-2 rounded-full bg-orange-400 shrink-0" />
+                    Waiting for confirmation…
+                  </div>
+                </>
+              )}
+
+              {(trackingStatus === "completed" || trackingStatus === "paid") && (
+                <>
+                  <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center">
+                    <CheckCircle2 className="w-10 h-10 text-green-500" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-black uppercase tracking-wide text-green-400">Accepted!</h2>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Your order has been accepted and is being prepared. It'll be ready soon!
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {trackingStatus === "returned" && (
+                <>
+                  <div className="w-20 h-20 rounded-full bg-destructive/10 flex items-center justify-center">
+                    <X className="w-10 h-10 text-destructive" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-black uppercase tracking-wide text-destructive">Order Declined</h2>
+                    {trackingRejectionReason ? (
+                      <div className="mt-3 bg-destructive/10 border border-destructive/20 rounded-xl px-4 py-3">
+                        <p className="text-sm font-medium text-foreground">{trackingRejectionReason}</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Sorry, your order could not be processed at this time.
+                      </p>
+                    )}
+                    {barOrderPhone && (
+                      <p className="text-xs text-muted-foreground mt-3">
+                        Questions? Call us at <span className="font-bold text-foreground">{barOrderPhone}</span>
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              <button onClick={startNewOrder} className="w-full py-3 rounded-xl bg-orange-500 text-black font-black uppercase tracking-wide text-sm hover:bg-orange-400 transition-colors mt-2">
+                Place Another Order
               </button>
             </div>
 
@@ -689,21 +776,39 @@ export default function Menu() {
       )}
 
       {/* Order tab sticky footer — browse step */}
-      {activeTab === "order" && !submitted && orderStep === "browse" && cartItemCount > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border px-4 py-3 shadow-lg">
-          <div className="max-w-lg mx-auto flex items-center justify-between gap-4">
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">{cartItemCount} item{cartItemCount !== 1 ? "s" : ""}</p>
-              <p className="text-xl font-black text-foreground tabular-nums">{formatPrice(cartTotal)}</p>
+      {activeTab === "order" && !submitted && orderStep === "browse" && (
+        <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg">
+          {/* Call button — always shown */}
+          {barOrderPhone && (
+            <div className="max-w-lg mx-auto px-4 pt-3">
+              <a
+                href={`tel:${barOrderPhone}`}
+                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-border text-sm font-bold text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+              >
+                <Phone className="w-4 h-4" />
+                Call to order or check on your order · {barOrderPhone}
+              </a>
             </div>
-            <button
-              onClick={() => setOrderStep("checkout")}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-orange-500 hover:bg-orange-400 text-black font-black uppercase tracking-wide text-sm transition-colors"
-            >
-              <ShoppingBag className="w-4 h-4" />
-              Review Order
-            </button>
-          </div>
+          )}
+          {cartItemCount > 0 ? (
+            <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">{cartItemCount} item{cartItemCount !== 1 ? "s" : ""}</p>
+                <p className="text-xl font-black text-foreground tabular-nums">{formatPrice(cartTotal)}</p>
+              </div>
+              <button
+                onClick={() => setOrderStep("checkout")}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-orange-500 hover:bg-orange-400 text-black font-black uppercase tracking-wide text-sm transition-colors"
+              >
+                <ShoppingBag className="w-4 h-4" />
+                Review Order
+              </button>
+            </div>
+          ) : (
+            <div className="max-w-lg mx-auto px-4 py-3">
+              <p className="text-center text-xs text-muted-foreground font-semibold">Add items above to place an order</p>
+            </div>
+          )}
         </div>
       )}
     </div>

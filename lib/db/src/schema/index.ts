@@ -10,3 +10,4 @@ export * from "./partialPayments";
 export * from "./shifts";
 export * from "./staff";
 export * from "./staffPermissions";
+export * from "./settings";

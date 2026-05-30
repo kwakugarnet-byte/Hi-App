@@ -15,6 +15,7 @@ export const orderBatchesTable = pgTable("order_batches", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   completedAt: timestamp("completed_at", { withTimezone: true }),
   correctionItemIds: json("correction_item_ids").$type<number[]>(),
+  rejectionReason: text("rejection_reason"),
 });
 
 export const orderItemsTable = pgTable("order_items", {

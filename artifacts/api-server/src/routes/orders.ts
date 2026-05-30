@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { and, desc, eq, gte, inArray, lte, ne } from "drizzle-orm";
-import { db, menuItemsTable, orderBatchesTable, orderItemsTable, shiftsTable, partialPaymentsTable } from "@workspace/db";
+import { db, menuItemsTable, orderBatchesTable, orderItemsTable, shiftsTable, partialPaymentsTable, settingsTable } from "@workspace/db";
 import {
   GetMenuItemsResponse,
   GetOrderBatchesResponse,
@@ -674,6 +674,10 @@ router.post("/public/order", async (req, res): Promise<void> => {
 });
 
 // ─── Reject a customer order ─────────────────────────────────────────────────
+const RejectOrderBody = z.object({
+  reason: z.string().max(300).optional(),
+});
+
 router.post("/order-batches/:id/reject", async (req, res): Promise<void> => {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Unauthorized" });
@@ -687,9 +691,12 @@ router.post("/order-batches/:id/reject", async (req, res): Promise<void> => {
     return;
   }
 
+  const parsed = RejectOrderBody.safeParse(req.body);
+  const reason = parsed.success ? (parsed.data.reason ?? null) : null;
+
   const [batch] = await db
     .update(orderBatchesTable)
-    .set({ status: "returned" })
+    .set({ status: "returned", rejectionReason: reason })
     .where(and(eq(orderBatchesTable.id, id), eq(orderBatchesTable.saleType, "customer_order")))
     .returning();
 
@@ -702,9 +709,67 @@ router.post("/order-batches/:id/reject", async (req, res): Promise<void> => {
   await logActivity(actor.name, actor.role, "customer_order_rejected", {
     batchId: id,
     customerName: batch.customerName,
+    reason,
   });
 
   res.json({ ok: true });
+});
+
+// ─── Public: get order status ─────────────────────────────────────────────────
+router.get("/public/order/:id", async (req, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(rawId, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid order id" });
+    return;
+  }
+
+  const [batch] = await db
+    .select({
+      id: orderBatchesTable.id,
+      status: orderBatchesTable.status,
+      rejectionReason: orderBatchesTable.rejectionReason,
+    })
+    .from(orderBatchesTable)
+    .where(and(eq(orderBatchesTable.id, id), eq(orderBatchesTable.saleType, "customer_order")));
+
+  if (!batch) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+
+  res.json({ id: batch.id, status: batch.status, rejectionReason: batch.rejectionReason ?? null });
+});
+
+// ─── Public: get order phone number ──────────────────────────────────────────
+router.get("/public/settings/order-phone", async (_req, res): Promise<void> => {
+  const [row] = await db.select().from(settingsTable).where(eq(settingsTable.key, "order_phone"));
+  res.json({ phone: row?.value ?? null });
+});
+
+// ─── Admin: set order phone number ───────────────────────────────────────────
+router.post("/settings/order-phone", async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const actor = actorFromReq(req);
+  if (actor.role !== "admin") {
+    res.status(403).json({ error: "Admin only" });
+    return;
+  }
+  const PhoneBody = z.object({ phone: z.string().min(1).max(30) });
+  const parsed = PhoneBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Phone number is required" });
+    return;
+  }
+  const { phone } = parsed.data;
+  await db
+    .insert(settingsTable)
+    .values({ key: "order_phone", value: phone.trim() })
+    .onConflictDoUpdate({ target: settingsTable.key, set: { value: phone.trim() } });
+  res.json({ ok: true, phone: phone.trim() });
 });
 
 router.post("/order-batches/settle-waiter", async (req, res): Promise<void> => {

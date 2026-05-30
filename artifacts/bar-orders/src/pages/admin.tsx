@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link, Redirect } from "wouter";
-import { ArrowLeft, Plus, Pencil, Trash2, Check, X, Layers, Tag, Barcode, Hash } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Check, X, Layers, Tag, Barcode, Hash, Phone } from "lucide-react";
 import {
   useGetMenuItems,
   useCreateMenuItem,
@@ -58,6 +58,38 @@ function AdminInner({ canManage, canPrice, canDelete }: { canManage: boolean; ca
 
   const [editScanId, setEditScanId] = useState<number | null>(null);
   const [editScanValues, setEditScanValues] = useState<{ barcode: string; sku: string }>({ barcode: "", sku: "" });
+
+  // ── Order phone setting ──────────────────────────────────────────────
+  const [orderPhoneValue, setOrderPhoneValue] = useState("");
+  const [orderPhoneSaved, setOrderPhoneSaved] = useState("");
+  const [orderPhoneSaving, setOrderPhoneSaving] = useState(false);
+
+  useEffect(() => {
+    fetch(`${BASE}/api/public/settings/order-phone`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.phone) { setOrderPhoneValue(d.phone); setOrderPhoneSaved(d.phone); } })
+      .catch(() => {});
+  }, []);
+
+  async function saveOrderPhone() {
+    if (!orderPhoneValue.trim()) return;
+    setOrderPhoneSaving(true);
+    try {
+      const res = await fetch(`${BASE}/api/settings/order-phone`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: orderPhoneValue.trim() }),
+      });
+      if (!res.ok) throw new Error();
+      setOrderPhoneSaved(orderPhoneValue.trim());
+      toast({ title: "Phone number saved" });
+    } catch {
+      toast({ title: "Failed to save phone number", variant: "destructive" });
+    } finally {
+      setOrderPhoneSaving(false);
+    }
+  }
 
   const categories = useMemo(() => {
     const dbNames = (dbCategories ?? []).map((c) => c.name);
@@ -290,6 +322,29 @@ function AdminInner({ canManage, canPrice, canDelete }: { canManage: boolean; ca
           </div>
         )}
       </header>
+
+      {/* Order Phone Setting */}
+      {!bulkMode && canManage && (
+        <div className="shrink-0 border-b border-border bg-card px-4 py-3 flex items-center gap-3">
+          <Phone className="w-4 h-4 text-muted-foreground shrink-0" />
+          <span className="text-xs font-black uppercase tracking-widest text-muted-foreground shrink-0">Order Line</span>
+          <input
+            type="tel"
+            placeholder="Phone number for customer orders"
+            value={orderPhoneValue}
+            onChange={(e) => setOrderPhoneValue(e.target.value)}
+            className="flex-1 bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/60 min-w-0"
+          />
+          <button
+            onClick={saveOrderPhone}
+            disabled={orderPhoneSaving || !orderPhoneValue.trim() || orderPhoneValue.trim() === orderPhoneSaved}
+            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-black uppercase tracking-wide disabled:opacity-50 transition-opacity"
+          >
+            <Check className="w-3.5 h-3.5" />
+            {orderPhoneSaving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      )}
 
       {/* Category filter tabs */}
       {!bulkMode && (
