@@ -193,12 +193,19 @@ export default function Bar() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reason }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        if (res.status === 401) {
+          toast({ title: "Session expired", description: "Please log in again.", variant: "destructive" });
+          return;
+        }
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error ?? `Error ${res.status}`);
+      }
       await queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
       toast({ title: "Order Rejected", description: `${rejectModal.customerName}'s order has been rejected.` });
       setRejectModal(null);
-    } catch {
-      toast({ title: "Error", description: "Could not reject order.", variant: "destructive" });
+    } catch (err) {
+      toast({ title: "Could not reject order", description: (err as Error).message || "Please try again.", variant: "destructive" });
     } finally {
       setRejectingId(null);
     }
