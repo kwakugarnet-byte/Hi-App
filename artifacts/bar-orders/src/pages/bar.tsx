@@ -92,6 +92,7 @@ export default function Bar() {
     "Sorry, we are currently closed",
     "Sorry, this item is not available at the moment",
     "Sorry, we are not working today",
+    "Sorry, we cannot reach you. Please call us to place your order",
   ];
 
   const { data: batches, isLoading, refetch } = useGetOrderBatches({
