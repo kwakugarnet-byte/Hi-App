@@ -465,7 +465,7 @@ export default function Menu() {
 
       {/* ── ORDER TAB ────────────────────────────────────────────────── */}
       {activeTab === "order" && (
-        <div className="max-w-lg mx-auto px-4 py-5 pb-36">
+        <div className="max-w-lg mx-auto px-4 py-5 pb-56">
 
           {/* ── TRACKING SCREEN ── */}
           {submitted ? (
