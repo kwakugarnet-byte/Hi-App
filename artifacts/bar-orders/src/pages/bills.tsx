@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import logo from "@/assets/logo.jpg";
 import { Link } from "wouter";
-import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle, CircleDashed, ChevronRight, Eye, X, CreditCard, Pencil, Plus, Minus, Trash2, RotateCcw, Sparkles } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle, CircleDashed, ChevronRight, Eye, X, CreditCard, Pencil, Plus, Minus, Trash2, RotateCcw, Sparkles, Send } from "lucide-react";
 import {
   useGetOrderBatches,
   useGetMenuItems,
@@ -50,6 +50,33 @@ type GroupedCustomer = {
   rounds: Round[];
   total: number;
 };
+
+function buildWhatsAppMessage(customer: GroupedCustomer): string {
+  const date = format(new Date(customer.firstOrderAt), "dd MMM yyyy");
+  const lines: string[] = [];
+  lines.push("*TRENDY BAR*");
+  lines.push(`Receipt for: *${customer.customerName}*`);
+  lines.push(`Date: ${date}`);
+  lines.push(`Served by: ${customer.waitressName}`);
+  lines.push("");
+  customer.rounds.forEach((round, idx) => {
+    if (customer.rounds.length > 1) {
+      lines.push(`*Round ${idx + 1}* · ${format(new Date(round.createdAt), "h:mm a")}`);
+    }
+    round.items.forEach((item) => {
+      lines.push(`  ${item.quantity}× ${item.menuItemName} — ${formatPrice(item.pricePence * item.quantity)}`);
+    });
+    if (customer.rounds.length > 1) {
+      lines.push(`  _Subtotal: ${formatPrice(round.subtotal)}_`);
+    }
+    lines.push("");
+  });
+  lines.push("─────────────────");
+  lines.push(`*TOTAL: ${formatPrice(customer.total)}*`);
+  lines.push("");
+  lines.push("Thank you for visiting Trendy! 🍻");
+  return lines.join("\n");
+}
 
 function groupBatches(
   batches: { id: number; customerName: string; waitressName: string; status: string; createdAt: string; correctionItemIds?: number[] | null; items: BatchItem[] }[]
@@ -188,6 +215,8 @@ export default function Bills() {
   const [selectedWaiter, setSelectedWaiter] = useState<string | null>(null);
   const [tab, setTab] = useState<"active" | "history">("active");
   const [showBillFor, setShowBillFor] = useState<GroupedCustomer | null>(null);
+  const [whatsappFor, setWhatsappFor] = useState<GroupedCustomer | null>(null);
+  const [whatsappPhone, setWhatsappPhone] = useState("");
   const [settleConfirm, setSettleConfirm] = useState<{ name: string; total: number; count: number } | null>(null);
   const [editingRound, setEditingRound] = useState<EditingRound | null>(null);
   const { toast } = useToast();
@@ -855,6 +884,13 @@ export default function Bills() {
                     <Printer className="w-3.5 h-3.5" />
                     Print
                   </button>
+                  <button
+                    onClick={() => { setWhatsappFor(customer); setWhatsappPhone(""); }}
+                    className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-green-600 hover:text-green-700 transition-colors border border-green-600/40 hover:border-green-600 rounded-lg px-2.5 py-1.5"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    Forward
+                  </button>
                 </div>
               </div>
             </div>
@@ -1281,6 +1317,45 @@ export default function Bills() {
               {editBatch.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </div>
+        </div>
+      </div>
+    )}
+
+    {whatsappFor && (
+      <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6" onClick={() => setWhatsappFor(null)}>
+        <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-xs space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-black uppercase tracking-widest">Forward Bill</h2>
+            <button onClick={() => setWhatsappFor(null)} className="text-muted-foreground hover:text-foreground">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Customer: <span className="font-bold text-foreground">{whatsappFor.customerName}</span></p>
+            <p className="text-xs text-muted-foreground mb-3">Total: <span className="font-bold text-foreground">{formatPrice(whatsappFor.total)}</span></p>
+            <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground block mb-1">WhatsApp Number</label>
+            <input
+              type="tel"
+              placeholder="e.g. 233241234567"
+              value={whatsappPhone}
+              onChange={(e) => setWhatsappPhone(e.target.value.replace(/\s/g, ""))}
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              autoFocus
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">Include country code, no spaces or + (e.g. 233…)</p>
+          </div>
+          <button
+            disabled={whatsappPhone.length < 7}
+            onClick={() => {
+              const msg = buildWhatsAppMessage(whatsappFor);
+              window.open(`https://wa.me/${whatsappPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+              setWhatsappFor(null);
+            }}
+            className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm uppercase tracking-wide rounded-xl py-3 transition-colors"
+          >
+            <Send className="w-4 h-4" />
+            Send on WhatsApp
+          </button>
         </div>
       </div>
     )}
