@@ -40,6 +40,7 @@ function WaitressInner() {
   const resubmitOrder = useResubmitOrderBatch();
 
   const [customerName, setCustomerName] = useState("");
+  const [namePickedFromList, setNamePickedFromList] = useState(false);
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selected, setSelected] = useState<Record<number, SelectedItem>>({});
@@ -263,11 +264,16 @@ function WaitressInner() {
     });
   }
 
+  const nameLower = customerName.trim().toLowerCase();
+  const duplicateName = !namePickedFromList && nameLower.length > 0
+    && activeCustomers.some((n) => n.toLowerCase() === nameLower);
+
   function handleSend() {
     if (!customerName.trim()) {
       setNameError(true);
       return;
     }
+    if (duplicateName) return;
     if (selectedList.length === 0) {
       toast({ title: "No items", description: "Add at least one drink to the order.", variant: "destructive" });
       return;
@@ -706,9 +712,9 @@ function WaitressInner() {
                     <button
                       key={n}
                       type="button"
-                      onClick={() => { setCustomerName(n); setNameError(false); }}
+                      onClick={() => { setCustomerName(n); setNamePickedFromList(true); setNameError(false); }}
                       className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border transition-all ${
-                        customerName === n
+                        namePickedFromList && customerName === n
                           ? "bg-primary text-primary-foreground border-primary"
                           : "bg-card border-border text-muted-foreground hover:border-primary/60 hover:text-foreground"
                       }`}
@@ -720,11 +726,16 @@ function WaitressInner() {
               )}
               <Input
                 value={customerName}
-                onChange={(e) => { setCustomerName(e.target.value); setNameError(false); }}
+                onChange={(e) => { setCustomerName(e.target.value); setNamePickedFromList(false); setNameError(false); }}
                 placeholder={activeCustomers.length > 0 ? "New customer or select above…" : "Customer name (Table 4, John…)"}
-                className={`h-11 bg-background border-border focus-visible:ring-primary ${nameError ? "border-destructive" : ""}`}
+                className={`h-11 bg-background border-border focus-visible:ring-primary ${nameError || duplicateName ? "border-destructive" : ""}`}
               />
               {nameError && <p className="text-destructive text-xs">Customer name is required</p>}
+              {duplicateName && (
+                <p className="text-destructive text-xs">
+                  This customer already has an active order — select them from above to add another round.
+                </p>
+              )}
             </div>
 
             <div className="px-4 pb-4">
