@@ -1338,7 +1338,11 @@ export default function Bills() {
               type="tel"
               placeholder="e.g. 233241234567"
               value={whatsappPhone}
-              onChange={(e) => setWhatsappPhone(e.target.value.replace(/\s/g, ""))}
+              onChange={(e) => {
+                let val = e.target.value.replace(/\s/g, "").replace(/^\+/, "");
+                if (val.startsWith("0")) val = "233" + val.slice(1);
+                setWhatsappPhone(val);
+              }}
               className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
               autoFocus
             />
