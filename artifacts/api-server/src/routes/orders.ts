@@ -882,4 +882,32 @@ router.post("/order-batches/settle-waiter", async (req, res): Promise<void> => {
   res.json(SettleWaiterAccountResponse.parse({ waitressName, count: unpaidBatches.length, totalPence }));
 });
 
+router.post("/order-batches/merge", async (req, res): Promise<void> => {
+  const actor = actorFromReq(req);
+  if (actor.role !== "admin") {
+    res.status(403).json({ error: "Admin access required." });
+    return;
+  }
+
+  const body = z.object({
+    batchIds: z.array(z.number().int().positive()).min(1),
+    newCustomerName: z.string().min(1).max(100),
+  }).safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  const { batchIds, newCustomerName } = body.data;
+
+  await db
+    .update(orderBatchesTable)
+    .set({ customerName: newCustomerName })
+    .where(inArray(orderBatchesTable.id, batchIds));
+
+  await logActivity(actor.name, actor.role, "bills_merged", { batchIds, newCustomerName });
+
+  res.json({ ok: true, count: batchIds.length, newCustomerName });
+});
+
 export default router;

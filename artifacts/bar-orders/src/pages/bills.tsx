@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import logo from "@/assets/logo.jpg";
 import { Link } from "wouter";
+const BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle, CircleDashed, ChevronRight, Eye, X, CreditCard, Pencil, Plus, Minus, Trash2, RotateCcw, Sparkles, Send } from "lucide-react";
 import {
   useGetOrderBatches,
@@ -210,6 +211,10 @@ type EditingRound = {
   activeTab: string | null;
 };
 
+function customerKey(c: GroupedCustomer) {
+  return `${c.waitressName}|||${c.customerName}|||${format(new Date(c.firstOrderAt), "yyyy-MM-dd")}`;
+}
+
 export default function Bills() {
   const { user, isWaitress, isAdmin, isBartender } = useAuth();
   const [selectedWaiter, setSelectedWaiter] = useState<string | null>(null);
@@ -217,6 +222,11 @@ export default function Bills() {
   const [showBillFor, setShowBillFor] = useState<GroupedCustomer | null>(null);
   const [whatsappFor, setWhatsappFor] = useState<GroupedCustomer | null>(null);
   const [whatsappPhone, setWhatsappPhone] = useState("");
+  const [mergeMode, setMergeMode] = useState(false);
+  const [mergeSelected, setMergeSelected] = useState<Set<string>>(new Set());
+  const [mergeDialog, setMergeDialog] = useState<{ customers: GroupedCustomer[] } | null>(null);
+  const [mergeName, setMergeName] = useState("");
+  const [merging, setMerging] = useState(false);
   const [settleConfirm, setSettleConfirm] = useState<{ name: string; total: number; count: number } | null>(null);
   const [editingRound, setEditingRound] = useState<EditingRound | null>(null);
   const { toast } = useToast();
@@ -568,6 +578,30 @@ export default function Bills() {
     }
   };
 
+  async function executeMerge() {
+    if (!mergeDialog || !mergeName.trim()) return;
+    const batchIds = mergeDialog.customers.flatMap((c) => c.rounds.map((r) => r.id));
+    setMerging(true);
+    try {
+      const res = await fetch(`${BASE}/api/order-batches/merge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ batchIds, newCustomerName: mergeName.trim() }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      await queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
+      setMergeDialog(null);
+      setMergeMode(false);
+      setMergeSelected(new Set());
+      toast({ title: "Bills merged", description: `${mergeDialog.customers.length} customers merged as "${mergeName.trim()}".` });
+    } catch {
+      toast({ title: "Merge failed", variant: "destructive" });
+    } finally {
+      setMerging(false);
+    }
+  }
+
   const activeSubtitle = isWaitress
     ? `Your outstanding credit`
     : selectedWaiter
@@ -850,18 +884,60 @@ export default function Bills() {
           </div>
         )}
 
-        {activeCustomers.map((customer) => (
-          <div key={`${customer.waitressName}|||${customer.customerName}|||${customer.firstOrderAt}`} className="bg-card border border-border rounded-xl overflow-hidden">
+        {isAdmin && activeCustomers.length >= 2 && (
+          <div className="flex items-center justify-end">
+            {mergeMode ? (
+              <button
+                onClick={() => { setMergeMode(false); setMergeSelected(new Set()); }}
+                className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground hover:text-foreground border border-border rounded-lg px-3 py-1.5 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+                Cancel Merge
+              </button>
+            ) : (
+              <button
+                onClick={() => setMergeMode(true)}
+                className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-primary border border-primary/50 hover:bg-primary/10 rounded-lg px-3 py-1.5 transition-colors"
+              >
+                <Users className="w-3.5 h-3.5" />
+                Merge Bills
+              </button>
+            )}
+          </div>
+        )}
+
+        {activeCustomers.map((customer) => {
+          const key = customerKey(customer);
+          const isSelected = mergeSelected.has(key);
+          return (
+          <div
+            key={`${customer.waitressName}|||${customer.customerName}|||${customer.firstOrderAt}`}
+            className={`bg-card border rounded-xl overflow-hidden transition-all ${mergeMode ? "cursor-pointer " : ""}${isSelected ? "border-primary ring-2 ring-primary/30" : "border-border"}`}
+            onClick={mergeMode ? () => {
+              setMergeSelected((prev) => {
+                const next = new Set(prev);
+                if (next.has(key)) next.delete(key); else next.add(key);
+                return next;
+              });
+            } : undefined}
+          >
             <div className="px-4 py-3 border-b border-border flex items-start justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <h2 className="text-xl font-black uppercase tracking-tight truncate">{customer.customerName}</h2>
-                <div className={`flex items-center gap-1 text-xs font-bold mt-0.5 ${customer.overallStatus === "pending" ? "text-yellow-500" : "text-green-500"}`}>
-                  {customer.overallStatus === "pending"
-                    ? <><Hourglass className="w-3 h-3" /><span className="uppercase tracking-wide">Being prepared</span></>
-                    : <><CheckCircle2 className="w-3 h-3" /><span className="uppercase tracking-wide">Drinks served</span></>
-                  }
+              <div className="flex-1 min-w-0 flex items-start gap-2">
+                {mergeMode && (
+                  <div className={`mt-1 w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? "border-primary bg-primary" : "border-muted-foreground/40 bg-transparent"}`}>
+                    {isSelected && <CheckCircle2 className="w-3 h-3 text-white" />}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <h2 className="text-xl font-black uppercase tracking-tight truncate">{customer.customerName}</h2>
+                  <div className={`flex items-center gap-1 text-xs font-bold mt-0.5 ${customer.overallStatus === "pending" ? "text-yellow-500" : "text-green-500"}`}>
+                    {customer.overallStatus === "pending"
+                      ? <><Hourglass className="w-3 h-3" /><span className="uppercase tracking-wide">Being prepared</span></>
+                      : <><CheckCircle2 className="w-3 h-3" /><span className="uppercase tracking-wide">Drinks served</span></>
+                    }
+                  </div>
+                  <p className="text-xs text-amber-400/80 font-semibold mt-1 uppercase tracking-wide">by {customer.waitressName}</p>
                 </div>
-                <p className="text-xs text-amber-400/80 font-semibold mt-1 uppercase tracking-wide">by {customer.waitressName}</p>
               </div>
               <div className="text-right shrink-0 flex flex-col items-end gap-2">
                 <p className="text-2xl font-black text-primary">{formatPrice(customer.total)}</p>
@@ -1066,7 +1142,25 @@ export default function Bills() {
               );
             })()}
           </div>
-        ))}
+          );
+        })}
+
+        {/* Sticky merge action bar */}
+        {mergeMode && mergeSelected.size >= 2 && (
+          <div className="sticky bottom-4 z-20">
+            <button
+              onClick={() => {
+                const selected = activeCustomers.filter((c) => mergeSelected.has(customerKey(c)));
+                setMergeName(selected[0]?.customerName ?? "");
+                setMergeDialog({ customers: selected });
+              }}
+              className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground font-black text-sm uppercase tracking-widest rounded-xl py-4 shadow-lg shadow-primary/30 transition-colors hover:bg-primary/90"
+            >
+              <Users className="w-4 h-4" />
+              Merge {mergeSelected.size} Customers
+            </button>
+          </div>
+        )}
       </>
     );
 
@@ -1317,6 +1411,54 @@ export default function Bills() {
               {editBatch.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </div>
+        </div>
+      </div>
+    )}
+
+    {mergeDialog && (
+      <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-6" onClick={() => setMergeDialog(null)}>
+        <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-black uppercase tracking-widest">Merge Bills</h2>
+            <button onClick={() => setMergeDialog(null)} className="text-muted-foreground hover:text-foreground">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="space-y-1">
+            <p className="text-[11px] font-black uppercase tracking-widest text-muted-foreground mb-2">Merging customers</p>
+            {mergeDialog.customers.map((c) => (
+              <div key={customerKey(c)} className="flex items-center justify-between bg-muted/40 rounded-lg px-3 py-2">
+                <span className="text-sm font-bold truncate">{c.customerName}</span>
+                <span className="text-xs text-muted-foreground tabular-nums shrink-0 ml-2">{formatPrice(c.total)}</span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between bg-muted/60 rounded-lg px-3 py-1.5 border-t border-border mt-1">
+              <span className="text-xs font-black uppercase tracking-wide text-muted-foreground">Combined Total</span>
+              <span className="text-sm font-black tabular-nums">{formatPrice(mergeDialog.customers.reduce((s, c) => s + c.total, 0))}</span>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-black uppercase tracking-widest text-muted-foreground block mb-1">Merged Customer Name</label>
+            <input
+              type="text"
+              value={mergeName}
+              onChange={(e) => setMergeName(e.target.value)}
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 uppercase"
+              autoFocus
+              onKeyDown={(e) => { if (e.key === "Enter") executeMerge(); }}
+            />
+          </div>
+
+          <button
+            disabled={!mergeName.trim() || merging}
+            onClick={executeMerge}
+            className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed text-primary-foreground font-black text-sm uppercase tracking-wide rounded-xl py-3 transition-colors"
+          >
+            <Users className="w-4 h-4" />
+            {merging ? "Merging…" : `Merge into "${mergeName.trim() || "…"}"`}
+          </button>
         </div>
       </div>
     )}
