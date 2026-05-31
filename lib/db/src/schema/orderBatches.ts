@@ -23,6 +23,7 @@ export const orderItemsTable = pgTable("order_items", {
   batchId: integer("batch_id").notNull().references(() => orderBatchesTable.id),
   menuItemId: integer("menu_item_id").notNull().references(() => menuItemsTable.id),
   quantity: integer("quantity").notNull().default(1),
+  pricePence: integer("price_pence"),
 });
 
 export const insertOrderBatchSchema = createInsertSchema(orderBatchesTable).omit({ id: true, createdAt: true, completedAt: true });

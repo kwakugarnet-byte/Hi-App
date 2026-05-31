@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
-import { and, desc, eq, gte, inArray, lte, ne } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
 import { db, menuItemsTable, orderBatchesTable, orderItemsTable, shiftsTable, partialPaymentsTable, settingsTable } from "@workspace/db";
 import {
   GetMenuItemsResponse,
@@ -35,6 +35,17 @@ router.get("/menu-items", async (req, res): Promise<void> => {
   res.json(GetMenuItemsResponse.parse(items));
 });
 
+async function getPriceMap(menuItemIds: number[]): Promise<Map<number, number>> {
+  if (menuItemIds.length === 0) return new Map();
+  const rows = await db
+    .select({ id: menuItemsTable.id, pricePence: menuItemsTable.pricePence })
+    .from(menuItemsTable)
+    .where(inArray(menuItemsTable.id, [...new Set(menuItemIds)]));
+  return new Map(rows.map((r) => [r.id, r.pricePence]));
+}
+
+const storedPrice = sql<number>`COALESCE(${orderItemsTable.pricePence}, ${menuItemsTable.pricePence})`;
+
 router.get("/order-batches", async (req, res): Promise<void> => {
   const batches = await db.select().from(orderBatchesTable).orderBy(orderBatchesTable.createdAt);
 
@@ -44,7 +55,7 @@ router.get("/order-batches", async (req, res): Promise<void> => {
       batchId: orderItemsTable.batchId,
       menuItemId: orderItemsTable.menuItemId,
       menuItemName: menuItemsTable.name,
-      pricePence: menuItemsTable.pricePence,
+      pricePence: storedPrice,
       quantity: orderItemsTable.quantity,
     })
     .from(orderItemsTable)
@@ -83,11 +94,13 @@ router.post("/order-batches", async (req, res): Promise<void> => {
     .returning();
 
   if (items.length > 0) {
+    const priceMap = await getPriceMap(items.map((i) => i.menuItemId));
     await db.insert(orderItemsTable).values(
       items.map((item) => ({
         batchId: batch.id,
         menuItemId: item.menuItemId,
         quantity: item.quantity,
+        pricePence: priceMap.get(item.menuItemId),
       }))
     );
   }
@@ -98,7 +111,7 @@ router.post("/order-batches", async (req, res): Promise<void> => {
       batchId: orderItemsTable.batchId,
       menuItemId: orderItemsTable.menuItemId,
       menuItemName: menuItemsTable.name,
-      pricePence: menuItemsTable.pricePence,
+      pricePence: storedPrice,
       quantity: orderItemsTable.quantity,
     })
     .from(orderItemsTable)
@@ -144,8 +157,9 @@ router.post("/order-batches/hold", async (req, res): Promise<void> => {
     .returning();
 
   if (items.length > 0) {
+    const priceMap = await getPriceMap(items.map((i) => i.menuItemId));
     await db.insert(orderItemsTable).values(
-      items.map((item) => ({ batchId: batch.id, menuItemId: item.menuItemId, quantity: item.quantity }))
+      items.map((item) => ({ batchId: batch.id, menuItemId: item.menuItemId, quantity: item.quantity, pricePence: priceMap.get(item.menuItemId) }))
     );
   }
 
@@ -155,7 +169,7 @@ router.post("/order-batches/hold", async (req, res): Promise<void> => {
       batchId: orderItemsTable.batchId,
       menuItemId: orderItemsTable.menuItemId,
       menuItemName: menuItemsTable.name,
-      pricePence: menuItemsTable.pricePence,
+      pricePence: storedPrice,
       quantity: orderItemsTable.quantity,
     })
     .from(orderItemsTable)
@@ -199,11 +213,13 @@ router.post("/order-batches/direct", async (req, res): Promise<void> => {
     .returning();
 
   if (items.length > 0) {
+    const priceMap = await getPriceMap(items.map((i) => i.menuItemId));
     await db.insert(orderItemsTable).values(
       items.map((item) => ({
         batchId: batch.id,
         menuItemId: item.menuItemId,
         quantity: item.quantity,
+        pricePence: priceMap.get(item.menuItemId),
       }))
     );
   }
@@ -214,7 +230,7 @@ router.post("/order-batches/direct", async (req, res): Promise<void> => {
       batchId: orderItemsTable.batchId,
       menuItemId: orderItemsTable.menuItemId,
       menuItemName: menuItemsTable.name,
-      pricePence: menuItemsTable.pricePence,
+      pricePence: storedPrice,
       quantity: orderItemsTable.quantity,
     })
     .from(orderItemsTable)
@@ -267,11 +283,13 @@ router.put("/order-batches/:id/edit", async (req, res): Promise<void> => {
   await db.delete(orderItemsTable).where(eq(orderItemsTable.batchId, id));
 
   if (body.data.items.length > 0) {
+    const priceMap = await getPriceMap(body.data.items.map((i) => i.menuItemId));
     await db.insert(orderItemsTable).values(
       body.data.items.map((item) => ({
         batchId: id,
         menuItemId: item.menuItemId,
         quantity: item.quantity,
+        pricePence: priceMap.get(item.menuItemId),
       }))
     );
   }
@@ -284,7 +302,7 @@ router.put("/order-batches/:id/edit", async (req, res): Promise<void> => {
       batchId: orderItemsTable.batchId,
       menuItemId: orderItemsTable.menuItemId,
       menuItemName: menuItemsTable.name,
-      pricePence: menuItemsTable.pricePence,
+      pricePence: storedPrice,
       quantity: orderItemsTable.quantity,
     })
     .from(orderItemsTable)
@@ -312,6 +330,31 @@ router.put("/order-batches/:id/edit", async (req, res): Promise<void> => {
   });
 });
 
+router.post("/order-batches/:id/discard", async (req, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(rawId, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+
+  const [batch] = await db.select().from(orderBatchesTable).where(eq(orderBatchesTable.id, id));
+  if (!batch) {
+    res.status(404).json({ error: "Order batch not found" });
+    return;
+  }
+
+  await db
+    .update(orderBatchesTable)
+    .set({ status: "returned" })
+    .where(eq(orderBatchesTable.id, id));
+
+  const actor = actorFromReq(req);
+  await logActivity(actor.name, actor.role, "order_discarded", { batchId: id });
+
+  res.json({ ok: true });
+});
+
 router.post("/order-batches/:id/complete", async (req, res): Promise<void> => {
   const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = CompleteOrderBatchParams.safeParse({ id: parseInt(rawId, 10) });
@@ -337,7 +380,7 @@ router.post("/order-batches/:id/complete", async (req, res): Promise<void> => {
       batchId: orderItemsTable.batchId,
       menuItemId: orderItemsTable.menuItemId,
       menuItemName: menuItemsTable.name,
-      pricePence: menuItemsTable.pricePence,
+      pricePence: storedPrice,
       quantity: orderItemsTable.quantity,
     })
     .from(orderItemsTable)
@@ -414,7 +457,7 @@ router.post("/order-batches/:id/pay", async (req, res): Promise<void> => {
       batchId: orderItemsTable.batchId,
       menuItemId: orderItemsTable.menuItemId,
       menuItemName: menuItemsTable.name,
-      pricePence: menuItemsTable.pricePence,
+      pricePence: storedPrice,
       quantity: orderItemsTable.quantity,
     })
     .from(orderItemsTable)
@@ -476,7 +519,7 @@ router.post("/order-batches/:id/return", async (req, res): Promise<void> => {
       batchId: orderItemsTable.batchId,
       menuItemId: orderItemsTable.menuItemId,
       menuItemName: menuItemsTable.name,
-      pricePence: menuItemsTable.pricePence,
+      pricePence: storedPrice,
       quantity: orderItemsTable.quantity,
     })
     .from(orderItemsTable)
@@ -524,11 +567,13 @@ router.post("/order-batches/:id/resubmit", async (req, res): Promise<void> => {
   await db.delete(orderItemsTable).where(eq(orderItemsTable.batchId, batchId));
 
   if (body.data.items.length > 0) {
+    const priceMap = await getPriceMap(body.data.items.map((i) => i.menuItemId));
     await db.insert(orderItemsTable).values(
       body.data.items.map((item) => ({
         batchId,
         menuItemId: item.menuItemId,
         quantity: item.quantity,
+        pricePence: priceMap.get(item.menuItemId),
       }))
     );
   }
@@ -550,7 +595,7 @@ router.post("/order-batches/:id/resubmit", async (req, res): Promise<void> => {
       batchId: orderItemsTable.batchId,
       menuItemId: orderItemsTable.menuItemId,
       menuItemName: menuItemsTable.name,
-      pricePence: menuItemsTable.pricePence,
+      pricePence: storedPrice,
       quantity: orderItemsTable.quantity,
     })
     .from(orderItemsTable)
@@ -633,7 +678,7 @@ router.post("/public/order", async (req, res): Promise<void> => {
   // Validate menu item IDs exist
   const menuItemIds = [...new Set(items.map((i) => i.menuItemId))];
   const existingItems = await db
-    .select({ id: menuItemsTable.id })
+    .select({ id: menuItemsTable.id, pricePence: menuItemsTable.pricePence })
     .from(menuItemsTable)
     .where(inArray(menuItemsTable.id, menuItemIds));
 
@@ -655,11 +700,13 @@ router.post("/public/order", async (req, res): Promise<void> => {
     })
     .returning();
 
+  const priceMap = new Map(existingItems.map((e) => [e.id, e.pricePence]));
   await db.insert(orderItemsTable).values(
     items.map((item) => ({
       batchId: batch.id,
       menuItemId: item.menuItemId,
       quantity: item.quantity,
+      pricePence: priceMap.get(item.menuItemId),
     }))
   );
 
@@ -818,7 +865,7 @@ router.post("/order-batches/settle-waiter", async (req, res): Promise<void> => {
     .where(inArray(orderBatchesTable.id, batchIds));
 
   const allItems = await db
-    .select({ pricePence: menuItemsTable.pricePence, quantity: orderItemsTable.quantity })
+    .select({ pricePence: sql<number>`COALESCE(${orderItemsTable.pricePence}, ${menuItemsTable.pricePence})`, quantity: orderItemsTable.quantity })
     .from(orderItemsTable)
     .innerJoin(menuItemsTable, eq(orderItemsTable.menuItemId, menuItemsTable.id))
     .where(inArray(orderItemsTable.batchId, batchIds));

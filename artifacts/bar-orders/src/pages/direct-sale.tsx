@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { Link, Redirect } from "wouter";
 import {
   ArrowLeft, ScanLine, Hash, Delete, X, Clock, Check, Plus, Minus, ShoppingCart,
@@ -48,6 +48,32 @@ function DirectSaleInner() {
 
   const [pendingItem, setPendingItem] = useState<{ menuItemId: number; name: string; pricePence: number } | null>(null);
   const [pendingQty, setPendingQty] = useState("1");
+
+  useEffect(() => {
+    fetch(`${BASE}/api/order-batches`, { credentials: "include" })
+      .then((r) => r.ok ? r.json() : Promise.reject(r))
+      .then((data: Array<{
+        id: number; status: string; saleType: string | null;
+        customerName: string | null;
+        items: Array<{ menuItemId: number; menuItemName: string; pricePence: number; quantity: number }>;
+      }>) => {
+        const held = data
+          .filter((b) => b.status === "on_hold" && b.saleType === "bar")
+          .map((b) => ({
+            id: String(b.id),
+            label: b.customerName ?? `Hold #${b.id}`,
+            batchId: b.id,
+            items: b.items.map((i) => ({
+              menuItemId: i.menuItemId,
+              name: i.menuItemName,
+              pricePence: i.pricePence,
+              quantity: i.quantity,
+            })),
+          }));
+        if (held.length > 0) setHeldSales(held);
+      })
+      .catch(() => {});
+  }, []);
 
   const categories = useMemo(() => {
     const cats = Array.from(new Set(menuItems.map((i) => i.category))).sort();
@@ -226,7 +252,14 @@ function DirectSaleInner() {
   }
 
   function discardHeld(heldId: string) {
+    const held = heldSales.find((h) => h.id === heldId);
     setHeldSales((prev) => prev.filter((h) => h.id !== heldId));
+    if (held?.batchId) {
+      fetch(`${BASE}/api/order-batches/${held.batchId}/discard`, {
+        method: "POST",
+        credentials: "include",
+      }).catch(() => {});
+    }
   }
 
   async function recordPayment() {
