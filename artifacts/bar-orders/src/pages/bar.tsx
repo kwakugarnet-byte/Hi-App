@@ -448,14 +448,25 @@ export default function Bar() {
                         </div>
 
                         <div className="p-5 flex-1 bg-card space-y-3">
-                          {group.rounds.flatMap((round) => round.items).map((item, i) => (
-                            <div key={i} className="flex justify-between items-center py-2 border-b border-border/50 last:border-0">
-                              <span className="text-xl font-bold tracking-tight">{item.menuItemName}</span>
-                              <span className="text-2xl font-black text-primary px-3 py-1 bg-primary/10 rounded-md">
-                                x{item.quantity}
-                              </span>
-                            </div>
-                          ))}
+                          {(() => {
+                            const pendingItems = group.rounds
+                              .filter((r) => r.status === "pending")
+                              .flatMap((r) => r.items);
+                            const merged = new Map<string, { name: string; qty: number }>();
+                            for (const item of pendingItems) {
+                              const existing = merged.get(item.menuItemName);
+                              if (existing) existing.qty += item.quantity;
+                              else merged.set(item.menuItemName, { name: item.menuItemName, qty: item.quantity });
+                            }
+                            return [...merged.values()].map((item, i) => (
+                              <div key={i} className="flex justify-between items-center py-2 border-b border-border/50 last:border-0">
+                                <span className="text-xl font-bold tracking-tight">{item.name}</span>
+                                <span className="text-2xl font-black text-primary px-3 py-1 bg-primary/10 rounded-md">
+                                  x{item.qty}
+                                </span>
+                              </div>
+                            ));
+                          })()}
                         </div>
 
                         <div className="p-5 pt-0 mt-auto">
