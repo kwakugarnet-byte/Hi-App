@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import logo from "@/assets/logo.jpg";
 import { Link } from "wouter";
 import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle, CircleDashed, ChevronRight, Eye, X, CreditCard, Pencil, Plus, Minus, Trash2, RotateCcw, Sparkles } from "lucide-react";
 import {
@@ -144,7 +145,8 @@ function printBill(customer: GroupedCustomer) {
 </head>
 <body>
   <div class="center">
-    <div class="bar-name">THE BAR</div>
+    <img src="${window.location.origin}${logo}" alt="Trendy" style="width:64px;height:64px;object-fit:contain;border-radius:8px;margin-bottom:6px;" />
+    <div class="bar-name">TRENDY BAR</div>
     <div class="label">Receipt</div>
   </div>
   <div class="divider"></div>

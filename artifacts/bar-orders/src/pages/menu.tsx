@@ -143,13 +143,22 @@ export default function Menu() {
     return activeCategory === "All" ? menuItems : menuItems.filter((i) => i.category === activeCategory);
   }, [menuItems, activeCategory]);
 
+  function sortCategories(entries: [string, MenuItem[]][]): [string, MenuItem[]][] {
+    return entries.sort(([a], [b]) => {
+      const aFood = !DRINK_CATEGORIES.has(a);
+      const bFood = !DRINK_CATEGORIES.has(b);
+      if (aFood !== bFood) return aFood ? -1 : 1;
+      return a.localeCompare(b);
+    });
+  }
+
   const grouped = useMemo(() => {
     const map = new Map<string, MenuItem[]>();
     for (const item of filtered) {
       if (!map.has(item.category)) map.set(item.category, []);
       map.get(item.category)!.push(item);
     }
-    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
+    return sortCategories([...map.entries()]);
   }, [filtered]);
 
   const groupedAll = useMemo(() => {
@@ -159,7 +168,7 @@ export default function Menu() {
       if (!map.has(item.category)) map.set(item.category, []);
       map.get(item.category)!.push(item);
     }
-    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
+    return sortCategories([...map.entries()]);
   }, [menuItems]);
 
   const cartTotal = useMemo(() => {
@@ -278,7 +287,16 @@ export default function Menu() {
               </button>
             </div>
             <div className="flex justify-center p-4 bg-white rounded-xl">
-              <QRCodeSVG value={menuUrl} size={200} />
+              <QRCodeSVG
+                value={menuUrl}
+                size={200}
+                imageSettings={{
+                  src: logo,
+                  height: 44,
+                  width: 44,
+                  excavate: true,
+                }}
+              />
             </div>
             <div className="bg-muted rounded-lg px-3 py-2 flex items-center gap-2">
               <p className="flex-1 text-[11px] text-muted-foreground font-mono truncate">{menuUrl}</p>
