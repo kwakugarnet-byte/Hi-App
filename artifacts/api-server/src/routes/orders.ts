@@ -88,10 +88,35 @@ router.post("/order-batches", async (req, res): Promise<void> => {
 
   const { customerName, waitressName, items } = parsed.data;
 
-  const [batch] = await db
-    .insert(orderBatchesTable)
-    .values({ customerName, waitressName, status: "pending" })
-    .returning();
+  // If a pending order already exists for the same customer (case-insensitive),
+  // replace its items rather than creating a duplicate batch.
+  const [existing] = await db
+    .select()
+    .from(orderBatchesTable)
+    .where(
+      and(
+        sql`LOWER(${orderBatchesTable.customerName}) = LOWER(${customerName})`,
+        eq(orderBatchesTable.status, "pending")
+      )
+    )
+    .limit(1);
+
+  let batch: typeof existing;
+
+  if (existing) {
+    await db.delete(orderItemsTable).where(eq(orderItemsTable.batchId, existing.id));
+    await db
+      .update(orderBatchesTable)
+      .set({ waitressName })
+      .where(eq(orderBatchesTable.id, existing.id));
+    batch = { ...existing, waitressName };
+  } else {
+    const [newBatch] = await db
+      .insert(orderBatchesTable)
+      .values({ customerName, waitressName, status: "pending" })
+      .returning();
+    batch = newBatch;
+  }
 
   if (items.length > 0) {
     const priceMap = await getPriceMap(items.map((i) => i.menuItemId));
@@ -119,7 +144,7 @@ router.post("/order-batches", async (req, res): Promise<void> => {
     .where(eq(orderItemsTable.batchId, batch.id));
 
   const actor = actorFromReq(req);
-  await logActivity(waitressName, actor.role, "order_placed", {
+  await logActivity(waitressName, actor.role, existing ? "order_updated" : "order_placed", {
     batchId: batch.id,
     customerName,
     itemCount: items.length,
