@@ -531,6 +531,23 @@ export default function Bills() {
       .sort((a, b) => b.bonusOwed - a.bonusOwed);
   }, [batches, staffList]);
 
+  const handleRecordDirect = async (customer: GroupedCustomer) => {
+    const holdIds = customer.rounds.filter((r) => r.status === "on_hold").map((r) => r.id);
+    try {
+      await Promise.all(
+        holdIds.map((id) =>
+          fetch(`${BASE}/api/order-batches/${id}/record-direct`, { method: "POST", credentials: "include" }).then(async (r) => {
+            if (!r.ok) throw new Error(await r.text());
+          })
+        )
+      );
+      await queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
+      toast({ title: "Recorded to Direct Sales", description: `${customer.customerName}'s hold items recorded. Bill stays active until cash is collected.` });
+    } catch {
+      toast({ title: "Error", description: "Could not record to direct sales.", variant: "destructive" });
+    }
+  };
+
   const handleMarkPaid = async (customer: GroupedCustomer) => {
     const ids = customer.rounds.map((r) => r.id);
     try {
@@ -1023,7 +1040,41 @@ export default function Bills() {
             ))}
             {(customer.overallStatus === "completed" || (isAdmin && customer.rounds.every(r => r.status === "completed" || r.status === "returned" || r.status === "on_hold"))) && (isAdmin || isBartender) && (() => {
               const isOld = isOlderThan24Hours(customer.firstOrderAt);
-              const customerKey = `${customer.waitressName}|||${customer.customerName}`;
+              const ck = `${customer.waitressName}|||${customer.customerName}`;
+              const hasHoldRound = customer.rounds.some((r) => r.status === "on_hold");
+
+              // Partial payment UI (reused in multiple branches)
+              const paymentsForCustomer = (allPartialPayments ?? []).filter(
+                (p) => p.customerName === customer.customerName && p.waitressName === customer.waitressName
+              );
+              const totalPaid = paymentsForCustomer.reduce((s, p) => s + p.amountPence, 0);
+              const remaining = Math.max(0, customer.total - totalPaid);
+              const amountCedis = parseFloat(partialAmount);
+              const amountValid = !isNaN(amountCedis) && amountCedis > 0;
+              const isExpanded = partialPayFor === ck;
+
+              const partialUI = (
+                <div className="space-y-2 pt-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Amount customer is paying (₵):</p>
+                  <input
+                    type="number" min="0" step="0.01"
+                    placeholder={`e.g. ${((remaining || customer.total) / 100 / 2).toFixed(2)}`}
+                    value={partialAmount}
+                    onChange={(e) => setPartialAmount(e.target.value)}
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm font-bold tabular-nums text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                  />
+                  {amountValid && (
+                    <div className="text-[11px] text-muted-foreground flex justify-between">
+                      <span>Remaining after this:</span>
+                      <span className="font-black text-amber-400 tabular-nums">{formatPrice(Math.max(0, remaining - Math.round(amountCedis * 100)))}</span>
+                    </div>
+                  )}
+                  <Button size="sm" className="w-full gap-2 bg-amber-600 hover:bg-amber-500 text-white font-black uppercase tracking-widest"
+                    onClick={() => handlePartialPay(customer)} disabled={!amountValid || recordPartialPayment.isPending}>
+                    {recordPartialPayment.isPending ? "Recording…" : `Record ₵${amountValid ? amountCedis.toFixed(2) : "0.00"} Payment`}
+                  </Button>
+                </div>
+              );
 
               // Bartender + old bill → locked
               if (isBartender && isOld) {
@@ -1037,16 +1088,8 @@ export default function Bills() {
                 );
               }
 
-              // Admin + old bill → Full or Partial payment choice
+              // Admin + old bill → Full, Partial, and (for holds) Record to Direct Sales
               if (isAdmin && isOld) {
-                const isExpanded = partialPayFor === customerKey;
-                const paymentsForCustomer = (allPartialPayments ?? []).filter(
-                  (p) => p.customerName === customer.customerName && p.waitressName === customer.waitressName
-                );
-                const totalPaid = paymentsForCustomer.reduce((s, p) => s + p.amountPence, 0);
-                const remaining = Math.max(0, customer.total - totalPaid);
-                const amountCedis = parseFloat(partialAmount);
-                const amountValid = !isNaN(amountCedis) && amountCedis > 0;
                 return (
                   <div className="px-4 pb-4 pt-2 border-t border-border/50 space-y-2">
                     <p className="text-[10px] font-black uppercase tracking-widest text-amber-400">Admin Clearance — 24h+</p>
@@ -1066,78 +1109,58 @@ export default function Bills() {
                         </div>
                       </div>
                     )}
+                    {hasHoldRound && (
+                      <button
+                        onClick={() => handleRecordDirect(customer)}
+                        className="w-full flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-widest px-3 py-2 rounded-md border border-blue-500/40 text-blue-400 hover:bg-blue-500/10 transition-colors"
+                      >
+                        <Banknote className="w-3.5 h-3.5" />
+                        Record to Direct Sales (hold stays active)
+                      </button>
+                    )}
                     <div className="flex gap-2">
-                      <Button
-                        size="sm"
+                      <Button size="sm"
                         className="flex-1 gap-1.5 bg-green-700 hover:bg-green-600 text-white font-black uppercase tracking-widest text-[11px]"
                         onClick={() => { setPartialPayFor(null); setPartialAmount(""); handleMarkPaid(customer); }}
                         disabled={payBatch.isPending}
                       >
                         <ShieldCheck className="w-3.5 h-3.5" />
-                        Full Payment
+                        {hasHoldRound ? "Mark Paid & Clear" : "Full Payment"}
                       </Button>
                       <button
-                        onClick={() => {
-                          if (isExpanded) { setPartialPayFor(null); setPartialAmount(""); }
-                          else { setPartialPayFor(customerKey); setPartialAmount(""); }
-                        }}
-                        className={`flex-1 flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-widest px-3 py-1.5 rounded-md border transition-colors ${
-                          isExpanded
-                            ? "bg-amber-500/20 border-amber-500/50 text-amber-400"
-                            : "border-border text-muted-foreground hover:border-amber-500/50 hover:text-amber-400"
-                        }`}
+                        onClick={() => { if (isExpanded) { setPartialPayFor(null); setPartialAmount(""); } else { setPartialPayFor(ck); setPartialAmount(""); } }}
+                        className={`flex-1 flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-widest px-3 py-1.5 rounded-md border transition-colors ${isExpanded ? "bg-amber-500/20 border-amber-500/50 text-amber-400" : "border-border text-muted-foreground hover:border-amber-500/50 hover:text-amber-400"}`}
                       >
                         Partial
                       </button>
                     </div>
-                    {isExpanded && (
-                      <div className="space-y-2 pt-1">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                          Amount customer is paying (₵):
-                        </p>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder={`e.g. ${((remaining || customer.total) / 100 / 2).toFixed(2)}`}
-                          value={partialAmount}
-                          onChange={(e) => setPartialAmount(e.target.value)}
-                          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm font-bold tabular-nums text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
-                        />
-                        {amountValid && (
-                          <div className="text-[11px] text-muted-foreground flex justify-between">
-                            <span>Remaining after this:</span>
-                            <span className="font-black text-amber-400 tabular-nums">
-                              {formatPrice(Math.max(0, remaining - Math.round(amountCedis * 100)))}
-                            </span>
-                          </div>
-                        )}
-                        <Button
-                          size="sm"
-                          className="w-full gap-2 bg-amber-600 hover:bg-amber-500 text-white font-black uppercase tracking-widest"
-                          onClick={() => handlePartialPay(customer)}
-                          disabled={!amountValid || recordPartialPayment.isPending}
-                        >
-                          {recordPartialPayment.isPending ? "Recording…" : `Record ₵${amountValid ? amountCedis.toFixed(2) : "0.00"} Payment`}
-                        </Button>
-                      </div>
-                    )}
+                    {isExpanded && partialUI}
                   </div>
                 );
               }
 
-              // Normal (within 24h) → simple Mark Paid
+              // Normal (within 24h) → Mark Paid + Partial for on_hold
               return (
-                <div className="px-4 pb-4 pt-1 border-t border-border/50">
-                  <Button
-                    size="sm"
-                    className="w-full gap-2 bg-green-700 hover:bg-green-600 text-white font-black uppercase tracking-widest"
-                    onClick={() => handleMarkPaid(customer)}
-                    disabled={payBatch.isPending}
-                  >
-                    <ShieldCheck className="w-4 h-4" />
-                    {isAdmin ? "Mark Paid — Admin Clear" : "Mark Paid"}
-                  </Button>
+                <div className="px-4 pb-4 pt-1 border-t border-border/50 space-y-2">
+                  <div className={hasHoldRound ? "flex gap-2" : ""}>
+                    <Button size="sm"
+                      className={`${hasHoldRound ? "flex-1" : "w-full"} gap-2 bg-green-700 hover:bg-green-600 text-white font-black uppercase tracking-widest`}
+                      onClick={() => handleMarkPaid(customer)}
+                      disabled={payBatch.isPending}
+                    >
+                      <ShieldCheck className="w-4 h-4" />
+                      {isAdmin ? "Mark Paid — Admin Clear" : "Mark Paid"}
+                    </Button>
+                    {hasHoldRound && (
+                      <button
+                        onClick={() => { if (isExpanded) { setPartialPayFor(null); setPartialAmount(""); } else { setPartialPayFor(ck); setPartialAmount(""); } }}
+                        className={`flex-1 flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-widest px-3 py-1.5 rounded-md border transition-colors ${isExpanded ? "bg-amber-500/20 border-amber-500/50 text-amber-400" : "border-border text-muted-foreground hover:border-amber-500/50 hover:text-amber-400"}`}
+                      >
+                        Partial
+                      </button>
+                    )}
+                  </div>
+                  {hasHoldRound && isExpanded && partialUI}
                 </div>
               );
             })()}
