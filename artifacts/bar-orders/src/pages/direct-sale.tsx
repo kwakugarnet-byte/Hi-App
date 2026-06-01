@@ -323,7 +323,7 @@ function DirectSaleInner() {
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold uppercase tracking-wide hover:bg-amber-500/20 transition-colors"
             >
               <Clock className="w-3.5 h-3.5" />
-              {heldSales.length} on hold
+              {new Set(heldSales.map(h => h.label.toLowerCase())).size} on hold
             </button>
           )}
         </div>
