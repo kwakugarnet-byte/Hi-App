@@ -45,6 +45,7 @@ function DirectSaleInner() {
   const [justAdded, setJustAdded] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [recalledBatchId, setRecalledBatchId] = useState<number | null>(null);
+  const [addingRoundFor, setAddingRoundFor] = useState<string | null>(null);
 
   const [pendingItem, setPendingItem] = useState<{ menuItemId: number; name: string; pricePence: number } | null>(null);
   const [pendingQty, setPendingQty] = useState("1");
@@ -94,7 +95,7 @@ function DirectSaleInner() {
   const hasItems = currentList.length > 0;
 
   const holdNameLower = customerLabel.trim().toLowerCase();
-  const duplicateHold = !recalledBatchId && holdNameLower.length > 0
+  const duplicateHold = !recalledBatchId && !addingRoundFor && holdNameLower.length > 0
     && heldSales.some((h) => h.label.toLowerCase() === holdNameLower);
 
   function flashAdded(name: string) {
@@ -202,6 +203,15 @@ function DirectSaleInner() {
     setTimeout(() => barcodeRef.current?.focus(), 100);
   }
 
+  function addRound(held: HeldSale) {
+    setCurrentItems({});
+    setCustomerLabel(held.label);
+    setRecalledBatchId(null);
+    setAddingRoundFor(held.label);
+    setShowHoldPanel(false);
+    setTimeout(() => barcodeRef.current?.focus(), 100);
+  }
+
   async function holdSale() {
     if (!hasItems || submitting) return;
     if (!customerLabel.trim()) {
@@ -210,6 +220,10 @@ function DirectSaleInner() {
     }
     setSubmitting(true);
     const label = customerLabel.trim();
+    const isNewRound = !!addingRoundFor;
+    const roundNumber = isNewRound
+      ? heldSales.filter((h) => h.label.toLowerCase() === label.toLowerCase()).length + 2
+      : 1;
     try {
       const res = await fetch(`${BASE}/api/order-batches/hold`, {
         method: "POST",
@@ -227,7 +241,11 @@ function DirectSaleInner() {
       setHeldSales((prev) => [...prev, { id, label, items: currentList, batchId: data.id }]);
       setCurrentItems({});
       setCustomerLabel("");
-      toast({ title: `"${label}" put on hold`, description: `${currentList.length} item(s) · ${formatPrice(total)}` });
+      setAddingRoundFor(null);
+      toast({
+        title: isNewRound ? `Round ${roundNumber} added for "${label}"` : `"${label}" put on hold`,
+        description: `${currentList.length} item(s) · ${formatPrice(total)}`,
+      });
       setTimeout(() => barcodeRef.current?.focus(), 100);
     } catch {
       toast({ title: "Failed to save hold", variant: "destructive" });
@@ -425,6 +443,17 @@ function DirectSaleInner() {
       {hasItems && (
         <div className="fixed bottom-0 left-0 right-0 z-30 bg-background border-t border-border px-4 pt-3 pb-4">
           <div className="max-w-2xl mx-auto space-y-3">
+            {addingRoundFor && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                <Plus className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <p className="text-xs text-amber-400 font-bold uppercase tracking-wide">
+                  Adding new round for <span className="text-amber-300">{addingRoundFor}</span>
+                </p>
+                <button onClick={() => { setAddingRoundFor(null); setCustomerLabel(""); }} className="ml-auto text-amber-400/60 hover:text-amber-400">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
             <div className="space-y-1 max-h-32 overflow-y-auto">
               {currentList.map((item) => (
                 <div key={item.menuItemId} className="flex items-center gap-2">
@@ -655,6 +684,13 @@ function DirectSaleInner() {
                         className="flex-1 h-9 rounded-lg bg-primary text-primary-foreground text-xs font-bold uppercase tracking-wide hover:opacity-90 transition-opacity"
                       >
                         Recall
+                      </button>
+                      <button
+                        onClick={() => addRound(held)}
+                        className="flex-1 h-9 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-400 text-xs font-bold uppercase tracking-wide hover:bg-amber-500/20 transition-colors flex items-center justify-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                        Add Round
                       </button>
                     </div>
                   </div>
