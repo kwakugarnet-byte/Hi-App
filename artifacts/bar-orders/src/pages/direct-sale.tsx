@@ -638,7 +638,7 @@ function DirectSaleInner() {
           <div className="bg-card border border-border border-b-0 w-full max-w-sm px-5 pt-5 pb-8 rounded-t-2xl flex flex-col max-h-[75vh]">
             <div className="flex items-center justify-between shrink-0 mb-4">
               <p className="text-sm font-black uppercase tracking-widest text-foreground">
-                On Hold ({heldSales.length})
+                On Hold ({[...new Set(heldSales.map(h => h.label))].length})
               </p>
               <button
                 onClick={() => setShowHoldPanel(false)}
@@ -648,29 +648,49 @@ function DirectSaleInner() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto space-y-3">
-              {heldSales.map((held) => {
-                const heldTotal = held.items.reduce((s, i) => s + i.pricePence * i.quantity, 0);
-                return (
-                  <div key={held.id} className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <p className="font-bold text-sm text-foreground">{held.label}</p>
-                      <span className="text-amber-400 font-black text-sm">{formatPrice(heldTotal)}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      {held.items.map((i) => `${i.name} ×${i.quantity}`).join(" · ")}
-                    </p>
-                    <div className="flex gap-2">
+              {(() => {
+                const grouped = new Map<string, HeldSale[]>();
+                for (const h of heldSales) {
+                  const key = h.label.toLowerCase();
+                  if (!grouped.has(key)) grouped.set(key, []);
+                  grouped.get(key)!.push(h);
+                }
+                return [...grouped.entries()].map(([, rounds]) => {
+                  const customerName = rounds[0].label;
+                  const grandTotal = rounds.reduce((s, r) => s + r.items.reduce((rs, i) => rs + i.pricePence * i.quantity, 0), 0);
+                  return (
+                    <div key={customerName} className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="font-bold text-sm text-foreground uppercase tracking-wide">{customerName}</p>
+                        <span className="text-amber-400 font-black text-sm">{formatPrice(grandTotal)}</span>
+                      </div>
+                      <div className="space-y-2">
+                        {rounds.map((round, idx) => {
+                          const roundTotal = round.items.reduce((s, i) => s + i.pricePence * i.quantity, 0);
+                          return (
+                            <div key={round.id} className="border-t border-amber-500/15 pt-2 first:border-0 first:pt-0">
+                              <div className="flex items-center justify-between mb-0.5">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-amber-400/70">Round {idx + 1}</span>
+                                <span className="text-[10px] font-bold text-muted-foreground">{formatPrice(roundTotal)}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground leading-relaxed">
+                                {round.items.map((i) => `${i.name} ×${i.quantity}`).join(" · ")}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
                       <button
-                        onClick={() => recallSale(held.id)}
-                        className="flex-1 h-9 rounded-lg bg-primary text-primary-foreground text-xs font-bold uppercase tracking-wide hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5"
+                        onClick={() => recallSale(rounds[0].id)}
+                        className="w-full h-9 rounded-lg bg-primary text-primary-foreground text-xs font-bold uppercase tracking-wide hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         Add Round
                       </button>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
           </div>
         </div>
