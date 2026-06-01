@@ -632,23 +632,32 @@ export default function Bills() {
 
   const activeContent = activeCustomers.length === 0
     ? (
-      <div className="h-64 flex flex-col items-center justify-center opacity-50 gap-4">
-        <Receipt className="w-16 h-16 text-muted-foreground" />
-        <p className="text-muted-foreground font-bold uppercase tracking-widest text-sm">
+      <div className="h-64 flex flex-col items-center justify-center gap-4">
+        <CheckCircle2 className="w-16 h-16 text-green-500" />
+        <p className="text-green-500 font-black uppercase tracking-widest text-sm">
           {isWaitress ? "No outstanding bills — you're clear!" : "No outstanding bills"}
         </p>
       </div>
     ) : (
       <>
         {/* Waitress accountability banner */}
-        {isWaitress && grandTotal > 0 && (
-          <div className="bg-amber-500/10 border border-amber-500/40 rounded-xl px-4 py-3 flex items-center gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+        {isWaitress && (
+          <div className={`border rounded-xl px-4 py-3 flex items-center gap-3 ${grandTotal > 0 ? "bg-red-500/10 border-red-500/40" : "bg-green-500/10 border-green-500/40"}`}>
+            {grandTotal > 0
+              ? <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
+              : <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0" />
+            }
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-black uppercase tracking-widest text-amber-400">Your Outstanding Credit</p>
-              <p className="text-xs text-muted-foreground mt-0.5">You are responsible for collecting these bills</p>
+              <p className={`text-xs font-black uppercase tracking-widest ${grandTotal > 0 ? "text-red-400" : "text-green-400"}`}>
+                {grandTotal > 0 ? "Outstanding Credit" : "All Clear"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {grandTotal > 0 ? "You are responsible for collecting these bills" : "No outstanding bills — you're clear!"}
+              </p>
             </div>
-            <span className="text-2xl font-black text-amber-400 tabular-nums shrink-0">{formatPrice(grandTotal)}</span>
+            <span className={`text-2xl font-black tabular-nums shrink-0 ${grandTotal > 0 ? "text-red-400" : "text-green-400"}`}>
+              {formatPrice(grandTotal)}
+            </span>
           </div>
         )}
 
@@ -695,7 +704,7 @@ export default function Bills() {
         {!isWaitress && waiterCredits.length > 0 && (
           <div className="bg-card border border-border rounded-xl overflow-hidden">
             <div className="px-4 py-2.5 border-b border-border flex items-center gap-2">
-              <Users className="w-4 h-4 text-amber-400" />
+              <Users className="w-4 h-4 text-red-400" />
               <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Credit by Waiter</span>
               <span className="ml-auto text-[10px] text-muted-foreground font-bold">Tap to settle</span>
             </div>
@@ -714,7 +723,7 @@ export default function Bills() {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <div className="text-right">
-                        <div className="text-lg font-black text-amber-400 tabular-nums">{formatPrice(w.total)}</div>
+                        <div className="text-lg font-black text-red-400 tabular-nums">{formatPrice(w.total)}</div>
                         {staffBonusMap.has(w.name) && (
                           <div className="text-[11px] font-bold text-emerald-400 tabular-nums">
                             +{formatPrice(Math.round(w.total * staffBonusMap.get(w.name)! / 100))} bonus ({staffBonusMap.get(w.name)}%)
