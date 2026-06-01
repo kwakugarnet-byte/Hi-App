@@ -54,11 +54,13 @@ function DirectSaleInner() {
       .then((r) => r.ok ? r.json() : Promise.reject(r))
       .then((data: Array<{
         id: number; status: string; saleType: string | null;
-        customerName: string | null;
+        customerName: string | null; createdAt: string;
         items: Array<{ menuItemId: number; menuItemName: string; pricePence: number; quantity: number }>;
       }>) => {
+        const TWENTY_FOUR_H = 24 * 60 * 60 * 1000;
         const held = data
-          .filter((b) => b.status === "on_hold" && b.saleType === "bar")
+          .filter((b) => b.status === "on_hold" && b.saleType === "bar"
+            && (Date.now() - new Date(b.createdAt).getTime()) <= TWENTY_FOUR_H)
           .map((b) => ({
             id: String(b.id),
             label: b.customerName ?? `Hold #${b.id}`,
