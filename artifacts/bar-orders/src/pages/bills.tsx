@@ -1005,10 +1005,15 @@ export default function Bills() {
               <div key={round.id} className={idx > 0 ? "border-t border-border/50" : ""}>
                 <div className="px-4 pt-2.5 pb-1 flex items-center justify-between">
                   <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70">
-                    {round.status === "on_hold" ? "BAR HOLD" : `Round ${idx + 1}`}
+                    {round.status === "on_hold"
+                      ? (isOlderThan24Hours(customer.firstOrderAt) ? "OVERDUE HOLD" : "BAR HOLD")
+                      : `Round ${idx + 1}`}
                   </span>
-                  {round.status === "on_hold" && (
+                  {round.status === "on_hold" && !isOlderThan24Hours(customer.firstOrderAt) && (
                     <span className="text-[9px] font-black uppercase tracking-widest text-red-400 border border-red-500/40 bg-red-500/10 rounded px-1.5 py-0.5 ml-1">Unpaid</span>
+                  )}
+                  {round.status === "on_hold" && isOlderThan24Hours(customer.firstOrderAt) && (
+                    <span className="text-[9px] font-black uppercase tracking-widest text-amber-400 border border-amber-500/40 bg-amber-500/10 rounded px-1.5 py-0.5 ml-1">24h+ · Admin Only</span>
                   )}
                   <div className="flex items-center gap-3">
                     {(isAdmin || isBartender) && round.status !== "returned" && (
