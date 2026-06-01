@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import bcrypt from "bcryptjs";
-import { db, menuItemsTable, staffTable, categoriesTable, staffPermissionsTable } from "@workspace/db";
+import { db, menuItemsTable, staffTable, categoriesTable, staffPermissionsTable, orderBatchesTable } from "@workspace/db";
 import { CreateMenuItemBody, CreateStaffBody, UpdateStaffBody } from "@workspace/api-zod";
 import { logActivity } from "../lib/logActivity";
 
@@ -181,6 +181,19 @@ router.delete("/admin/staff/:id", requireAdmin, async (req: Request, res: Respon
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const [member] = await db.select({ id: staffTable.id, name: staffTable.name, role: staffTable.role }).from(staffTable).where(eq(staffTable.id, id));
+  if (!member) { res.status(404).json({ error: "Staff member not found" }); return; }
+  if (member.role === "admin") {
+    res.status(403).json({ error: "Admin accounts cannot be deleted." });
+    return;
+  }
+  const outstanding = await db.select({ id: orderBatchesTable.id })
+    .from(orderBatchesTable)
+    .where(and(eq(orderBatchesTable.waitressName, member.name), ne(orderBatchesTable.status, "paid")))
+    .limit(1);
+  if (outstanding.length > 0) {
+    res.status(409).json({ error: "This staff member has outstanding bills. Clear all bills before deleting." });
+    return;
+  }
   await db.delete(staffTable).where(eq(staffTable.id, id));
   await logActivity(actor(req), "admin", "staff_deleted", { staffId: id, name: member?.name, role: member?.role });
   res.status(204).send();

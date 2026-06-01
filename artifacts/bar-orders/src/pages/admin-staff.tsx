@@ -148,18 +148,22 @@ function AdminStaffInner() {
     );
   }
 
-  function handleDelete(id: number) {
-    deleteStaff.mutate(
-      { id },
-      {
-        onSuccess: () => {
-          qc.invalidateQueries({ queryKey: getGetAdminStaffQueryKey() });
-          toast({ title: "Staff member removed" });
-          setConfirmDelete(null);
-        },
-        onError: () => toast({ title: "Failed to delete staff member", variant: "destructive" }),
+  async function handleDelete(id: number) {
+    try {
+      const res = await fetch(`${BASE}/api/admin/staff/${id}`, { method: "DELETE", credentials: "include" });
+      if (res.status === 204) {
+        qc.invalidateQueries({ queryKey: getGetAdminStaffQueryKey() });
+        toast({ title: "Staff member removed" });
+        setConfirmDelete(null);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        toast({ title: body.error ?? "Failed to delete staff member", variant: "destructive" });
+        setConfirmDelete(null);
       }
-    );
+    } catch {
+      toast({ title: "Failed to delete staff member", variant: "destructive" });
+      setConfirmDelete(null);
+    }
   }
 
   function getBonusValue(id: number, currentBonus: number): string {
@@ -431,9 +435,11 @@ function AdminStaffInner() {
                       <button onClick={() => startEdit(member)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors" title="Edit">
                         <Pencil className="w-4 h-4" />
                       </button>
-                      <button onClick={() => setConfirmDelete(member.id)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-destructive hover:border-destructive transition-colors" title="Delete">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {member.role !== "admin" && (
+                        <button onClick={() => setConfirmDelete(member.id)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-destructive hover:border-destructive transition-colors" title="Delete">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>

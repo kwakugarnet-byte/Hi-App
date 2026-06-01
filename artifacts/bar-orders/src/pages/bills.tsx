@@ -410,8 +410,13 @@ export default function Bills() {
 
   const waiterNames = useMemo(() => {
     if (!batches) return [];
-    return [...new Set(batches.map((b) => b.waitressName))].sort();
-  }, [batches]);
+    const names = [...new Set(batches.map((b) => b.waitressName))];
+    if (staffList && staffList.length > 0) {
+      const existingNames = new Set(staffList.map((s) => s.name));
+      return names.filter((n) => existingNames.has(n)).sort();
+    }
+    return names.sort();
+  }, [batches, staffList]);
 
   const historyWaiterNames = useMemo(() => {
     if (!batches) return [];
