@@ -654,13 +654,6 @@ function DirectSaleInner() {
                       >
                         Recall
                       </button>
-                      <button
-                        onClick={() => discardHeld(held.id)}
-                        className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-destructive hover:border-destructive transition-colors"
-                        title="Discard"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
                     </div>
                   </div>
                 );
