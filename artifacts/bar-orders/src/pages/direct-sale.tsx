@@ -91,6 +91,10 @@ function DirectSaleInner() {
   const total = currentList.reduce((s, i) => s + i.pricePence * i.quantity, 0);
   const hasItems = currentList.length > 0;
 
+  const holdNameLower = customerLabel.trim().toLowerCase();
+  const duplicateHold = !recalledBatchId && holdNameLower.length > 0
+    && heldSales.some((h) => h.label.toLowerCase() === holdNameLower);
+
   function flashAdded(name: string) {
     setJustAdded(name);
     setTimeout(() => setJustAdded(null), 1400);
@@ -444,17 +448,24 @@ function DirectSaleInner() {
                 </div>
               ))}
             </div>
-            <input
-              type="text"
-              placeholder="Customer name (required to hold)"
-              value={customerLabel}
-              onChange={(e) => setCustomerLabel(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary text-foreground"
-            />
+            <div className="space-y-1">
+              <input
+                type="text"
+                placeholder="Customer name (required to hold)"
+                value={customerLabel}
+                onChange={(e) => setCustomerLabel(e.target.value)}
+                className={`w-full px-3 py-2 rounded-lg bg-card border text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary text-foreground ${duplicateHold ? "border-destructive" : "border-border"}`}
+              />
+              {duplicateHold && (
+                <p className="text-[11px] text-destructive font-medium px-1">
+                  This customer already has a hold — recall it from the holds panel to add items.
+                </p>
+              )}
+            </div>
             <div className="flex gap-2">
               <button
                 onClick={holdSale}
-                disabled={!customerLabel.trim() || submitting}
+                disabled={!customerLabel.trim() || duplicateHold || submitting}
                 className="flex-1 h-12 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-400 text-sm font-bold uppercase tracking-wide hover:bg-amber-500/20 transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Clock className="w-4 h-4" />
