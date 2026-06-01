@@ -895,52 +895,6 @@ router.post("/order-batches/settle-waiter", async (req, res): Promise<void> => {
   res.json(SettleWaiterAccountResponse.parse({ waitressName, count: unpaidBatches.length, totalPence }));
 });
 
-// ─── Admin: record on_hold items as a direct sale (hold stays active) ────────
-router.post("/order-batches/:id/record-direct", async (req, res): Promise<void> => {
-  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
-  const actor = actorFromReq(req);
-  if (actor.role !== "admin") { res.status(403).json({ error: "Admin access required." }); return; }
-
-  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const id = parseInt(rawId, 10);
-  if (isNaN(id)) { res.status(400).json({ error: "Invalid batch id" }); return; }
-
-  const [batch] = await db.select().from(orderBatchesTable).where(eq(orderBatchesTable.id, id));
-  if (!batch || batch.status !== "on_hold") {
-    res.status(400).json({ error: "Batch must be on_hold." });
-    return;
-  }
-  const ageMs = Date.now() - new Date(batch.createdAt).getTime();
-  if (ageMs < 24 * 60 * 60 * 1000) {
-    res.status(400).json({ error: "Batch must be older than 24 hours." });
-    return;
-  }
-
-  const srcItems = await db
-    .select({ menuItemId: orderItemsTable.menuItemId, quantity: orderItemsTable.quantity, pricePence: storedPrice })
-    .from(orderItemsTable)
-    .innerJoin(menuItemsTable, eq(orderItemsTable.menuItemId, menuItemsTable.id))
-    .where(eq(orderItemsTable.batchId, id));
-
-  const [newBatch] = await db
-    .insert(orderBatchesTable)
-    .values({ customerName: batch.customerName, waitressName: actor.name, status: "paid", saleType: "bar", completedAt: new Date() })
-    .returning();
-
-  if (srcItems.length > 0) {
-    await db.insert(orderItemsTable).values(
-      srcItems.map((i) => ({ batchId: newBatch.id, menuItemId: i.menuItemId, quantity: i.quantity, pricePence: i.pricePence }))
-    );
-  }
-
-  const totalPence = srcItems.reduce((s, i) => s + i.pricePence * i.quantity, 0);
-  await logActivity(actor.name, actor.role, "hold_recorded_direct", {
-    sourceBatchId: id, newBatchId: newBatch.id, customerName: batch.customerName, totalPence,
-  });
-
-  res.json({ ok: true, newBatchId: newBatch.id });
-});
-
 router.post("/order-batches/merge", async (req, res): Promise<void> => {
   const actor = actorFromReq(req);
   if (actor.role !== "admin") {

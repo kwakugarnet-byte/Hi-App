@@ -536,23 +536,6 @@ export default function Bills() {
       .sort((a, b) => b.bonusOwed - a.bonusOwed);
   }, [batches, staffList]);
 
-  const handleRecordDirect = async (customer: GroupedCustomer) => {
-    const holdIds = customer.rounds.filter((r) => r.status === "on_hold").map((r) => r.id);
-    try {
-      await Promise.all(
-        holdIds.map((id) =>
-          fetch(`${BASE}/api/order-batches/${id}/record-direct`, { method: "POST", credentials: "include" }).then(async (r) => {
-            if (!r.ok) throw new Error(await r.text());
-          })
-        )
-      );
-      await queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
-      toast({ title: "Recorded to Direct Sales", description: `${customer.customerName}'s hold items recorded. Bill stays active until cash is collected.` });
-    } catch {
-      toast({ title: "Error", description: "Could not record to direct sales.", variant: "destructive" });
-    }
-  };
-
   const handleMarkPaid = async (customer: GroupedCustomer) => {
     const ids = customer.rounds.map((r) => r.id);
     try {
@@ -1107,7 +1090,7 @@ export default function Bills() {
                 );
               }
 
-              // Admin + old bill → Full, Partial, and (for holds) Record to Direct Sales
+              // Admin + old bill → Full or Partial payment
               if (isAdmin && isOld) {
                 return (
                   <div className="px-4 pb-4 pt-2 border-t border-border/50 space-y-2">
@@ -1127,15 +1110,6 @@ export default function Bills() {
                           <span className="text-amber-400 font-black tabular-nums">{formatPrice(remaining)}</span>
                         </div>
                       </div>
-                    )}
-                    {hasHoldRound && (
-                      <button
-                        onClick={() => handleRecordDirect(customer)}
-                        className="w-full flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-widest px-3 py-2 rounded-md border border-blue-500/40 text-blue-400 hover:bg-blue-500/10 transition-colors"
-                      >
-                        <Banknote className="w-3.5 h-3.5" />
-                        Record to Direct Sales (hold stays active)
-                      </button>
                     )}
                     <div className="flex gap-2">
                       <Button size="sm"
