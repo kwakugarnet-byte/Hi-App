@@ -203,15 +203,6 @@ function DirectSaleInner() {
     setTimeout(() => barcodeRef.current?.focus(), 100);
   }
 
-  function addRound(held: HeldSale) {
-    setCurrentItems({});
-    setCustomerLabel(held.label);
-    setRecalledBatchId(null);
-    setAddingRoundFor(held.label);
-    setShowHoldPanel(false);
-    setTimeout(() => barcodeRef.current?.focus(), 100);
-  }
-
   async function holdSale() {
     if (!hasItems || submitting) return;
     if (!customerLabel.trim()) {
@@ -257,22 +248,12 @@ function DirectSaleInner() {
   function recallSale(heldId: string) {
     const held = heldSales.find((h) => h.id === heldId);
     if (!held) return;
-    if (hasItems) {
-      const label2 = customerLabel.trim() || `Customer ${heldSales.length + 1}`;
-      const newHeldId = Date.now().toString();
-      setHeldSales((prev) => {
-        const without = prev.filter((h) => h.id !== heldId);
-        return [...without, { id: newHeldId, label: label2, items: currentList }];
-      });
-    } else {
-      setHeldSales((prev) => prev.filter((h) => h.id !== heldId));
-    }
-    const itemsMap: Record<number, SaleItem> = {};
-    held.items.forEach((i) => { itemsMap[i.menuItemId] = i; });
-    setCurrentItems(itemsMap);
+    setCurrentItems({});
     setCustomerLabel(held.label);
-    setRecalledBatchId(held.batchId ?? null);
+    setRecalledBatchId(null);
+    setAddingRoundFor(held.label);
     setShowHoldPanel(false);
+    setTimeout(() => barcodeRef.current?.focus(), 100);
   }
 
   function discardHeld(heldId: string) {
@@ -681,15 +662,9 @@ function DirectSaleInner() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => recallSale(held.id)}
-                        className="flex-1 h-9 rounded-lg bg-primary text-primary-foreground text-xs font-bold uppercase tracking-wide hover:opacity-90 transition-opacity"
+                        className="flex-1 h-9 rounded-lg bg-primary text-primary-foreground text-xs font-bold uppercase tracking-wide hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5"
                       >
-                        Recall
-                      </button>
-                      <button
-                        onClick={() => addRound(held)}
-                        className="flex-1 h-9 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-400 text-xs font-bold uppercase tracking-wide hover:bg-amber-500/20 transition-colors flex items-center justify-center gap-1"
-                      >
-                        <Plus className="w-3 h-3" />
+                        <Plus className="w-3.5 h-3.5" />
                         Add Round
                       </button>
                     </div>
