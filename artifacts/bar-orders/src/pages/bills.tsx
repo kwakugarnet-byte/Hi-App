@@ -422,17 +422,22 @@ export default function Bills() {
     if (!batches) return [];
     const unpaid = batches.filter((b) => {
       if (b.status === "paid") return false;
+      // Non-admin: hide on_hold batches older than 24h (those are admin-only clearance)
+      if (!isAdmin && b.status === "on_hold") {
+        const ageMs = Date.now() - new Date(b.createdAt).getTime();
+        if (ageMs > 24 * 60 * 60 * 1000) return false;
+      }
       if (isWaitress && myName) return b.waitressName === myName;
       return !selectedWaiter || b.waitressName === selectedWaiter;
     });
     return groupBatches(unpaid);
-  }, [batches, selectedWaiter, isWaitress, myName]);
+  }, [batches, selectedWaiter, isWaitress, myName, isAdmin]);
 
-  // Same as activeCustomers but excludes on_hold bar tabs — used for credit totals and settle
+  // All unpaid including on_hold — used for credit totals (holds count toward outstanding)
   const tableActiveCustomers = useMemo(() => {
     if (!batches) return [];
     const unpaid = batches.filter((b) => {
-      if (b.status === "paid" || b.status === "on_hold") return false;
+      if (b.status === "paid") return false;
       if (isWaitress && myName) return b.waitressName === myName;
       return !selectedWaiter || b.waitressName === selectedWaiter;
     });
