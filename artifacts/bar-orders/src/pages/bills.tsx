@@ -85,7 +85,7 @@ function groupBatches(
   const map = new Map<string, GroupedCustomer>();
 
   for (const batch of batches) {
-    const key = `${batch.waitressName}|||${batch.customerName}|||${format(new Date(batch.createdAt), "yyyy-MM-dd")}`;
+    const key = `${batch.waitressName}|||${batch.customerName}`;
     if (!map.has(key)) {
       map.set(key, {
         customerName: batch.customerName,
@@ -212,7 +212,7 @@ type EditingRound = {
 };
 
 function customerKey(c: GroupedCustomer) {
-  return `${c.waitressName}|||${c.customerName}|||${format(new Date(c.firstOrderAt), "yyyy-MM-dd")}`;
+  return `${c.waitressName}|||${c.customerName}`;
 }
 
 export default function Bills() {
@@ -942,7 +942,7 @@ export default function Bills() {
           const cardRemaining = Math.max(0, customer.total - cardPaid);
           return (
           <div
-            key={`${customer.waitressName}|||${customer.customerName}|||${customer.firstOrderAt}`}
+            key={`${customer.waitressName}|||${customer.customerName}`}
             className={`bg-card border rounded-xl overflow-hidden transition-all ${mergeMode ? "cursor-pointer " : ""}${isSelected ? "border-primary ring-2 ring-primary/30" : "border-border"}`}
             onClick={mergeMode ? () => {
               setMergeSelected((prev) => {
