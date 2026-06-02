@@ -454,9 +454,22 @@ export default function Bills() {
     return groupBatches(paid).reverse();
   }, [batches, selectedWaiter, isWaitress, myName]);
 
+  // Build a lookup: "customerName|||waitressName" → total pence already partially paid
+  const partialPaidMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of allPartialPayments ?? []) {
+      const key = `${p.customerName}|||${p.waitressName}`;
+      map.set(key, (map.get(key) ?? 0) + p.amountPence);
+    }
+    return map;
+  }, [allPartialPayments]);
+
   const grandTotal = useMemo(
-    () => tableActiveCustomers.reduce((sum, c) => sum + c.total, 0),
-    [tableActiveCustomers]
+    () => tableActiveCustomers.reduce((sum, c) => {
+      const paid = partialPaidMap.get(`${c.customerName}|||${c.waitressName}`) ?? 0;
+      return sum + Math.max(0, c.total - paid);
+    }, 0),
+    [tableActiveCustomers, partialPaidMap]
   );
 
   const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
@@ -486,17 +499,19 @@ export default function Bills() {
     [filteredHistoryCustomers]
   );
 
-  // Credit owed per waiter — excludes on_hold bar tabs (those are admin-only debt)
+  // Credit owed per waiter — deducts partial payments already recorded
   const waiterCredits = useMemo(() => {
     const map = new Map<string, { name: string; customers: number; total: number }>();
     for (const c of tableActiveCustomers) {
+      const paid = partialPaidMap.get(`${c.customerName}|||${c.waitressName}`) ?? 0;
+      const remaining = Math.max(0, c.total - paid);
       if (!map.has(c.waitressName)) map.set(c.waitressName, { name: c.waitressName, customers: 0, total: 0 });
       const entry = map.get(c.waitressName)!;
       entry.customers += 1;
-      entry.total += c.total;
+      entry.total += remaining;
     }
     return [...map.values()].sort((a, b) => b.total - a.total);
-  }, [tableActiveCustomers]);
+  }, [tableActiveCustomers, partialPaidMap]);
 
   // Sales per waiter from history (paid bills — filtered range)
   const waiterSales = useMemo(() => {
@@ -923,6 +938,8 @@ export default function Bills() {
         {activeCustomers.map((customer) => {
           const key = customerKey(customer);
           const isSelected = mergeSelected.has(key);
+          const cardPaid = partialPaidMap.get(`${customer.customerName}|||${customer.waitressName}`) ?? 0;
+          const cardRemaining = Math.max(0, customer.total - cardPaid);
           return (
           <div
             key={`${customer.waitressName}|||${customer.customerName}|||${customer.firstOrderAt}`}
@@ -954,7 +971,12 @@ export default function Bills() {
                 </div>
               </div>
               <div className="text-right shrink-0 flex flex-col items-end gap-2">
-                <p className="text-2xl font-black text-primary">{formatPrice(customer.total)}</p>
+                <p className="text-2xl font-black text-primary">{formatPrice(cardRemaining)}</p>
+                {cardPaid > 0 && (
+                  <p className="text-[10px] font-bold text-green-400 uppercase tracking-wide">
+                    {formatPrice(cardPaid)} paid · {formatPrice(customer.total)} total
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground flex items-center justify-end gap-1">
                   <Clock className="w-3 h-3" />
                   {format(new Date(customer.firstOrderAt), "d MMM · h:mm a")}
