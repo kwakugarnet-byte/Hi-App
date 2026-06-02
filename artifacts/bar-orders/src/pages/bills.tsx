@@ -981,29 +981,31 @@ export default function Bills() {
                   <Clock className="w-3 h-3" />
                   {format(new Date(customer.firstOrderAt), "d MMM · h:mm a")}
                 </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowBillFor(customer)}
-                    className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-primary border border-primary/50 hover:bg-primary/10 rounded-lg px-2.5 py-1.5 transition-colors"
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    Show
-                  </button>
-                  <button
-                    onClick={() => printBill(customer)}
-                    className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground hover:text-primary transition-colors border border-border hover:border-primary/50 rounded-lg px-2.5 py-1.5"
-                  >
-                    <Printer className="w-3.5 h-3.5" />
-                    Print
-                  </button>
-                  <button
-                    onClick={() => { setWhatsappFor(customer); setWhatsappPhone(""); }}
-                    className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-green-600 hover:text-green-700 transition-colors border border-green-600/40 hover:border-green-600 rounded-lg px-2.5 py-1.5"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    Forward
-                  </button>
-                </div>
+                {!mergeMode && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowBillFor(customer)}
+                      className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-primary border border-primary/50 hover:bg-primary/10 rounded-lg px-2.5 py-1.5 transition-colors"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      Show
+                    </button>
+                    <button
+                      onClick={() => printBill(customer)}
+                      className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground hover:text-primary transition-colors border border-border hover:border-primary/50 rounded-lg px-2.5 py-1.5"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      Print
+                    </button>
+                    <button
+                      onClick={() => { setWhatsappFor(customer); setWhatsappPhone(""); }}
+                      className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-green-600 hover:text-green-700 transition-colors border border-green-600/40 hover:border-green-600 rounded-lg px-2.5 py-1.5"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      Forward
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
             {customer.rounds.map((round, idx) => (
@@ -1021,7 +1023,7 @@ export default function Bills() {
                     <span className="text-[9px] font-black uppercase tracking-widest text-amber-400 border border-amber-500/40 bg-amber-500/10 rounded px-1.5 py-0.5 ml-1">24h+ · Admin Only</span>
                   )}
                   <div className="flex items-center gap-3">
-                    {(isAdmin || isBartender) && round.status !== "returned" && (
+                    {!mergeMode && (isAdmin || isBartender) && round.status !== "returned" && (
                       <>
                         <button
                           onClick={() => startEditRound(round, customer.customerName)}
@@ -1062,7 +1064,7 @@ export default function Bills() {
                 </div>
               </div>
             ))}
-            {(customer.overallStatus === "completed" || (isAdmin && customer.rounds.every(r => r.status === "completed" || r.status === "returned" || r.status === "on_hold"))) && (isAdmin || isBartender) && (() => {
+            {!mergeMode && (customer.overallStatus === "completed" || (isAdmin && customer.rounds.every(r => r.status === "completed" || r.status === "returned" || r.status === "on_hold"))) && (isAdmin || isBartender) && (() => {
               const isOld = isOlderThan24Hours(customer.firstOrderAt);
               const ck = `${customer.waitressName}|||${customer.customerName}`;
               const hasHoldRound = customer.rounds.some((r) => r.status === "on_hold");
