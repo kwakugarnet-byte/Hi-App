@@ -76,7 +76,7 @@ function buildWhatsAppMessage(customer: GroupedCustomer): string {
   lines.push(`*TOTAL: ${formatPrice(customer.total)}*`);
   lines.push("");
   lines.push("💳 *Pay via Mobile Money:*");
-  lines.push("tel:*713*8357%23");
+  lines.push("Open your dialler and enter: *713*8357#");
   lines.push("");
   lines.push("Thank you for visiting Trendy! 🍻");
   return lines.join("\n");
