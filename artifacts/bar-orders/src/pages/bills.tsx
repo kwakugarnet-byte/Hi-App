@@ -76,7 +76,7 @@ function buildWhatsAppMessage(customer: GroupedCustomer): string {
   lines.push(`*TOTAL: ${formatPrice(customer.total)}*`);
   lines.push("");
   lines.push("💳 *Pay via Mobile Money:*");
-  lines.push("Open your dialler and enter: *713*8357#");
+  lines.push("Open your dialler and enter: *713*3730#");
   lines.push("");
   lines.push("Thank you for visiting Trendy! 🍻");
   return lines.join("\n");
@@ -193,6 +193,11 @@ function printBill(customer: GroupedCustomer) {
   <div class="total-row">
     <span class="total-label">Total</span>
     <span class="total-amount">${formatPrice(customer.total)}</span>
+  </div>
+  <div class="divider"></div>
+  <div style="margin:10px 0;padding:8px;border:1px dashed #000;border-radius:4px;text-align:center;">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#555;margin-bottom:3px;">💳 Pay via Mobile Money</div>
+    <div style="font-size:13px;font-weight:bold;letter-spacing:1px;">Dial: *713*3730#</div>
   </div>
   <div class="divider"></div>
   <div class="center footer">Thank you for your visit!</div>
