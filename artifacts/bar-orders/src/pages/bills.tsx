@@ -1008,7 +1008,10 @@ export default function Bills() {
                 )}
               </div>
             </div>
-            {customer.rounds.map((round, idx) => (
+            {(() => {
+              const roundDays = new Set(customer.rounds.map(r => format(new Date(r.createdAt), "yyyy-MM-dd")));
+              const multiDay = roundDays.size > 1;
+              return customer.rounds.map((round, idx) => (
               <div key={round.id} className={idx > 0 ? "border-t border-border/50" : ""}>
                 <div className="px-4 pt-2.5 pb-1 flex items-center justify-between">
                   <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70">
@@ -1036,7 +1039,9 @@ export default function Bills() {
                     )}
                     <span className="text-[10px] text-muted-foreground/60 flex items-center gap-1">
                       <Clock className="w-2.5 h-2.5" />
-                      {format(new Date(round.createdAt), "h:mm a")}
+                      {multiDay
+                        ? format(new Date(round.createdAt), "EEE d MMM · h:mm a")
+                        : format(new Date(round.createdAt), "h:mm a")}
                     </span>
                   </div>
                 </div>
@@ -1063,7 +1068,8 @@ export default function Bills() {
                   )}
                 </div>
               </div>
-            ))}
+            ));
+            })()}
             {!mergeMode && (customer.overallStatus === "completed" || (isAdmin && customer.rounds.every(r => r.status === "completed" || r.status === "returned" || r.status === "on_hold"))) && (isAdmin || isBartender) && (() => {
               const isOld = isOlderThan24Hours(customer.firstOrderAt);
               const ck = `${customer.waitressName}|||${customer.customerName}`;
