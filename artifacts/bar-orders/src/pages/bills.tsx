@@ -1271,22 +1271,8 @@ export default function Bills() {
           );
         })}
 
-        {/* Sticky merge action bar */}
-        {mergeMode && mergeSelected.size >= 2 && (
-          <div className="sticky bottom-4 z-20">
-            <button
-              onClick={() => {
-                const selected = activeCustomers.filter((c) => mergeSelected.has(customerKey(c)));
-                setMergeName(selected[0]?.customerName ?? "");
-                setMergeDialog({ customers: selected });
-              }}
-              className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground font-black text-sm uppercase tracking-widest rounded-xl py-4 shadow-lg shadow-primary/30 transition-colors hover:bg-primary/90"
-            >
-              <Users className="w-4 h-4" />
-              Merge {mergeSelected.size} Customers
-            </button>
-          </div>
-        )}
+        {/* Spacer so last card isn't hidden behind floating bar */}
+        {mergeMode && mergeSelected.size >= 2 && <div className="h-20" />}
       </>
     );
 
@@ -1922,6 +1908,22 @@ export default function Bills() {
             </button>
           </div>
         </div>
+      </div>
+    )}
+    {/* Floating merge action bar — fixed to viewport bottom */}
+    {mergeMode && mergeSelected.size >= 2 && (
+      <div className="fixed bottom-0 left-0 right-0 z-40 p-4 bg-gradient-to-t from-background via-background/95 to-transparent pointer-events-none">
+        <button
+          onClick={() => {
+            const selected = activeCustomers.filter((c) => mergeSelected.has(customerKey(c)));
+            setMergeName(selected[0]?.customerName ?? "");
+            setMergeDialog({ customers: selected });
+          }}
+          className="pointer-events-auto w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground font-black text-sm uppercase tracking-widest rounded-xl py-4 shadow-xl shadow-primary/40 transition-colors hover:bg-primary/90"
+        >
+          <Users className="w-4 h-4" />
+          Merge {mergeSelected.size} Customer{mergeSelected.size !== 1 ? "s" : ""}
+        </button>
       </div>
     )}
     </div>
