@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import logo from "@/assets/logo.jpg";
 import { Link } from "wouter";
 const BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
-import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle, CircleDashed, ChevronRight, Eye, X, CreditCard, Pencil, Plus, Minus, Trash2, RotateCcw, Sparkles, Send } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle, CircleDashed, ChevronRight, Eye, X, CreditCard, Pencil, Plus, Minus, Trash2, RotateCcw, Sparkles, Send, Search } from "lucide-react";
 import {
   useGetOrderBatches,
   useGetMenuItems,
@@ -222,6 +222,7 @@ export default function Bills() {
   const [showBillFor, setShowBillFor] = useState<GroupedCustomer | null>(null);
   const [whatsappFor, setWhatsappFor] = useState<GroupedCustomer | null>(null);
   const [whatsappPhone, setWhatsappPhone] = useState("");
+  const [activeSearch, setActiveSearch] = useState("");
   const [mergeMode, setMergeMode] = useState(false);
   const [mergeSelected, setMergeSelected] = useState<Set<string>>(new Set());
   const [mergeDialog, setMergeDialog] = useState<{ customers: GroupedCustomer[] } | null>(null);
@@ -471,6 +472,24 @@ export default function Bills() {
     }, 0),
     [tableActiveCustomers, partialPaidMap]
   );
+
+  // Duplicate customer names across different staff — these are merge candidates
+  const duplicateGroups = useMemo(() => {
+    const nameMap = new Map<string, GroupedCustomer[]>();
+    for (const c of activeCustomers) {
+      const k = c.customerName.toLowerCase();
+      if (!nameMap.has(k)) nameMap.set(k, []);
+      nameMap.get(k)!.push(c);
+    }
+    return [...nameMap.values()].filter((group) => group.length > 1);
+  }, [activeCustomers]);
+
+  // Search-filtered + alphabetically-sorted active customers
+  const displayedActiveCustomers = useMemo(() => {
+    const q = activeSearch.trim().toLowerCase();
+    const filtered = q ? activeCustomers.filter((c) => c.customerName.toLowerCase().includes(q)) : activeCustomers;
+    return [...filtered].sort((a, b) => a.customerName.localeCompare(b.customerName));
+  }, [activeCustomers, activeSearch]);
 
   const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
   const isOlderThan24Hours = (dateStr: string) =>
@@ -913,6 +932,60 @@ export default function Bills() {
           </div>
         )}
 
+        {/* Search bar */}
+        {activeCustomers.length > 0 && (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              value={activeSearch}
+              onChange={(e) => setActiveSearch(e.target.value)}
+              placeholder="Search customer name…"
+              className="w-full pl-9 pr-4 py-2 text-sm bg-muted/40 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+            />
+            {activeSearch && (
+              <button onClick={() => setActiveSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Duplicate names banner — admin only */}
+        {isAdmin && !mergeMode && duplicateGroups.length > 0 && (
+          <div className="rounded-xl border border-yellow-500/40 bg-yellow-500/5 px-4 py-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0" />
+              <p className="text-xs font-black uppercase tracking-widest text-yellow-400">
+                {duplicateGroups.length} duplicate name{duplicateGroups.length !== 1 ? "s" : ""} found
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              {duplicateGroups.map((group) => (
+                <div key={group[0].customerName} className="flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-black uppercase tracking-tight truncate">{group[0].customerName}</span>
+                    <span className="text-[10px] text-muted-foreground ml-2">{group.length} entries · {group.map(g => g.waitressName).join(", ")}</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const keys = new Set(group.map(customerKey));
+                      setMergeSelected(keys);
+                      setMergeMode(true);
+                      setMergeName(group[0].customerName);
+                      setMergeDialog({ customers: group });
+                    }}
+                    className="shrink-0 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wide px-3 py-1.5 rounded-lg bg-yellow-500/20 border border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/30 transition-colors"
+                  >
+                    <Users className="w-3 h-3" />
+                    Merge
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {isAdmin && activeCustomers.length >= 2 && (
           <div className="flex items-center justify-end">
             {mergeMode ? (
@@ -935,7 +1008,14 @@ export default function Bills() {
           </div>
         )}
 
-        {activeCustomers.map((customer) => {
+        {displayedActiveCustomers.length === 0 && activeSearch ? (
+          <div className="h-32 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+            <Search className="w-8 h-8 opacity-30" />
+            <p className="text-xs font-bold uppercase tracking-widest">No match for "{activeSearch}"</p>
+          </div>
+        ) : null}
+
+        {displayedActiveCustomers.map((customer) => {
           const key = customerKey(customer);
           const isSelected = mergeSelected.has(key);
           const cardPaid = partialPaidMap.get(`${customer.customerName}|||${customer.waitressName}`) ?? 0;
