@@ -52,7 +52,7 @@ type GroupedCustomer = {
   total: number;
 };
 
-function buildWhatsAppMessage(customer: GroupedCustomer): string {
+function buildWhatsAppMessage(customer: GroupedCustomer, partialPaid = 0): string {
   const date = format(new Date(customer.firstOrderAt), "dd MMM yyyy");
   const lines: string[] = [];
   lines.push("*TRENDY BAR*");
@@ -73,7 +73,13 @@ function buildWhatsAppMessage(customer: GroupedCustomer): string {
     lines.push("");
   });
   lines.push("─────────────────");
-  lines.push(`*TOTAL: ${formatPrice(customer.total)}*`);
+  lines.push(`Total: ${formatPrice(customer.total)}`);
+  if (partialPaid > 0) {
+    lines.push(`Paid: ${formatPrice(partialPaid)}`);
+    lines.push(`*REMAINING: ${formatPrice(Math.max(0, customer.total - partialPaid))}*`);
+  } else {
+    lines.push(`*TOTAL: ${formatPrice(customer.total)}*`);
+  }
   lines.push("");
   lines.push("💳 *Pay via Mobile Money:*");
   lines.push("Open your dialler and enter: *713*3730#");
@@ -1613,7 +1619,8 @@ export default function Bills() {
           <button
             disabled={whatsappPhone.length < 7}
             onClick={() => {
-              const msg = buildWhatsAppMessage(whatsappFor);
+              const partialPaid = partialPaidMap.get(`${whatsappFor.customerName}|||${whatsappFor.waitressName}`) ?? 0;
+              const msg = buildWhatsAppMessage(whatsappFor, partialPaid);
               window.open(`https://wa.me/${whatsappPhone}?text=${encodeURIComponent(msg)}`, "_blank");
               setWhatsappFor(null);
             }}
