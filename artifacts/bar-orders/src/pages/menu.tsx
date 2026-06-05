@@ -58,14 +58,37 @@ export default function Menu() {
   const [orderType, setOrderType] = useState<"pickup" | "delivery">("pickup");
   const [deliveryLocation, setDeliveryLocation] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Order tracking
-  const [placedOrderId, setPlacedOrderId] = useState<number | null>(null);
-  const [placedOrderTotal, setPlacedOrderTotal] = useState(0);
+  // Order tracking — persisted in sessionStorage so refresh/navigation keeps state
+  const [placedOrderId, setPlacedOrderIdRaw] = useState<number | null>(() => {
+    const v = sessionStorage.getItem("trendy_order_id");
+    return v ? parseInt(v, 10) : null;
+  });
+  const [placedOrderTotal, setPlacedOrderTotalRaw] = useState<number>(() => {
+    const v = sessionStorage.getItem("trendy_order_total");
+    return v ? parseInt(v, 10) : 0;
+  });
+  const [submitted, setSubmittedRaw] = useState<boolean>(() => {
+    return sessionStorage.getItem("trendy_order_submitted") === "1";
+  });
   const [trackingStatus, setTrackingStatus] = useState<string>("pending");
   const [trackingRejectionReason, setTrackingRejectionReason] = useState<string | null>(null);
+
+  function setPlacedOrderId(id: number | null) {
+    setPlacedOrderIdRaw(id);
+    if (id == null) sessionStorage.removeItem("trendy_order_id");
+    else sessionStorage.setItem("trendy_order_id", String(id));
+  }
+  function setPlacedOrderTotal(total: number) {
+    setPlacedOrderTotalRaw(total);
+    sessionStorage.setItem("trendy_order_total", String(total));
+  }
+  function setSubmitted(val: boolean) {
+    setSubmittedRaw(val);
+    if (val) sessionStorage.setItem("trendy_order_submitted", "1");
+    else sessionStorage.removeItem("trendy_order_submitted");
+  }
 
   // Hubtel payment
   const [payDialog, setPayDialog] = useState(false);
@@ -263,6 +286,10 @@ export default function Menu() {
 
   function startNewOrder() {
     setSubmitted(false);
+    setPlacedOrderId(null);
+    setPlacedOrderTotal(0);
+    setTrackingStatus("pending");
+    setTrackingRejectionReason(null);
     setOrderName("");
     setOrderPhone("");
     setOrderType("pickup");
