@@ -966,7 +966,7 @@ export default function Bills() {
         )}
 
         {/* Duplicate names banner — admin only */}
-        {isAdmin && !mergeMode && duplicateGroups.length > 0 && (
+        {(isAdmin || isBartender) && !mergeMode && duplicateGroups.length > 0 && (
           <div className="rounded-xl border border-yellow-500/40 bg-yellow-500/5 px-4 py-3 space-y-2">
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0" />
@@ -1000,7 +1000,7 @@ export default function Bills() {
           </div>
         )}
 
-        {isAdmin && activeCustomers.length >= 2 && (
+        {(isAdmin || isBartender) && activeCustomers.length >= 2 && (
           <div className="flex items-center justify-end">
             {mergeMode ? (
               <button

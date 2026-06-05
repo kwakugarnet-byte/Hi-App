@@ -791,7 +791,7 @@ router.get("/public/order/:id", async (req, res): Promise<void> => {
       rejectionReason: orderBatchesTable.rejectionReason,
     })
     .from(orderBatchesTable)
-    .where(and(eq(orderBatchesTable.id, id), eq(orderBatchesTable.saleType, "customer_order")));
+    .where(eq(orderBatchesTable.id, id));
 
   if (!batch) {
     res.status(404).json({ error: "Order not found" });
