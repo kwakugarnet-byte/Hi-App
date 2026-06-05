@@ -63,6 +63,7 @@ export default function Menu() {
 
   // Order tracking
   const [placedOrderId, setPlacedOrderId] = useState<number | null>(null);
+  const [placedOrderTotal, setPlacedOrderTotal] = useState(0);
   const [trackingStatus, setTrackingStatus] = useState<string>("pending");
   const [trackingRejectionReason, setTrackingRejectionReason] = useState<string | null>(null);
 
@@ -108,7 +109,7 @@ export default function Menu() {
     setPayResult(null);
     setPayError(null);
     try {
-      const amountGhs = cartTotal / 100;
+      const amountGhs = placedOrderTotal / 100;
       const res = await fetch(`${BASE}/api/public/hubtel/request-payment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -248,6 +249,7 @@ export default function Menu() {
       }
       const json = await res.json();
       setPlacedOrderId(json.id ?? null);
+      setPlacedOrderTotal(cartTotal);
       setTrackingStatus("pending");
       setTrackingRejectionReason(null);
       setSubmitted(true);
@@ -562,7 +564,7 @@ export default function Menu() {
                       className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-green-600 hover:bg-green-500 text-white font-black uppercase tracking-widest text-sm transition-colors"
                     >
                       <CreditCard className="w-4 h-4" />
-                      Pay Now · {formatPrice(cartTotal)}
+                      Pay Now · {formatPrice(placedOrderTotal)}
                     </button>
                   )}
                   {trackingStatus === "paid" && (
@@ -898,7 +900,7 @@ export default function Menu() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-base font-black uppercase tracking-wide">Pay via Mobile Money</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">Amount: <span className="font-bold text-foreground">{formatPrice(cartTotal)}</span></p>
+              <p className="text-xs text-muted-foreground mt-0.5">Amount: <span className="font-bold text-foreground">{formatPrice(placedOrderTotal)}</span></p>
             </div>
             <button onClick={() => setPayDialog(false)} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
           </div>
