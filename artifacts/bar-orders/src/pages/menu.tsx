@@ -91,8 +91,6 @@ export default function Menu() {
   }
 
   // Hubtel payment
-  const [payDialog, setPayDialog] = useState(false);
-  const [payPhone, setPayPhone] = useState("");
   const [paying, setPaying] = useState(false);
   const [payResult, setPayResult] = useState<"sent" | "error" | null>(null);
   const [payError, setPayError] = useState<string | null>(null);
@@ -127,7 +125,7 @@ export default function Menu() {
   }, [submitted, placedOrderId]);
 
   async function handleRequestPayment() {
-    if (!orderPhone || !orderName) return;
+    if (!orderName) return;
     setPaying(true);
     setPayResult(null);
     setPayError(null);
@@ -138,7 +136,6 @@ export default function Menu() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerName: orderName,
-          customerPhone: payPhone || orderPhone,
           amountGhs,
           orderId: placedOrderId ?? undefined,
           description: `Trendy Bar order for ${orderName}`,
@@ -148,10 +145,16 @@ export default function Menu() {
         const err = await res.json().catch(() => ({})) as { error?: string };
         throw new Error(err.error ?? `Error ${res.status}`);
       }
-      setPayResult("sent");
+      const data = await res.json() as { checkoutUrl?: string };
+      if (data.checkoutUrl) {
+        window.open(data.checkoutUrl, "_blank", "noopener,noreferrer");
+        setPayResult("sent");
+      } else {
+        throw new Error("No checkout URL returned.");
+      }
     } catch (err) {
       setPayResult("error");
-      setPayError((err as Error).message ?? "Failed to send payment request.");
+      setPayError((err as Error).message ?? "Failed to start payment.");
     } finally {
       setPaying(false);
     }
@@ -586,13 +589,23 @@ export default function Menu() {
                     </p>
                   </div>
                   {trackingStatus !== "paid" && (
-                    <button
-                      onClick={() => { setPayPhone(orderPhone); setPayDialog(true); setPayResult(null); }}
-                      className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-green-600 hover:bg-green-500 text-white font-black uppercase tracking-widest text-sm transition-colors"
-                    >
-                      <CreditCard className="w-4 h-4" />
-                      Pay Now · {formatPrice(placedOrderTotal)}
-                    </button>
+                    <>
+                      <button
+                        onClick={handleRequestPayment}
+                        disabled={paying}
+                        className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black uppercase tracking-widest text-sm transition-colors"
+                      >
+                        {paying
+                          ? <><Loader2 className="w-4 h-4 animate-spin" /> Opening checkout…</>
+                          : <><CreditCard className="w-4 h-4" /> Pay Now · {formatPrice(placedOrderTotal)}</>}
+                      </button>
+                      {payResult === "sent" && (
+                        <p className="text-xs text-green-400 font-bold text-center">Hubtel checkout opened — complete payment there, then return here.</p>
+                      )}
+                      {payResult === "error" && (
+                        <p className="text-xs text-destructive font-bold text-center">{payError ?? "Something went wrong. Try again."}</p>
+                      )}
+                    </>
                   )}
                   {trackingStatus === "paid" && (
                     <div className="flex items-center gap-2 text-green-400 font-bold text-sm">
@@ -920,65 +933,6 @@ export default function Menu() {
           {(submitted || orderStep === "checkout") && <div className="pb-3" />}
         </div>
       )}
-    {/* Hubtel payment dialog */}
-    {payDialog && (
-      <div className="fixed inset-0 z-50 bg-black/70 flex items-end justify-center p-0" onClick={() => !paying && setPayDialog(false)}>
-        <div className="bg-card w-full max-w-lg rounded-t-2xl p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-black uppercase tracking-wide">Pay via Mobile Money</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">Amount: <span className="font-bold text-foreground">{formatPrice(placedOrderTotal)}</span></p>
-            </div>
-            <button onClick={() => setPayDialog(false)} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
-          </div>
-
-          {payResult === "sent" ? (
-            <div className="flex flex-col items-center gap-4 py-4 text-center">
-              <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center">
-                <CheckCircle2 className="w-8 h-8 text-green-500" />
-              </div>
-              <div>
-                <p className="font-black text-green-400 uppercase tracking-wide">Prompt Sent!</p>
-                <p className="text-sm text-muted-foreground mt-1">Check your phone and approve the mobile money request.</p>
-              </div>
-              <button onClick={() => setPayDialog(false)} className="w-full py-3 rounded-xl bg-green-600 hover:bg-green-500 text-white font-black uppercase tracking-wide text-sm">Done</button>
-            </div>
-          ) : (
-            <>
-              <div>
-                <label className="text-xs font-black uppercase tracking-widest text-muted-foreground block mb-1">Mobile Money Number</label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                  <input
-                    type="tel"
-                    value={payPhone}
-                    onChange={(e) => setPayPhone(e.target.value)}
-                    placeholder="e.g. 0241234567"
-                    className="w-full pl-9 pr-4 py-3 text-sm bg-background border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    autoFocus
-                  />
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-1">We'll send a payment prompt to this number.</p>
-              </div>
-
-              {payResult === "error" && (
-                <div className="bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3 text-sm text-destructive font-medium">
-                  {payError ?? "Something went wrong. Please try again."}
-                </div>
-              )}
-
-              <button
-                onClick={handleRequestPayment}
-                disabled={paying || payPhone.length < 9}
-                className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black uppercase tracking-widest text-sm transition-colors"
-              >
-                {paying ? <><Loader2 className="w-4 h-4 animate-spin" /> Sending...</> : <><CreditCard className="w-4 h-4" /> Send Payment Request</>}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    )}
     </div>
   );
 }

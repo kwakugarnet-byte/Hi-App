@@ -927,7 +927,6 @@ router.post("/order-batches/merge", async (req, res): Promise<void> => {
 router.post("/public/hubtel/request-payment", async (req, res): Promise<void> => {
   const body = z.object({
     customerName: z.string().min(1),
-    customerPhone: z.string().min(9),
     amountGhs: z.number().positive(),
     orderId: z.number().int().positive().optional(),
     description: z.string().optional(),
@@ -947,38 +946,32 @@ router.post("/public/hubtel/request-payment", async (req, res): Promise<void> =>
     return;
   }
 
-  const { customerName, customerPhone, amountGhs, orderId, description } = body.data;
-
-  // Normalise phone to Ghana international format 233XXXXXXXXX
-  let msisdn = customerPhone.replace(/\s+/g, "").replace(/^\+/, "");
-  if (msisdn.startsWith("0")) msisdn = "233" + msisdn.slice(1);
-
+  const { customerName, amountGhs, orderId, description } = body.data;
   const clientReference = `trendy-${orderId ?? Date.now()}`;
-  const callbackUrl = `${process.env["REPLIT_DEV_DOMAIN"] ? `https://${process.env["REPLIT_DEV_DOMAIN"]}` : ""}/api/public/hubtel/callback`;
+
+  const baseUrl = process.env["REPLIT_DEV_DOMAIN"]
+    ? `https://${process.env["REPLIT_DEV_DOMAIN"]}`
+    : "http://localhost:8080";
 
   const payload = {
-    CustomerName: customerName,
-    CustomerMsisdn: msisdn,
-    CustomerEmail: "noreply@trendybar.gh",
-    Channel: "mobile-money",
-    Amount: amountGhs,
-    PrimaryCallbackUrl: callbackUrl,
-    Description: description ?? `Trendy Bar payment for ${customerName}`,
-    ClientReference: clientReference,
+    totalAmount: amountGhs,
+    description: description ?? `Trendy Bar payment for ${customerName}`,
+    callbackUrl: `${baseUrl}/api/public/hubtel/callback`,
+    returnUrl: `${baseUrl}/menu`,
+    cancellationUrl: `${baseUrl}/menu`,
+    merchantAccountNumber: merchantNumber,
+    clientReference,
   };
 
   try {
-    const hubtelRes = await fetch(
-      `https://api.hubtel.com/v1/merchantaccount/merchants/${merchantNumber}/receive/mobilemoney`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Basic " + Buffer.from(`${apiId}:${apiKey}`).toString("base64"),
-        },
-        body: JSON.stringify(payload),
-      }
-    );
+    const hubtelRes = await fetch("https://payproxyapi.hubtel.com/items/initiate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Basic " + Buffer.from(`${apiId}:${apiKey}`).toString("base64"),
+      },
+      body: JSON.stringify(payload),
+    });
 
     const data = await hubtelRes.json() as Record<string, unknown>;
 
@@ -987,7 +980,10 @@ router.post("/public/hubtel/request-payment", async (req, res): Promise<void> =>
       return;
     }
 
-    res.json({ ok: true, data });
+    const dataBlock = data["data"] as Record<string, unknown> | undefined;
+    const checkoutUrl = dataBlock?.["checkoutUrl"] as string | undefined;
+
+    res.json({ ok: true, checkoutUrl, data });
   } catch (err) {
     res.status(502).json({ error: "Failed to reach Hubtel", detail: String(err) });
   }
