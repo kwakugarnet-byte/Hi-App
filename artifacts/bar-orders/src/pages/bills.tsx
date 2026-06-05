@@ -202,7 +202,7 @@ function printBill(customer: GroupedCustomer) {
   </div>
   <div class="divider"></div>
   <div style="margin:10px 0;padding:8px;border:1px dashed #000;border-radius:4px;text-align:center;">
-    <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#555;margin-bottom:3px;">💳 Pay via Mobile Money</div>
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#000;font-weight:bold;margin-bottom:3px;">💳 Pay via Mobile Money</div>
     <div style="font-size:13px;font-weight:bold;letter-spacing:1px;">Dial: *713*3730#</div>
   </div>
   <div class="divider"></div>
