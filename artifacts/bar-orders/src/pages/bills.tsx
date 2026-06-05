@@ -159,7 +159,7 @@ function printBill(customer: GroupedCustomer) {
   <title>Receipt — ${customer.customerName}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    body { font-family: 'Courier New', monospace; font-size: 13px; width: 300px; margin: 0 auto; padding: 16px; color: #000; }
+    body { font-family: 'Courier New', monospace; font-size: 13px; font-weight: bold; width: 300px; margin: 0 auto; padding: 16px; color: #000; }
     .center { text-align: center; }
     .bar-name { font-size: 20px; font-weight: bold; letter-spacing: 2px; margin-bottom: 2px; }
     .divider { border-top: 1px dashed #000; margin: 8px 0; }
