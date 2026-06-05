@@ -923,4 +923,97 @@ router.post("/order-batches/merge", async (req, res): Promise<void> => {
   res.json({ ok: true, count: batchIds.length, newCustomerName });
 });
 
+// ─── Hubtel: request mobile money payment from customer ──────────────────────
+router.post("/public/hubtel/request-payment", async (req, res): Promise<void> => {
+  const body = z.object({
+    customerName: z.string().min(1),
+    customerPhone: z.string().min(9),
+    amountGhs: z.number().positive(),
+    orderId: z.number().int().positive().optional(),
+    description: z.string().optional(),
+  }).safeParse(req.body);
+
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  const apiId = process.env["HUBTEL_API_ID"];
+  const apiKey = process.env["HUBTEL_API_KEY"];
+  const merchantNumber = process.env["HUBTEL_MERCHANT_NUMBER"];
+
+  if (!apiId || !apiKey || !merchantNumber) {
+    res.status(500).json({ error: "Hubtel credentials not configured." });
+    return;
+  }
+
+  const { customerName, customerPhone, amountGhs, orderId, description } = body.data;
+
+  // Normalise phone to Ghana international format 233XXXXXXXXX
+  let msisdn = customerPhone.replace(/\s+/g, "").replace(/^\+/, "");
+  if (msisdn.startsWith("0")) msisdn = "233" + msisdn.slice(1);
+
+  const clientReference = `trendy-${orderId ?? Date.now()}`;
+  const callbackUrl = `${process.env["REPLIT_DEV_DOMAIN"] ? `https://${process.env["REPLIT_DEV_DOMAIN"]}` : ""}/api/public/hubtel/callback`;
+
+  const payload = {
+    CustomerName: customerName,
+    CustomerMsisdn: msisdn,
+    CustomerEmail: "noreply@trendybar.gh",
+    Channel: "mobile-money",
+    Amount: amountGhs,
+    PrimaryCallbackUrl: callbackUrl,
+    Description: description ?? `Trendy Bar payment for ${customerName}`,
+    ClientReference: clientReference,
+  };
+
+  try {
+    const hubtelRes = await fetch(
+      `https://api.hubtel.com/v1/merchantaccount/merchants/${merchantNumber}/receive/mobilemoney`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Basic " + Buffer.from(`${apiId}:${apiKey}`).toString("base64"),
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const data = await hubtelRes.json() as Record<string, unknown>;
+
+    if (!hubtelRes.ok) {
+      res.status(hubtelRes.status).json({ error: "Hubtel error", detail: data });
+      return;
+    }
+
+    res.json({ ok: true, data });
+  } catch (err) {
+    res.status(502).json({ error: "Failed to reach Hubtel", detail: String(err) });
+  }
+});
+
+// ─── Hubtel: callback (payment result) ───────────────────────────────────────
+router.post("/public/hubtel/callback", async (req, res): Promise<void> => {
+  // Hubtel sends ResponseCode "0000" on success
+  const body = req.body as Record<string, unknown>;
+  const dataBlock = body["Data"] as Record<string, unknown> | undefined;
+  const responseCode = (body["ResponseCode"] ?? dataBlock?.["ResponseCode"]) as string | undefined;
+  const clientRef = body["ClientReference"] as string | undefined;
+
+  if (responseCode === "0000" && clientRef) {
+    // Extract orderId from reference e.g. "trendy-12345"
+    const parts = clientRef.split("-");
+    const orderId = parts.length === 2 ? parseInt(parts[1], 10) : NaN;
+    if (!isNaN(orderId)) {
+      await db
+        .update(orderBatchesTable)
+        .set({ status: "paid", completedAt: new Date() })
+        .where(eq(orderBatchesTable.id, orderId));
+    }
+  }
+
+  res.json({ received: true });
+});
+
 export default router;
