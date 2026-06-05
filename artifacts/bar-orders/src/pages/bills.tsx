@@ -158,25 +158,25 @@ function printBill(customer: GroupedCustomer) {
   <meta charset="utf-8"/>
   <title>Receipt — ${customer.customerName}</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Courier New', monospace; font-size: 13px; width: 300px; margin: 0 auto; padding: 16px; }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { font-family: 'Courier New', monospace; font-size: 13px; width: 300px; margin: 0 auto; padding: 16px; color: #000; }
     .center { text-align: center; }
     .bar-name { font-size: 20px; font-weight: bold; letter-spacing: 2px; margin-bottom: 2px; }
     .divider { border-top: 1px dashed #000; margin: 8px 0; }
-    .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #555; }
+    .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #000; font-weight: bold; }
     .customer { font-size: 18px; font-weight: bold; text-transform: uppercase; margin: 4px 0; }
-    .meta { font-size: 11px; color: #555; margin-bottom: 4px; }
+    .meta { font-size: 11px; color: #000; margin-bottom: 4px; }
     table { width: 100%; border-collapse: collapse; margin: 4px 0; }
-    td { padding: 2px 2px; vertical-align: top; }
+    td { padding: 2px 2px; vertical-align: top; color: #000; }
     td:first-child { width: 28px; }
     td.price { text-align: right; white-space: nowrap; }
-    .round-header td { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #555; padding-top: 6px; padding-bottom: 2px; }
-    .subtotal-row td { font-size: 11px; color: #555; border-top: 1px dotted #ccc; padding-top: 2px; }
+    .round-header td { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #000; font-weight: bold; padding-top: 6px; padding-bottom: 2px; }
+    .subtotal-row td { font-size: 11px; color: #000; border-top: 1px dotted #000; padding-top: 2px; }
     .gap-row td { height: 6px; }
     .total-row { border-top: 2px solid #000; margin-top: 8px; padding-top: 8px; display: flex; justify-content: space-between; align-items: baseline; }
-    .total-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+    .total-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; }
     .total-amount { font-size: 22px; font-weight: bold; }
-    .footer { font-size: 11px; color: #777; margin-top: 12px; }
+    .footer { font-size: 11px; color: #000; margin-top: 12px; }
     @media print { body { width: 100%; padding: 0; } }
   </style>
 </head>
