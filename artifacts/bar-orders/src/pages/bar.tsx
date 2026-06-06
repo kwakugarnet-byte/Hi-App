@@ -347,10 +347,14 @@ export default function Bar() {
                           </h2>
                           <div className="mt-2 space-y-1">
                             {order.phone && (
-                              <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
+                              <a
+                                href={`tel:${order.phone}`}
+                                className="flex items-center gap-1.5 text-xs font-bold text-blue-400 hover:text-blue-300 transition-colors"
+                                onClick={(e) => e.stopPropagation()}
+                              >
                                 <Phone className="w-3 h-3 shrink-0" />
                                 <span>{order.phone}</span>
-                              </div>
+                              </a>
                             )}
                             {order.deliveryLocation && (
                               <div className="flex items-start gap-1.5 text-xs font-bold text-purple-400">

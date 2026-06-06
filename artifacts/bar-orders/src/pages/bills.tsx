@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import logo from "@/assets/logo.jpg";
 import { Link } from "wouter";
 const BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
-import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle, CircleDashed, ChevronRight, Eye, X, CreditCard, Pencil, Plus, Minus, Trash2, RotateCcw, Sparkles, Send, Search } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle, CircleDashed, ChevronRight, Eye, X, CreditCard, Pencil, Plus, Minus, Trash2, RotateCcw, Sparkles, Send, Search, Phone } from "lucide-react";
 import {
   useGetOrderBatches,
   useGetMenuItems,
@@ -50,6 +50,7 @@ type GroupedCustomer = {
   firstOrderAt: string;
   rounds: Round[];
   total: number;
+  phone?: string | null;
 };
 
 function buildWhatsAppMessage(customer: GroupedCustomer, partialPaid = 0): string {
@@ -89,7 +90,7 @@ function buildWhatsAppMessage(customer: GroupedCustomer, partialPaid = 0): strin
 }
 
 function groupBatches(
-  batches: { id: number; customerName: string; waitressName: string; status: string; createdAt: string; correctionItemIds?: number[] | null; items: BatchItem[] }[]
+  batches: { id: number; customerName: string; waitressName: string; status: string; createdAt: string; correctionItemIds?: number[] | null; items: BatchItem[]; phone?: string | null }[]
 ): GroupedCustomer[] {
   const map = new Map<string, GroupedCustomer>();
 
@@ -103,7 +104,10 @@ function groupBatches(
         firstOrderAt: batch.createdAt,
         rounds: [],
         total: 0,
+        phone: batch.phone ?? null,
       });
+    } else if (batch.phone && !map.get(key)!.phone) {
+      map.get(key)!.phone = batch.phone;
     }
     const group = map.get(key)!;
 
@@ -1096,6 +1100,15 @@ export default function Bills() {
                       <Send className="w-3.5 h-3.5" />
                       Forward
                     </button>
+                    {customer.phone && (
+                      <a
+                        href={`tel:${customer.phone}`}
+                        className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-blue-500 hover:text-blue-600 transition-colors border border-blue-500/40 hover:border-blue-500 rounded-lg px-2.5 py-1.5"
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                        Call
+                      </a>
+                    )}
                   </div>
                 )}
               </div>
