@@ -424,13 +424,11 @@ export default function Bills() {
   };
 
   const waiterNames = useMemo(() => {
-    if (!batches) return [];
-    const names = [...new Set(batches.map((b) => b.waitressName))];
-    if (staffList && staffList.length > 0) {
-      const existingNames = new Set(staffList.map((s) => s.name));
-      return names.filter((n) => existingNames.has(n)).sort();
-    }
-    return names.sort();
+    // Start with all registered staff (so every waitress appears even with no current bills)
+    const fromStaff = (staffList ?? []).map((s) => s.name);
+    // Also include any names found in batches that might not be in staffList
+    const fromBatches = batches ? batches.map((b) => b.waitressName) : [];
+    return [...new Set([...fromStaff, ...fromBatches])].sort();
   }, [batches, staffList]);
 
   const historyWaiterNames = useMemo(() => {
@@ -1726,13 +1724,13 @@ export default function Bills() {
               {isWaitress ? "My Bills" : "Sales & Bills"}
             </h1>
             <p className="text-xs text-muted-foreground">
-              {tab === "active" ? activeSubtitle : `${historyCustomers.length} ${isWaitress ? "my paid" : "paid"} sales`}
+              {(tab === "history" && isAdmin) ? `${historyCustomers.length} ${isWaitress ? "my paid" : "paid"} sales` : activeSubtitle}
             </p>
           </div>
           <div className="w-10" />
         </div>
 
-        {/* Tabs */}
+        {/* Tabs — Sales History is admin-only */}
         <div className="px-4 pb-3 flex gap-2">
           <button
             onClick={() => { setTab("active"); setSelectedWaiter(null); }}
@@ -1744,16 +1742,18 @@ export default function Bills() {
           >
             Active Bills
           </button>
-          <button
-            onClick={() => { setTab("history"); setSelectedWaiter(null); }}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest border transition-colors ${
-              tab === "history"
-                ? "bg-primary text-primary-foreground border-primary"
-                : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
-            }`}
-          >
-            Sales History
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => { setTab("history"); setSelectedWaiter(null); }}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest border transition-colors ${
+                tab === "history"
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+              }`}
+            >
+              Sales History
+            </button>
+          )}
         </div>
 
         {/* Waiter filter chips — both tabs, admin/bartender only */}
@@ -1794,7 +1794,7 @@ export default function Bills() {
               <Skeleton key={n} className="h-36 w-full bg-card rounded-xl" />
             ))}
           </div>
-        ) : tab === "active" ? activeContent : historyContent}
+        ) : (tab === "history" && isAdmin) ? historyContent : activeContent}
       </main>
 
       {/* Footer totals */}
