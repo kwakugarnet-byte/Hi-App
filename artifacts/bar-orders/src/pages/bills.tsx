@@ -1549,12 +1549,30 @@ export default function Bills() {
             </button>
           </div>
 
+          {/* Different-date warning */}
+          {(() => {
+            const days = new Set(mergeDialog.customers.map((c) => format(new Date(c.firstOrderAt), "yyyy-MM-dd")));
+            if (days.size <= 1) return null;
+            const labels = [...days].map((d) => format(new Date(d), "d MMM")).join(", ");
+            return (
+              <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2.5">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-300 font-bold leading-snug">
+                  Bills are from different dates ({labels}). Confirm you want to merge across days.
+                </p>
+              </div>
+            );
+          })()}
+
           <div className="space-y-1">
             <p className="text-[11px] font-black uppercase tracking-widest text-muted-foreground mb-2">Merging customers</p>
             {mergeDialog.customers.map((c) => (
               <div key={customerKey(c)} className="flex items-center justify-between bg-muted/40 rounded-lg px-3 py-2">
                 <span className="text-sm font-bold truncate">{c.customerName}</span>
-                <span className="text-xs text-muted-foreground tabular-nums shrink-0 ml-2">{formatPrice(c.total)}</span>
+                <div className="text-right shrink-0 ml-2">
+                  <p className="text-xs text-muted-foreground tabular-nums">{formatPrice(c.total)}</p>
+                  <p className="text-[10px] text-muted-foreground/60">{format(new Date(c.firstOrderAt), "d MMM")}</p>
+                </div>
               </div>
             ))}
             <div className="flex items-center justify-between bg-muted/60 rounded-lg px-3 py-1.5 border-t border-border mt-1">
