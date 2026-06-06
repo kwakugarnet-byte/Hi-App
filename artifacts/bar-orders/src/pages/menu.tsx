@@ -55,6 +55,7 @@ export default function Menu() {
   // Checkout form state
   const [orderName, setOrderName] = useState("");
   const [orderPhone, setOrderPhone] = useState("");
+  const [nameAutoFilled, setNameAutoFilled] = useState(false);
   const [orderType, setOrderType] = useState<"pickup" | "delivery">("pickup");
   const [deliveryLocation, setDeliveryLocation] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -105,6 +106,35 @@ export default function Menu() {
       .then((data) => { if (data?.phone) setBarOrderPhone(data.phone); })
       .catch(() => {});
   }, []);
+
+  // Auto-fill name from phone lookup (debounced)
+  useEffect(() => {
+    const phone = orderPhone.trim();
+    if (phone.length < 7) return;
+
+    // Instant fill from localStorage cache
+    const cached = localStorage.getItem(`trendy_customer_${phone}`);
+    if (cached && !orderName) {
+      setOrderName(cached);
+      setNameAutoFilled(true);
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const r = await fetch(`${BASE}/api/public/customer-by-phone?phone=${encodeURIComponent(phone)}`);
+        if (!r.ok) return;
+        const data = await r.json() as { name: string | null };
+        if (data.name) {
+          localStorage.setItem(`trendy_customer_${phone}`, data.name);
+          // Only fill if name is still empty or was previously auto-filled
+          setOrderName((prev) => (!prev || nameAutoFilled) ? data.name! : prev);
+          setNameAutoFilled(true);
+        }
+      } catch {}
+    }, 500);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderPhone]);
 
   // Poll order status after placing
   useEffect(() => {
@@ -280,6 +310,10 @@ export default function Menu() {
       setTrackingRejectionReason(null);
       setSubmitted(true);
       clearCart();
+      // Persist phone → name so returning customers are auto-recognised
+      if (orderPhone.trim() && orderName.trim()) {
+        localStorage.setItem(`trendy_customer_${orderPhone.trim()}`, orderName.trim());
+      }
     } catch (err) {
       setSubmitError((err as Error).message || "Failed to place order. Please try again.");
     } finally {
@@ -295,6 +329,7 @@ export default function Menu() {
     setTrackingRejectionReason(null);
     setOrderName("");
     setOrderPhone("");
+    setNameAutoFilled(false);
     setOrderType("pickup");
     setDeliveryLocation("");
     setOrderStep("browse");
@@ -699,11 +734,6 @@ export default function Menu() {
                 <div>
                   <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-3">Your Details</h3>
                   <div className="space-y-3">
-                    <input
-                      type="text" placeholder="Your name" value={orderName}
-                      onChange={(e) => setOrderName(e.target.value)} required
-                      className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm font-medium text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/20 transition-colors"
-                    />
                     <div className="relative">
                       <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 pointer-events-none" />
                       <input
@@ -711,6 +741,19 @@ export default function Menu() {
                         onChange={(e) => setOrderPhone(e.target.value)} required
                         className="w-full bg-card border border-border rounded-xl pl-10 pr-4 py-3 text-sm font-medium text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/20 transition-colors"
                       />
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text" placeholder="Your name" value={orderName}
+                        onChange={(e) => { setOrderName(e.target.value); setNameAutoFilled(false); }} required
+                        className={`w-full bg-card border rounded-xl px-4 py-3 text-sm font-medium text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 transition-colors ${nameAutoFilled ? "border-green-500/50 focus:border-green-500/70 focus:ring-green-500/20" : "border-border focus:border-primary/60 focus:ring-primary/20"}`}
+                      />
+                      {nameAutoFilled && (
+                        <div className="flex items-center gap-1 mt-1 px-1">
+                          <Check className="w-3 h-3 text-green-500 shrink-0" />
+                          <span className="text-[11px] text-green-500 font-bold">Recognised from previous order</span>
+                        </div>
+                      )}
                     </div>
                     {orderType === "delivery" && (
                       <div className="relative">

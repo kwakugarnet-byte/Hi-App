@@ -807,6 +807,22 @@ router.get("/public/settings/order-phone", async (_req, res): Promise<void> => {
   res.json({ phone: row?.value ?? null });
 });
 
+// ─── Public: look up customer name by phone ──────────────────────────────────
+router.get("/public/customer-by-phone", async (req, res): Promise<void> => {
+  const phone = typeof req.query.phone === "string" ? req.query.phone.trim() : "";
+  if (!phone || phone.length < 5) {
+    res.json({ name: null });
+    return;
+  }
+  const [row] = await db
+    .select({ customerName: orderBatchesTable.customerName })
+    .from(orderBatchesTable)
+    .where(eq(orderBatchesTable.phone, phone))
+    .orderBy(desc(orderBatchesTable.createdAt))
+    .limit(1);
+  res.json({ name: row?.customerName ?? null });
+});
+
 // ─── Admin: set order phone number ───────────────────────────────────────────
 router.post("/settings/order-phone", async (req, res): Promise<void> => {
   if (!req.isAuthenticated()) {
