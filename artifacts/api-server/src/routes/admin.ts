@@ -19,7 +19,7 @@ async function getUserPerms(req: Request): Promise<Set<string>> {
     .select({ permission: staffPermissionsTable.permission })
     .from(staffPermissionsTable)
     .where(eq(staffPermissionsTable.staffId, staffId));
-  return new Set(rows.map((r) => r.permission));
+  return new Set(rows.map((r: { permission: string }) => r.permission));
 }
 
 function hasAny(perms: Set<string>, ...keys: string[]): boolean {
@@ -67,7 +67,7 @@ router.post("/categories", requirePermission("manage_categories"), async (req: R
 });
 
 router.delete("/categories/:id", requirePermission("manage_categories"), async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const [cat] = await db.select().from(categoriesTable).where(eq(categoriesTable.id, id));
   if (!cat) { res.status(404).json({ error: "Category not found" }); return; }
@@ -94,7 +94,7 @@ router.patch("/menu-items/:id", async (req: Request, res: Response): Promise<voi
   const canPrice = hasAny(perms, "change_prices");
   if (!canManage && !canPrice) { res.status(403).json({ error: "Access denied" }); return; }
 
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const { name, category, pricePence, barcode, sku } = req.body;
@@ -118,7 +118,7 @@ router.patch("/menu-items/:id", async (req: Request, res: Response): Promise<voi
 });
 
 router.delete("/menu-items/:id", requirePermission("delete_products"), async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const [item] = await db.select().from(menuItemsTable).where(eq(menuItemsTable.id, id));
   await db.delete(menuItemsTable).where(eq(menuItemsTable.id, id));
@@ -132,7 +132,7 @@ router.get("/admin/staff", requirePermission("manage_staff"), async (_req: Reque
   const staff = await db
     .select({ id: staffTable.id, name: staffTable.name, role: staffTable.role, bonusPercent: staffTable.bonusPercent, bonusLastPaidAt: staffTable.bonusLastPaidAt })
     .from(staffTable).orderBy(staffTable.name);
-  res.json(staff.map((s) => ({ ...s, bonusLastPaidAt: s.bonusLastPaidAt?.toISOString() ?? null })));
+  res.json(staff.map((s: typeof staff[number]) => ({ ...s, bonusLastPaidAt: s.bonusLastPaidAt?.toISOString() ?? null })));
 });
 
 router.post("/admin/staff", requirePermission("manage_staff"), async (req: Request, res: Response): Promise<void> => {
@@ -148,7 +148,7 @@ router.post("/admin/staff", requirePermission("manage_staff"), async (req: Reque
 });
 
 router.patch("/admin/staff/:id", requirePermission("manage_staff"), async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const parsed = UpdateStaffBody.partial().safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
@@ -166,7 +166,7 @@ router.patch("/admin/staff/:id", requirePermission("manage_staff"), async (req: 
 });
 
 router.post("/admin/staff/:id/clear-bonus", requireAdmin, async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const now = new Date();
   const [member] = await db
@@ -178,7 +178,7 @@ router.post("/admin/staff/:id/clear-bonus", requireAdmin, async (req: Request, r
 });
 
 router.delete("/admin/staff/:id", requireAdmin, async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const [member] = await db.select({ id: staffTable.id, name: staffTable.name, role: staffTable.role }).from(staffTable).where(eq(staffTable.id, id));
   if (!member) { res.status(404).json({ error: "Staff member not found" }); return; }
@@ -202,17 +202,17 @@ router.delete("/admin/staff/:id", requireAdmin, async (req: Request, res: Respon
 // ─── Staff Permissions management (admin only) ────────────────────────────────
 
 router.get("/admin/staff/:id/permissions", requireAdmin, async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const rows = await db
     .select({ permission: staffPermissionsTable.permission })
     .from(staffPermissionsTable)
     .where(eq(staffPermissionsTable.staffId, id));
-  res.json({ permissions: rows.map((r) => r.permission) });
+  res.json({ permissions: rows.map((r: { permission: string }) => r.permission) });
 });
 
 router.post("/admin/staff/:id/permissions", requireAdmin, async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const { permission } = req.body;
   if (!permission || typeof permission !== "string") { res.status(400).json({ error: "permission required" }); return; }
@@ -221,11 +221,11 @@ router.post("/admin/staff/:id/permissions", requireAdmin, async (req: Request, r
 });
 
 router.delete("/admin/staff/:id/permissions/:permission", requireAdmin, async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   await db
     .delete(staffPermissionsTable)
-    .where(and(eq(staffPermissionsTable.staffId, id), eq(staffPermissionsTable.permission, req.params.permission)));
+    .where(and(eq(staffPermissionsTable.staffId, id), eq(staffPermissionsTable.permission, req.params.permission as string)));
   res.status(204).send();
 });
 

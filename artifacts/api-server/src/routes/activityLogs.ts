@@ -39,7 +39,7 @@ router.get("/activity-logs", async (req: Request, res: Response): Promise<void> 
     .limit(500);
 
   res.json(
-    logs.map((l) => ({
+    logs.map((l: typeof logs[number]) => ({
       id: l.id,
       timestamp: l.timestamp.toISOString(),
       actorName: l.actorName,

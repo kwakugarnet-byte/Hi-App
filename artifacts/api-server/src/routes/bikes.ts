@@ -56,7 +56,7 @@ router.get("/bikes/staff", requireAdmin, async (_req: Request, res: Response): P
 
 // GET /api/bikes/:id
 router.get("/bikes/:id", requireBikeAccess, async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const [bike] = await db.select().from(bikesTable).where(eq(bikesTable.id, id));
   if (!bike) { res.status(404).json({ error: "Bike not found" }); return; }
@@ -88,7 +88,7 @@ router.post("/bikes", requireBikeAccess, async (req: Request, res: Response): Pr
 
 // PATCH /api/bikes/:id
 router.patch("/bikes/:id", requireBikeAccess, async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const { status, name, registration, riderName, color, notes, weeklyTargetPesewas } = req.body;
   const validStatuses = ["available", "rented", "maintenance"];
@@ -108,7 +108,7 @@ router.patch("/bikes/:id", requireBikeAccess, async (req: Request, res: Response
 
 // DELETE /api/bikes/:id
 router.delete("/bikes/:id", requireAdmin, async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const [bike] = await db.select().from(bikesTable).where(eq(bikesTable.id, id));
   if (!bike) { res.status(404).json({ error: "Bike not found" }); return; }
@@ -120,7 +120,7 @@ router.delete("/bikes/:id", requireAdmin, async (req: Request, res: Response): P
 
 // GET /api/bikes/:bikeId/income
 router.get("/bikes/:bikeId/income", requireBikeAccess, async (req: Request, res: Response): Promise<void> => {
-  const bikeId = parseInt(req.params.bikeId, 10);
+  const bikeId = parseInt(req.params.bikeId as string, 10);
   if (isNaN(bikeId)) { res.status(400).json({ error: "Invalid bikeId" }); return; }
   const rows = await db.select().from(bikeIncomeTable)
     .where(eq(bikeIncomeTable.bikeId, bikeId))
@@ -130,7 +130,7 @@ router.get("/bikes/:bikeId/income", requireBikeAccess, async (req: Request, res:
 
 // POST /api/bikes/:bikeId/income
 router.post("/bikes/:bikeId/income", requireBikeAccess, async (req: Request, res: Response): Promise<void> => {
-  const bikeId = parseInt(req.params.bikeId, 10);
+  const bikeId = parseInt(req.params.bikeId as string, 10);
   if (isNaN(bikeId)) { res.status(400).json({ error: "Invalid bikeId" }); return; }
   const { amountPesewas, weekStart, note } = req.body;
   if (typeof amountPesewas !== "number" || amountPesewas <= 0) { res.status(400).json({ error: "Invalid amount" }); return; }
@@ -141,7 +141,7 @@ router.post("/bikes/:bikeId/income", requireBikeAccess, async (req: Request, res
 
 // PATCH /api/bikes/income/:id/deposit
 router.patch("/bikes/income/:id/deposit", requireBikeAccess, async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const [row] = await db.update(bikeIncomeTable)
     .set({ deposited: true, depositedAt: new Date() })
@@ -153,7 +153,7 @@ router.patch("/bikes/income/:id/deposit", requireBikeAccess, async (req: Request
 
 // DELETE /api/bikes/income/:id
 router.delete("/bikes/income/:id", requireAdmin, async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   await db.delete(bikeIncomeTable).where(eq(bikeIncomeTable.id, id));
   res.status(204).send();
@@ -163,7 +163,7 @@ router.delete("/bikes/income/:id", requireAdmin, async (req: Request, res: Respo
 
 // GET /api/bikes/:bikeId/expenses
 router.get("/bikes/:bikeId/expenses", requireBikeAccess, async (req: Request, res: Response): Promise<void> => {
-  const bikeId = parseInt(req.params.bikeId, 10);
+  const bikeId = parseInt(req.params.bikeId as string, 10);
   if (isNaN(bikeId)) { res.status(400).json({ error: "Invalid bikeId" }); return; }
   const rows = await db.select().from(bikeExpensesTable)
     .where(eq(bikeExpensesTable.bikeId, bikeId))
@@ -173,7 +173,7 @@ router.get("/bikes/:bikeId/expenses", requireBikeAccess, async (req: Request, re
 
 // POST /api/bikes/:bikeId/expenses
 router.post("/bikes/:bikeId/expenses", requireBikeAccess, async (req: Request, res: Response): Promise<void> => {
-  const bikeId = parseInt(req.params.bikeId, 10);
+  const bikeId = parseInt(req.params.bikeId as string, 10);
   if (isNaN(bikeId)) { res.status(400).json({ error: "Invalid bikeId" }); return; }
   const { amountPesewas, category, description, date } = req.body;
   if (typeof amountPesewas !== "number" || amountPesewas <= 0) { res.status(400).json({ error: "Invalid amount" }); return; }
@@ -187,7 +187,7 @@ router.post("/bikes/:bikeId/expenses", requireBikeAccess, async (req: Request, r
 
 // DELETE /api/bikes/expenses/:id
 router.delete("/bikes/expenses/:id", requireAdmin, async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   await db.delete(bikeExpensesTable).where(eq(bikeExpensesTable.id, id));
   res.status(204).send();
@@ -197,7 +197,7 @@ router.delete("/bikes/expenses/:id", requireAdmin, async (req: Request, res: Res
 
 // GET /api/bikes/:bikeId/assignments
 router.get("/bikes/:bikeId/assignments", requireBikeAccess, async (req: Request, res: Response): Promise<void> => {
-  const bikeId = parseInt(req.params.bikeId, 10);
+  const bikeId = parseInt(req.params.bikeId as string, 10);
   if (isNaN(bikeId)) { res.status(400).json({ error: "Invalid bikeId" }); return; }
   const rows = await db
     .select({
@@ -218,7 +218,7 @@ router.get("/bikes/:bikeId/assignments", requireBikeAccess, async (req: Request,
 
 // POST /api/bikes/:bikeId/assignments
 router.post("/bikes/:bikeId/assignments", requireAdmin, async (req: Request, res: Response): Promise<void> => {
-  const bikeId = parseInt(req.params.bikeId, 10);
+  const bikeId = parseInt(req.params.bikeId as string, 10);
   if (isNaN(bikeId)) { res.status(400).json({ error: "Invalid bikeId" }); return; }
   const { staffId, canEditDetails, canEditPrice } = req.body;
   if (typeof staffId !== "number") { res.status(400).json({ error: "staffId required" }); return; }
@@ -233,7 +233,7 @@ router.post("/bikes/:bikeId/assignments", requireAdmin, async (req: Request, res
 
 // PATCH /api/bikes/assignments/:id
 router.patch("/bikes/assignments/:id", requireAdmin, async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const { canEditDetails, canEditPrice } = req.body;
   const updates: Record<string, unknown> = {};
@@ -247,7 +247,7 @@ router.patch("/bikes/assignments/:id", requireAdmin, async (req: Request, res: R
 
 // DELETE /api/bikes/assignments/:id
 router.delete("/bikes/assignments/:id", requireAdmin, async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   await db.delete(bikeAssignmentsTable).where(eq(bikeAssignmentsTable.id, id));
   res.status(204).send();

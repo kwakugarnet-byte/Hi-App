@@ -20,7 +20,11 @@ export type LogAction =
   | "menu_item_deleted"
   | "staff_created"
   | "staff_updated"
-  | "staff_deleted";
+  | "staff_deleted"
+  | "category_created"
+  | "category_deleted"
+  | "bonus_cleared"
+  | "order_discarded";
 
 export type LogDetails = Record<string, unknown>;
 
