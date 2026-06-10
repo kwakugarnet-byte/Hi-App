@@ -177,7 +177,7 @@ function AddChargeModal({
 }
 
 export default function StaffCharges() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
@@ -193,14 +193,21 @@ export default function StaffCharges() {
     refetchInterval: 30000,
   });
 
-  const { data: staffList = [] } = useQuery<StaffMember[]>({
-    queryKey: ["staff"],
+  // Use admin/staff endpoint so we get roles and can filter out admin accounts
+  const { data: staffList = [], isLoading: staffLoading } = useQuery<StaffMember[]>({
+    queryKey: ["admin-staff-for-charges"],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/staff`, { credentials: "include" });
-      if (!r.ok) throw new Error("Failed to load staff");
+      const r = await fetch(`${BASE}/api/admin/staff`, { credentials: "include" });
+      if (!r.ok) {
+        // Fallback to public endpoint if admin endpoint fails
+        const r2 = await fetch(`${BASE}/api/staff`, { credentials: "include" });
+        if (!r2.ok) return [];
+        return r2.json();
+      }
       return r.json();
     },
     enabled: isAdmin,
+    staleTime: 60000,
   });
 
   const clearMutation = useMutation({
@@ -232,6 +239,14 @@ export default function StaffCharges() {
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  if (authLoading) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!isAdmin) {
     return (
@@ -266,7 +281,7 @@ export default function StaffCharges() {
             <p className="text-xs text-muted-foreground">{charges.length} charge{charges.length !== 1 ? "s" : ""} · {formatPrice(totalOutstanding)} total outstanding</p>
           )}
         </div>
-        <Button size="sm" onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 shrink-0">
+        <Button size="sm" onClick={() => setShowAdd(true)} disabled={staffLoading} className="flex items-center gap-1.5 shrink-0">
           <Plus className="w-4 h-4" />
           Add Charge
         </Button>

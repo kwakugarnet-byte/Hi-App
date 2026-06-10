@@ -50,34 +50,41 @@ router.get("/staff-charges/my", async (req: Request, res: Response): Promise<voi
 // ─── POST /api/staff-charges — add a charge (admin only) ─────────────────────
 router.post("/staff-charges", async (req: Request, res: Response): Promise<void> => {
   if (!requireAdmin(req, res)) return;
-  const { staffId, type, amountPence, description } = req.body as {
-    staffId?: number;
-    type?: string;
-    amountPence?: number;
-    description?: string;
-  };
-  if (!staffId || !type || !amountPence || amountPence <= 0) {
-    res.status(400).json({ error: "staffId, type and amountPence are required" });
-    return;
+  try {
+    const { staffId, type, amountPence, description } = req.body as {
+      staffId?: number;
+      type?: string;
+      amountPence?: number;
+      description?: string;
+    };
+    const parsedStaffId = Number(staffId);
+    const parsedAmount = Number(amountPence);
+    if (!parsedStaffId || !type || !parsedAmount || parsedAmount <= 0) {
+      res.status(400).json({ error: "staffId, type and amountPence (>0) are required" });
+      return;
+    }
+    const [staff] = await db.select({ name: staffTable.name }).from(staffTable).where(eq(staffTable.id, parsedStaffId));
+    if (!staff) { res.status(404).json({ error: "Staff member not found" }); return; }
+
+    const [charge] = await db.insert(staffChargesTable).values({
+      staffId: parsedStaffId,
+      staffName: staff.name,
+      type,
+      amountPence: parsedAmount,
+      description: description ?? null,
+    }).returning();
+
+    const actor = req.user as { firstName?: string; lastName?: string; role?: string };
+    const actorName = [actor.firstName, actor.lastName].filter(Boolean).join(" ") || "Admin";
+    await logActivity(actorName, actor.role ?? "admin", "staff_charge_added", {
+      staffName: staff.name, type, amountPence: parsedAmount, description,
+    });
+
+    res.json({ ...charge, createdAt: charge.createdAt.toISOString(), clearedAt: null });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Server error";
+    res.status(500).json({ error: msg });
   }
-  const [staff] = await db.select({ name: staffTable.name }).from(staffTable).where(eq(staffTable.id, staffId));
-  if (!staff) { res.status(404).json({ error: "Staff member not found" }); return; }
-
-  const [charge] = await db.insert(staffChargesTable).values({
-    staffId,
-    staffName: staff.name,
-    type,
-    amountPence,
-    description: description ?? null,
-  }).returning();
-
-  const actor = req.user as { firstName?: string; lastName?: string; role?: string };
-  const actorName = [actor.firstName, actor.lastName].filter(Boolean).join(" ") || "Admin";
-  await logActivity(actorName, actor.role ?? "admin", "staff_charge_added", {
-    staffName: staff.name, type, amountPence, description,
-  });
-
-  res.json({ ...charge, createdAt: charge.createdAt.toISOString(), clearedAt: null });
 });
 
 // ─── POST /api/staff-charges/:id/clear — clear a charge (admin only) ─────────
