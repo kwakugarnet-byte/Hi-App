@@ -357,7 +357,7 @@ export default function ActivityLog() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-background flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -365,14 +365,14 @@ export default function ActivityLog() {
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-background flex items-center justify-center">
         <p className="text-muted-foreground">Admin access required.</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background pb-safe">
+    <div className="min-h-[100dvh] bg-background pb-safe">
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
           <Link href="/admin">
