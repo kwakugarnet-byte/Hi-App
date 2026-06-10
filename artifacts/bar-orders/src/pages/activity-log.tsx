@@ -330,7 +330,7 @@ const ACTION_GROUPS: { label: string; actions: string[] }[] = [
 ];
 
 export default function ActivityLog() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const isAdmin = (user as { role?: string } | null)?.role === "admin";
 
   const today = format(new Date(), "yyyy-MM-dd");
@@ -354,6 +354,14 @@ export default function ActivityLog() {
     const names = new Set(logs.map((l: LogEntry) => l.actorName));
     return Array.from(names).sort();
   }, [logs]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!isAdmin) {
     return (
