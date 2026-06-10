@@ -4,9 +4,10 @@ import { db, menuItemsTable, orderBatchesTable, orderItemsTable, staffTable } fr
 
 const router: IRouter = Router();
 
-function requireAuth(req: Request, res: Response, next: () => void) {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Unauthorized" });
+function requireAdminOrBikeManager(req: Request, res: Response, next: () => void) {
+  const user = req.user as { role?: string } | undefined;
+  if (!req.isAuthenticated() || (user?.role !== "admin" && user?.role !== "bike_manager")) {
+    res.status(403).json({ error: "Access denied" });
     return;
   }
   next();
@@ -34,7 +35,7 @@ function inTimeWindow(date: Date, fromHH: { h: number; m: number }, toHH: { h: n
 }
 
 // GET /reports/sales?from=YYYY-MM-DD&to=YYYY-MM-DD&category=<name>&waiter=<name>&timeFrom=HH:MM&timeTo=HH:MM
-router.get("/reports/sales", requireAuth, async (req: Request, res: Response): Promise<void> => {
+router.get("/reports/sales", requireAdminOrBikeManager, async (req: Request, res: Response): Promise<void> => {
   const { from, to, category, waiter, timeFrom, timeTo } = req.query as Record<string, string | undefined>;
 
   const today = new Date();
@@ -180,7 +181,7 @@ router.get("/reports/sales", requireAuth, async (req: Request, res: Response): P
 });
 
 // GET /reports/sales/categories
-router.get("/reports/sales/categories", requireAuth, async (_req: Request, res: Response): Promise<void> => {
+router.get("/reports/sales/categories", requireAdminOrBikeManager, async (_req: Request, res: Response): Promise<void> => {
   const rows = await db
     .select({ category: menuItemsTable.category })
     .from(menuItemsTable)
@@ -191,7 +192,7 @@ router.get("/reports/sales/categories", requireAuth, async (_req: Request, res: 
 });
 
 // GET /reports/sales/waiters — all staff who can take orders
-router.get("/reports/sales/waiters", requireAuth, async (_req: Request, res: Response): Promise<void> => {
+router.get("/reports/sales/waiters", requireAdminOrBikeManager, async (_req: Request, res: Response): Promise<void> => {
   const rows = await db
     .select({ id: staffTable.id, name: staffTable.name, role: staffTable.role })
     .from(staffTable)
