@@ -22,6 +22,7 @@ import BikeDetail from "@/pages/bike-detail";
 import Menu from "@/pages/menu";
 import SalesReport from "@/pages/sales-report";
 import DirectSale from "@/pages/direct-sale";
+import StaffCharges from "@/pages/staff-charges";
 import ChatPanel from "@/components/ChatPanel";
 import { useAuth } from "@/hooks/useAuth";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
@@ -265,6 +266,7 @@ function Router() {
       <Route path="/admin/staff" component={AdminStaff} />
       <Route path="/admin/activity-log" component={ActivityLog} />
       <Route path="/admin/categories" component={AdminCategories} />
+      <Route path="/admin/staff-charges" component={StaffCharges} />
       <Route path="/bikes" component={Bikes} />
       <Route path="/bikes/:id" component={BikeDetail} />
       <Route path="/sales-report" component={SalesReport} />

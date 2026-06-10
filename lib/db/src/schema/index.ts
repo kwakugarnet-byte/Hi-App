@@ -1,4 +1,5 @@
 export * from "./activityLogs";
+export * from "./staffCharges";
 export * from "./auth";
 export * from "./bikes";
 export * from "./categories";

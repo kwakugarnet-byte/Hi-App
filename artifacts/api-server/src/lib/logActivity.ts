@@ -24,7 +24,9 @@ export type LogAction =
   | "category_created"
   | "category_deleted"
   | "bonus_cleared"
-  | "order_discarded";
+  | "order_discarded"
+  | "staff_charge_added"
+  | "staff_charge_cleared";
 
 export type LogDetails = Record<string, unknown>;
 

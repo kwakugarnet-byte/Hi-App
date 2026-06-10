@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { LogIn, Monitor, LogOut, Receipt, Settings, Users, KeyRound, AlertTriangle, CheckCircle2, Activity, BookOpen, Bike, Tag, BarChart2, ShoppingCart } from "lucide-react";
+import { LogIn, Monitor, LogOut, Receipt, Settings, Users, KeyRound, AlertTriangle, CheckCircle2, Activity, BookOpen, Bike, Tag, BarChart2, ShoppingCart, CreditCard } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import logo from "@/assets/logo.jpg";
 import {
@@ -10,8 +10,10 @@ import {
   getGetStaffQueryKey,
   useGetStaff,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+
+const BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 
 function formatPrice(pence: number) {
   return `₵${(pence / 100).toFixed(2)}`;
@@ -81,6 +83,21 @@ export default function Home() {
 
   const myBarHoldsTotal = myBarHolds.reduce((sum, b) => sum + b.items.reduce((s, i) => s + i.pricePence * i.quantity, 0), 0);
 
+  // My outstanding staff charges (breakage / damage / cash advance / credit)
+  const { data: myCharges = [] } = useQuery<{ id: number; type: string; amountPence: number; description: string | null; createdAt: string; clearedAt: string | null }[]>({
+    queryKey: ["staff-charges-my"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/staff-charges/my`, { credentials: "include" });
+      if (!r.ok) return [];
+      return r.json();
+    },
+    enabled: (isWaitress || isBartender) && !isAdmin,
+    refetchInterval: 60000,
+  });
+
+  const myOutstandingCharges = myCharges.filter((c) => !c.clearedAt);
+  const myChargesTotal = myOutstandingCharges.reduce((s, c) => s + c.amountPence, 0);
+
   // Permission-based access flags for non-admin staff
   const canManageProducts = !isAdmin && (hasPermission("manage_products") || hasPermission("change_prices"));
   const canManageCategories = !isAdmin && hasPermission("manage_categories");
@@ -109,6 +126,19 @@ export default function Home() {
 
           {isWaitress && (
             <>
+              {/* Outstanding staff charges card */}
+              {myOutstandingCharges.length > 0 && (
+                <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 flex items-center gap-3">
+                  <CreditCard className="w-5 h-5 text-red-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black uppercase tracking-widest text-red-400">My Charges Outstanding</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {myOutstandingCharges.length} charge{myOutstandingCharges.length !== 1 ? "s" : ""} · see admin to settle
+                    </p>
+                  </div>
+                  <span className="text-xl font-black tabular-nums shrink-0 text-red-400">{formatPrice(myChargesTotal)}</span>
+                </div>
+              )}
               {/* Outstanding credit accountability card */}
               <Link href="/bills" className="w-full">
                 <div className={`rounded-xl border px-4 py-3 flex items-center gap-3 transition-colors ${
@@ -161,6 +191,19 @@ export default function Home() {
 
           {isBartender && (
             <>
+              {/* Outstanding staff charges card */}
+              {myOutstandingCharges.length > 0 && (
+                <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 flex items-center gap-3">
+                  <CreditCard className="w-5 h-5 text-red-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black uppercase tracking-widest text-red-400">My Charges Outstanding</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {myOutstandingCharges.length} charge{myOutstandingCharges.length !== 1 ? "s" : ""} · see admin to settle
+                    </p>
+                  </div>
+                  <span className="text-xl font-black tabular-nums shrink-0 text-red-400">{formatPrice(myChargesTotal)}</span>
+                </div>
+              )}
               {/* Bar outstanding holds card */}
               {myBarHolds.length > 0 && (
                 <Link href="/bills" className="w-full">
@@ -234,6 +277,13 @@ export default function Home() {
                 <Button size="lg" variant="outline" className="w-full h-20 text-lg font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-primary/50 text-primary hover:bg-primary/10">
                   <Users className="w-5 h-5" />
                   Manage Staff
+                </Button>
+              </Link>
+
+              <Link href="/admin/staff-charges" className="w-full">
+                <Button size="lg" variant="outline" className="w-full h-16 text-base font-bold uppercase tracking-wider flex items-center justify-center gap-3 border-red-500/40 text-red-400 hover:bg-red-500/10">
+                  <CreditCard className="w-5 h-5" />
+                  Staff Charges
                 </Button>
               </Link>
 
