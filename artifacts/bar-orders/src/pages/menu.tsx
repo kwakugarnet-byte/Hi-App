@@ -4,7 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import {
   ArrowLeft, BookOpen, Calculator, Check, CheckCircle2,
   ChevronDown, ChevronUp, Copy, Loader2, MapPin, Minus,
-  Phone, Plus, QrCode, ShoppingBag, Trash2, Truck, X, CreditCard,
+  Phone, Plus, QrCode, ShoppingBag, Trash2, Truck, X,
 } from "lucide-react";
 import logo from "@/assets/logo.jpg";
 
@@ -91,11 +91,6 @@ export default function Menu() {
     else sessionStorage.removeItem("trendy_order_submitted");
   }
 
-  // Hubtel payment
-  const [paying, setPaying] = useState(false);
-  const [payResult, setPayResult] = useState<"sent" | "error" | null>(null);
-  const [payError, setPayError] = useState<string | null>(null);
-
   // Call button phone number (fetched from settings)
   const [barOrderPhone, setBarOrderPhone] = useState<string | null>(null);
 
@@ -153,42 +148,6 @@ export default function Menu() {
     const interval = setInterval(poll, 4000);
     return () => { alive = false; clearInterval(interval); };
   }, [submitted, placedOrderId]);
-
-  async function handleRequestPayment() {
-    if (!orderName) return;
-    setPaying(true);
-    setPayResult(null);
-    setPayError(null);
-    try {
-      const amountGhs = placedOrderTotal / 100;
-      const res = await fetch(`${BASE}/api/public/hubtel/request-payment`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customerName: orderName,
-          amountGhs,
-          orderId: placedOrderId ?? undefined,
-          description: `Trendy Bar order for ${orderName}`,
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({})) as { error?: string };
-        throw new Error(err.error ?? `Error ${res.status}`);
-      }
-      const data = await res.json() as { checkoutUrl?: string };
-      if (data.checkoutUrl) {
-        window.open(data.checkoutUrl, "_blank", "noopener,noreferrer");
-        setPayResult("sent");
-      } else {
-        throw new Error("No checkout URL returned.");
-      }
-    } catch (err) {
-      setPayResult("error");
-      setPayError((err as Error).message ?? "Failed to start payment.");
-    } finally {
-      setPaying(false);
-    }
-  }
 
   const base = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
   const menuUrl = `${window.location.origin}${base}/menu`;
@@ -623,25 +582,6 @@ export default function Menu() {
                       Your order has been accepted and is being prepared. It'll be ready soon!
                     </p>
                   </div>
-                  {trackingStatus !== "paid" && (
-                    <>
-                      <button
-                        onClick={handleRequestPayment}
-                        disabled={paying}
-                        className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black uppercase tracking-widest text-sm transition-colors"
-                      >
-                        {paying
-                          ? <><Loader2 className="w-4 h-4 animate-spin" /> Opening checkout…</>
-                          : <><CreditCard className="w-4 h-4" /> Pay Now · {formatPrice(placedOrderTotal)}</>}
-                      </button>
-                      {payResult === "sent" && (
-                        <p className="text-xs text-green-400 font-bold text-center">Hubtel checkout opened — complete payment there, then return here.</p>
-                      )}
-                      {payResult === "error" && (
-                        <p className="text-xs text-destructive font-bold text-center">{payError ?? "Something went wrong. Try again."}</p>
-                      )}
-                    </>
-                  )}
                   {trackingStatus === "paid" && (
                     <div className="flex items-center gap-2 text-green-400 font-bold text-sm">
                       <CheckCircle2 className="w-4 h-4" /> Payment received — thank you!

@@ -6,10 +6,8 @@ import pinAuthRouter from "./pinAuth";
 import adminRouter from "./admin";
 import shiftsRouter from "./shifts";
 import activityLogsRouter from "./activityLogs";
-import messagesRouter from "./messages";
 import bikesRouter from "./bikes";
 import reportsRouter from "./reports";
-import staffChargesRouter from "./staffCharges";
 
 const router: IRouter = Router();
 
@@ -20,9 +18,7 @@ router.use(adminRouter);
 router.use(ordersRouter);
 router.use(shiftsRouter);
 router.use(activityLogsRouter);
-router.use(messagesRouter);
 router.use(bikesRouter);
 router.use(reportsRouter);
-router.use(staffChargesRouter);
 
 export default router;
