@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from "react";
 import { Link, Redirect } from "wouter";
-import { ArrowLeft, Send, Plus, Minus, Trash2, AlertTriangle, RotateCcw, CheckCircle2, Search, X, ScanLine } from "lucide-react";
+import { ArrowLeft, Send, Plus, Minus, Trash2, AlertTriangle, RotateCcw, CheckCircle2, Search, X, ScanLine, Crown } from "lucide-react";
 import {
   useGetMenuItems,
   useGetOrderBatches,
@@ -27,6 +27,7 @@ function WaitressInner() {
   const waitressName = user?.firstName
     ? `${user.firstName}${user.lastName ? " " + user.lastName : ""}`
     : user?.email ?? "Staff";
+  const isVipSection = user?.isVipSection ?? false;
 
   const { data: menuItems, isLoading: menuLoading } = useGetMenuItems({
     query: { queryKey: getGetMenuItemsQueryKey() },
@@ -463,7 +464,15 @@ function WaitressInner() {
             </button>
           </Link>
           <div className="flex-1">
-            <p className="font-black text-sm uppercase tracking-widest text-foreground">Take Order</p>
+            <div className="flex items-center gap-2">
+              <p className="font-black text-sm uppercase tracking-widest text-foreground">Take Order</p>
+              {isVipSection && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/20 border border-purple-500/30 text-purple-400 text-[10px] font-bold uppercase tracking-wide">
+                  <Crown className="w-3 h-3" />
+                  VIP
+                </span>
+              )}
+            </div>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{waitressName}</p>
           </div>
         </div>
@@ -654,6 +663,11 @@ function WaitressInner() {
                           <span className="block font-bold text-sm leading-snug">{item.name}</span>
                           {item.sku && (
                             <span className="block text-[10px] text-muted-foreground/60 mt-0.5 font-mono tracking-wider">{item.sku}</span>
+                          )}
+                          {isVipSection && item.vipPricePence != null && (
+                            <span className="block text-[10px] text-purple-400 font-bold mt-0.5">
+                              VIP ₵{(item.vipPricePence / 100).toFixed(2)}
+                            </span>
                           )}
                           {searchQuery && (
                             <span className="block text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wide">{item.category}</span>

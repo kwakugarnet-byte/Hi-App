@@ -11,4 +11,5 @@ export interface MenuItem {
   name: string;
   category: string;
   pricePence: number;
+  vipPricePence?: number | null;
 }

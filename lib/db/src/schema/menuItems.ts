@@ -7,6 +7,7 @@ export const menuItemsTable = pgTable("menu_items", {
   name: text("name").notNull(),
   category: text("category").notNull(),
   pricePence: integer("price_pence").notNull().default(0),
+  vipPricePence: integer("vip_price_pence"),
   barcode: text("barcode"),
   sku: text("sku"),
 });

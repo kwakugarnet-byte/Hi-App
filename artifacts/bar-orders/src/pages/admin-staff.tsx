@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, Plus, Pencil, Trash2, Check, X, Percent, ShieldCheck, ChevronDown } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Check, X, Percent, ShieldCheck, ChevronDown, Crown } from "lucide-react";
 import {
   useGetAdminStaff,
   useCreateStaff,
@@ -164,6 +164,16 @@ function AdminStaffInner() {
       toast({ title: "Failed to delete staff member", variant: "destructive" });
       setConfirmDelete(null);
     }
+  }
+
+  function toggleVipSection(member: { id: number; isVipSection: boolean }) {
+    updateStaff.mutate(
+      { id: member.id, data: { isVipSection: !member.isVipSection } },
+      {
+        onSuccess: () => qc.invalidateQueries({ queryKey: getGetAdminStaffQueryKey() }),
+        onError: () => toast({ title: "Failed to update VIP section", variant: "destructive" }),
+      }
+    );
   }
 
   function getBonusValue(id: number, currentBonus: number): string {
@@ -417,6 +427,12 @@ function AdminStaffInner() {
                           {member.bonusPercent}% bonus
                         </span>
                       )}
+                      {member.isVipSection && (
+                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-bold bg-purple-500/15 text-purple-400 border border-purple-500/20">
+                          <Crown className="w-3 h-3" />
+                          VIP
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -432,6 +448,17 @@ function AdminStaffInner() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => toggleVipSection(member)}
+                        className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${
+                          member.isVipSection
+                            ? "bg-purple-500/20 border-purple-500/40 text-purple-400"
+                            : "border-border text-muted-foreground hover:text-purple-400 hover:border-purple-400/50"
+                        }`}
+                        title={member.isVipSection ? "VIP Section — click to remove" : "Assign to VIP Section"}
+                      >
+                        <Crown className="w-4 h-4" />
+                      </button>
                       <button onClick={() => startEdit(member)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors" title="Edit">
                         <Pencil className="w-4 h-4" />
                       </button>

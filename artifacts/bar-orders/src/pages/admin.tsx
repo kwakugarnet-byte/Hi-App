@@ -28,8 +28,8 @@ function formatPrice(pence: number) {
   return `₵${(pence / 100).toFixed(2)}`;
 }
 
-type AddState = { name: string; category: string; pricePence: string; barcode: string; sku: string } | null;
-type BulkRow = { name: string; category: string; pricePence: string; barcode: string; sku: string };
+type AddState = { name: string; category: string; pricePence: string; vipPricePence: string; barcode: string; sku: string } | null;
+type BulkRow = { name: string; category: string; pricePence: string; vipPricePence: string; barcode: string; sku: string };
 
 function AdminInner({ canManage, canPrice, canDelete, isAdmin }: { canManage: boolean; canPrice: boolean; canDelete: boolean; isAdmin: boolean }) {
   const { toast } = useToast();
@@ -114,6 +114,7 @@ function AdminInner({ canManage, canPrice, canDelete, isAdmin }: { canManage: bo
         name: item.name,
         category: item.category,
         pricePence: (item.pricePence / 100).toFixed(2),
+        vipPricePence: item.vipPricePence != null ? (item.vipPricePence / 100).toFixed(2) : "",
         barcode: item.barcode ?? "",
         sku: item.sku ?? "",
       };
@@ -160,12 +161,14 @@ function AdminInner({ canManage, canPrice, canDelete, isAdmin }: { canManage: bo
       const row = bulkEdits[item.id];
       if (!row) return false;
       const price = Math.round(parseFloat(row.pricePence) * 100);
+      const vipPrice = row.vipPricePence.trim() === "" ? null : Math.round(parseFloat(row.vipPricePence) * 100);
       const nameChanged = canManage && row.name.trim() !== item.name;
       const catChanged = canManage && row.category !== item.category;
       const priceChanged = canPrice && price !== item.pricePence;
+      const vipPriceChanged = canPrice && vipPrice !== (item.vipPricePence ?? null);
       const barcodeChanged = canManage && (row.barcode.trim() || null) !== (item.barcode ?? null);
       const skuChanged = canManage && (row.sku.trim() || null) !== (item.sku ?? null);
-      return nameChanged || catChanged || priceChanged || barcodeChanged || skuChanged;
+      return nameChanged || catChanged || priceChanged || vipPriceChanged || barcodeChanged || skuChanged;
     });
 
     if (changed.length === 0) {
@@ -191,7 +194,7 @@ function AdminInner({ canManage, canPrice, canDelete, isAdmin }: { canManage: bo
           const row = bulkEdits[item.id];
           const data: Record<string, unknown> = {};
           if (canManage) { data.name = row.name.trim(); data.category = row.category; data.barcode = row.barcode.trim() || null; data.sku = row.sku.trim() || null; }
-          if (canPrice) { data.pricePence = Math.round(parseFloat(row.pricePence) * 100); }
+          if (canPrice) { data.pricePence = Math.round(parseFloat(row.pricePence) * 100); data.vipPricePence = row.vipPricePence.trim() === "" ? null : Math.round(parseFloat(row.vipPricePence) * 100); }
           return updateItem.mutateAsync({ id: item.id, data: data as Parameters<typeof updateItem.mutateAsync>[0]["data"] });
         })
       );
@@ -206,7 +209,7 @@ function AdminInner({ canManage, canPrice, canDelete, isAdmin }: { canManage: bo
   }
 
   function startAdd() {
-    setAdding({ name: "", category: categories[0] ?? "", pricePence: "", barcode: "", sku: "" });
+    setAdding({ name: "", category: categories[0] ?? "", pricePence: "", vipPricePence: "", barcode: "", sku: "" });
     setBulkMode(false);
   }
 
@@ -218,7 +221,7 @@ function AdminInner({ canManage, canPrice, canDelete, isAdmin }: { canManage: bo
       return;
     }
     createItem.mutate(
-      { data: { name: adding.name.trim(), category: adding.category, pricePence: Math.round(price * 100), barcode: adding.barcode.trim() || null, sku: adding.sku.trim() || null } },
+      { data: { name: adding.name.trim(), category: adding.category, pricePence: Math.round(price * 100), vipPricePence: adding.vipPricePence.trim() ? Math.round(parseFloat(adding.vipPricePence) * 100) : null, barcode: adding.barcode.trim() || null, sku: adding.sku.trim() || null } },
       {
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: getGetMenuItemsQueryKey() });
@@ -255,12 +258,14 @@ function AdminInner({ canManage, canPrice, canDelete, isAdmin }: { canManage: bo
       const row = bulkEdits[item.id];
       if (!row) return false;
       const price = Math.round(parseFloat(row.pricePence) * 100);
+      const vipPrice = row.vipPricePence.trim() === "" ? null : Math.round(parseFloat(row.vipPricePence) * 100);
       const nameChanged = canManage && row.name.trim() !== item.name;
       const catChanged = canManage && row.category !== item.category;
       const priceChanged = canPrice && price !== item.pricePence;
+      const vipPriceChanged = canPrice && vipPrice !== (item.vipPricePence ?? null);
       const barcodeChanged = canManage && (row.barcode.trim() || null) !== (item.barcode ?? null);
       const skuChanged = canManage && (row.sku.trim() || null) !== (item.sku ?? null);
-      return nameChanged || catChanged || priceChanged || barcodeChanged || skuChanged;
+      return nameChanged || catChanged || priceChanged || vipPriceChanged || barcodeChanged || skuChanged;
     }).length;
   }, [menuItems, bulkEdits, bulkMode, canManage, canPrice]);
 
@@ -410,6 +415,23 @@ function AdminInner({ canManage, canPrice, canDelete, isAdmin }: { canManage: bo
                 />
               </div>
             </div>
+            {canPrice && (
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-400 text-xs font-bold whitespace-nowrap">VIP ₵</span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.50"
+                    placeholder="VIP price (optional)"
+                    value={adding.vipPricePence}
+                    onChange={(e) => setAdding({ ...adding, vipPricePence: e.target.value })}
+                    className="pl-14 bg-background border-purple-500/30 focus-visible:ring-purple-500 placeholder:text-muted-foreground/50"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground shrink-0">Leave blank for no VIP price</p>
+              </div>
+            )}
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
@@ -466,9 +488,10 @@ function AdminInner({ canManage, canPrice, canDelete, isAdmin }: { canManage: bo
                       if (!row) return null;
                       const original = item;
                       const priceNum = parseFloat(row.pricePence);
+                      const vipPriceStr = (row.vipPricePence ?? "").trim();
                       const changed =
                         (canManage && (row.name.trim() !== original.name || row.category !== original.category)) ||
-                        (canPrice && Math.round(priceNum * 100) !== original.pricePence);
+                        (canPrice && (Math.round(priceNum * 100) !== original.pricePence || (vipPriceStr === "" ? null : Math.round(parseFloat(vipPriceStr) * 100)) !== (original.vipPricePence ?? null)));
 
                       return (
                         <div
@@ -504,7 +527,7 @@ function AdminInner({ canManage, canPrice, canDelete, isAdmin }: { canManage: bo
                           )}
                           {/* Price */}
                           {canPrice ? (
-                            <div className="relative w-24 shrink-0">
+                            <div className="relative w-20 shrink-0">
                               <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-bold">₵</span>
                               <Input
                                 type="number"
@@ -516,7 +539,26 @@ function AdminInner({ canManage, canPrice, canDelete, isAdmin }: { canManage: bo
                               />
                             </div>
                           ) : (
-                            <span className="w-24 shrink-0 text-center text-sm font-bold text-primary">{formatPrice(item.pricePence)}</span>
+                            <span className="w-20 shrink-0 text-center text-sm font-bold text-primary">{formatPrice(item.pricePence)}</span>
+                          )}
+                          {/* VIP Price */}
+                          {canPrice ? (
+                            <div className="relative w-20 shrink-0">
+                              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-purple-400 text-[9px] font-bold leading-none">VIP</span>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.50"
+                                value={row.vipPricePence}
+                                onChange={(e) => updateBulkRow(item.id, "vipPricePence", e.target.value)}
+                                className="pl-7 h-8 text-sm bg-background border-purple-500/20 focus-visible:ring-purple-500"
+                                placeholder="—"
+                              />
+                            </div>
+                          ) : (
+                            item.vipPricePence != null
+                              ? <span className="w-20 shrink-0 text-center text-sm font-bold text-purple-400">{formatPrice(item.vipPricePence)}</span>
+                              : <span className="w-20 shrink-0" />
                           )}
                           {/* Delete */}
                           {canDelete && (
@@ -633,7 +675,12 @@ function AdminInner({ canManage, canPrice, canDelete, isAdmin }: { canManage: bo
                           {item.barcode && <Barcode className="w-3 h-3 text-muted-foreground/40" />}
                         </div>
                       </div>
-                      <span className="text-primary font-black text-base shrink-0">{formatPrice(item.pricePence)}</span>
+                      <div className="flex flex-col items-end shrink-0">
+                        <span className="text-primary font-black text-base">{formatPrice(item.pricePence)}</span>
+                        {item.vipPricePence != null && (
+                          <span className="text-[10px] font-bold text-purple-400">VIP {formatPrice(item.vipPricePence)}</span>
+                        )}
+                      </div>
 
                       {isDeleting ? (
                         <div className="flex items-center gap-1 shrink-0">

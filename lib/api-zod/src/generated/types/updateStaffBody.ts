@@ -20,4 +20,5 @@ export interface UpdateStaffBody {
    * @maximum 100
    */
   bonusPercent?: number;
+  isVipSection?: boolean;
 }

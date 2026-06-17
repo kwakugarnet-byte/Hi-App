@@ -18,4 +18,5 @@ export interface AuthUser {
   /** @nullable */
   profileImageUrl: string | null;
   role?: StaffRole;
+  isVipSection?: boolean | null;
 }

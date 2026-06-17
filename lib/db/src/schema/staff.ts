@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, varchar, integer, timestamp, boolean } from "drizzle-orm/pg-core";
 
 export const staffRoles = ["admin", "waitress", "bartender", "bike_manager"] as const;
 export type StaffRole = (typeof staffRoles)[number];
@@ -10,6 +10,7 @@ export const staffTable = pgTable("staff", {
   role: varchar("role", { length: 20 }).notNull().default("waitress"),
   bonusPercent: integer("bonus_percent").notNull().default(0),
   bonusLastPaidAt: timestamp("bonus_last_paid_at", { withTimezone: true }),
+  isVipSection: boolean("is_vip_section").notNull().default(false),
 });
 
 export type Staff = typeof staffTable.$inferSelect;

@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { and, desc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
-import { db, menuItemsTable, orderBatchesTable, orderItemsTable, shiftsTable, partialPaymentsTable, settingsTable } from "@workspace/db";
+import { db, menuItemsTable, orderBatchesTable, orderItemsTable, shiftsTable, partialPaymentsTable, settingsTable, staffTable } from "@workspace/db";
 import {
   GetMenuItemsResponse,
   GetOrderBatchesResponse,
@@ -35,13 +35,21 @@ router.get("/menu-items", async (req, res): Promise<void> => {
   res.json(GetMenuItemsResponse.parse(items));
 });
 
-async function getPriceMap(menuItemIds: number[]): Promise<Map<number, number>> {
+async function getPriceMap(menuItemIds: number[], isVip = false): Promise<Map<number, number>> {
   if (menuItemIds.length === 0) return new Map();
   const rows = await db
-    .select({ id: menuItemsTable.id, pricePence: menuItemsTable.pricePence })
+    .select({ id: menuItemsTable.id, pricePence: menuItemsTable.pricePence, vipPricePence: menuItemsTable.vipPricePence })
     .from(menuItemsTable)
     .where(inArray(menuItemsTable.id, [...new Set(menuItemIds)]));
-  return new Map(rows.map((r) => [r.id, r.pricePence]));
+  return new Map(rows.map((r) => [r.id, isVip && r.vipPricePence != null ? r.vipPricePence : r.pricePence]));
+}
+
+async function getWaitressIsVip(name: string): Promise<boolean> {
+  const [row] = await db
+    .select({ isVipSection: staffTable.isVipSection })
+    .from(staffTable)
+    .where(eq(staffTable.name, name));
+  return row?.isVipSection ?? false;
 }
 
 const storedPrice = sql<number>`COALESCE(${orderItemsTable.pricePence}, ${menuItemsTable.pricePence})`;
@@ -94,7 +102,8 @@ router.post("/order-batches", async (req, res): Promise<void> => {
     .returning();
 
   if (items.length > 0) {
-    const priceMap = await getPriceMap(items.map((i) => i.menuItemId));
+    const isVip = await getWaitressIsVip(waitressName);
+    const priceMap = await getPriceMap(items.map((i) => i.menuItemId), isVip);
     await db.insert(orderItemsTable).values(
       items.map((item) => ({
         batchId: batch.id,
@@ -157,7 +166,8 @@ router.post("/order-batches/hold", async (req, res): Promise<void> => {
     .returning();
 
   if (items.length > 0) {
-    const priceMap = await getPriceMap(items.map((i) => i.menuItemId));
+    const isVip = await getWaitressIsVip(waitressName);
+    const priceMap = await getPriceMap(items.map((i) => i.menuItemId), isVip);
     await db.insert(orderItemsTable).values(
       items.map((item) => ({ batchId: batch.id, menuItemId: item.menuItemId, quantity: item.quantity, pricePence: priceMap.get(item.menuItemId) }))
     );
@@ -213,7 +223,8 @@ router.post("/order-batches/direct", async (req, res): Promise<void> => {
     .returning();
 
   if (items.length > 0) {
-    const priceMap = await getPriceMap(items.map((i) => i.menuItemId));
+    const isVip = await getWaitressIsVip(waitressName);
+    const priceMap = await getPriceMap(items.map((i) => i.menuItemId), isVip);
     await db.insert(orderItemsTable).values(
       items.map((item) => ({
         batchId: batch.id,
@@ -283,7 +294,8 @@ router.put("/order-batches/:id/edit", async (req, res): Promise<void> => {
   await db.delete(orderItemsTable).where(eq(orderItemsTable.batchId, id));
 
   if (body.data.items.length > 0) {
-    const priceMap = await getPriceMap(body.data.items.map((i) => i.menuItemId));
+    const editIsVip = await getWaitressIsVip(existing[0].waitressName);
+    const priceMap = await getPriceMap(body.data.items.map((i) => i.menuItemId), editIsVip);
     await db.insert(orderItemsTable).values(
       body.data.items.map((item) => ({
         batchId: id,
@@ -577,10 +589,16 @@ router.post("/order-batches/:id/resubmit", async (req, res): Promise<void> => {
 
   const batchId = params.data.id;
 
+  const [resubmitBatch] = await db
+    .select({ waitressName: orderBatchesTable.waitressName })
+    .from(orderBatchesTable)
+    .where(eq(orderBatchesTable.id, batchId));
+  const resubmitIsVip = await getWaitressIsVip(resubmitBatch?.waitressName ?? "");
+
   await db.delete(orderItemsTable).where(eq(orderItemsTable.batchId, batchId));
 
   if (body.data.items.length > 0) {
-    const priceMap = await getPriceMap(body.data.items.map((i) => i.menuItemId));
+    const priceMap = await getPriceMap(body.data.items.map((i) => i.menuItemId), resubmitIsVip);
     await db.insert(orderItemsTable).values(
       body.data.items.map((item) => ({
         batchId,

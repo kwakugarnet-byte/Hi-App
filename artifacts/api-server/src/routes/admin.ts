@@ -97,7 +97,7 @@ router.patch("/menu-items/:id", async (req: Request, res: Response): Promise<voi
   const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const { name, category, pricePence, barcode, sku } = req.body;
+  const { name, category, pricePence, vipPricePence, barcode, sku } = req.body;
   const updates: Record<string, unknown> = {};
   if (canManage) {
     if (name !== undefined && typeof name === "string" && name.trim()) updates.name = name.trim();
@@ -108,6 +108,14 @@ router.patch("/menu-items/:id", async (req: Request, res: Response): Promise<voi
   if (canPrice && pricePence !== undefined) {
     const p = Number(pricePence);
     if (!isNaN(p) && p >= 0) updates.pricePence = Math.round(p);
+  }
+  if (canPrice && vipPricePence !== undefined) {
+    if (vipPricePence === null || vipPricePence === "") {
+      updates.vipPricePence = null;
+    } else {
+      const vp = Number(vipPricePence);
+      if (!isNaN(vp) && vp >= 0) updates.vipPricePence = Math.round(vp);
+    }
   }
   if (Object.keys(updates).length === 0) { res.status(400).json({ error: "Nothing to update" }); return; }
 
@@ -130,7 +138,7 @@ router.delete("/menu-items/:id", requirePermission("delete_products"), async (re
 
 router.get("/admin/staff", requirePermission("manage_staff"), async (_req: Request, res: Response): Promise<void> => {
   const staff = await db
-    .select({ id: staffTable.id, name: staffTable.name, role: staffTable.role, bonusPercent: staffTable.bonusPercent, bonusLastPaidAt: staffTable.bonusLastPaidAt })
+    .select({ id: staffTable.id, name: staffTable.name, role: staffTable.role, bonusPercent: staffTable.bonusPercent, bonusLastPaidAt: staffTable.bonusLastPaidAt, isVipSection: staffTable.isVipSection })
     .from(staffTable).orderBy(staffTable.name);
   res.json(staff.map((s: typeof staff[number]) => ({ ...s, bonusLastPaidAt: s.bonusLastPaidAt?.toISOString() ?? null })));
 });
@@ -157,9 +165,10 @@ router.patch("/admin/staff/:id", requirePermission("manage_staff"), async (req: 
   if (parsed.data.role !== undefined) update.role = parsed.data.role;
   if (parsed.data.pin !== undefined) update.pinHash = await bcrypt.hash(parsed.data.pin, 10);
   if (parsed.data.bonusPercent !== undefined) update.bonusPercent = parsed.data.bonusPercent;
+  if (parsed.data.isVipSection !== undefined) update.isVipSection = parsed.data.isVipSection;
   const [member] = await db
     .update(staffTable).set(update).where(eq(staffTable.id, id))
-    .returning({ id: staffTable.id, name: staffTable.name, role: staffTable.role, bonusPercent: staffTable.bonusPercent, bonusLastPaidAt: staffTable.bonusLastPaidAt });
+    .returning({ id: staffTable.id, name: staffTable.name, role: staffTable.role, bonusPercent: staffTable.bonusPercent, bonusLastPaidAt: staffTable.bonusLastPaidAt, isVipSection: staffTable.isVipSection });
   if (!member) { res.status(404).json({ error: "Staff member not found" }); return; }
   await logActivity(actor(req), "staff", "staff_updated", { staffId: id, name: member.name });
   res.json({ ...member, bonusLastPaidAt: member.bonusLastPaidAt?.toISOString() ?? null });

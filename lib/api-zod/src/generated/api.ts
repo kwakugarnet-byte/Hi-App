@@ -34,6 +34,7 @@ export const GetCurrentAuthUserResponse = zod.object({
       lastName: zod.string().nullable(),
       profileImageUrl: zod.string().nullable(),
       role: zod.enum(["admin", "waitress", "bartender"]).optional(),
+      isVipSection: zod.boolean().optional(),
     }),
     zod.null(),
   ]),
@@ -101,6 +102,7 @@ export const PinLoginResponse = zod.object({
       lastName: zod.string().nullable(),
       profileImageUrl: zod.string().nullable(),
       role: zod.enum(["admin", "waitress", "bartender"]).optional(),
+      isVipSection: zod.boolean().optional(),
     }),
     zod.null(),
   ]),
@@ -125,6 +127,7 @@ export const GetAdminStaffResponseItem = zod.object({
   role: zod.enum(["admin", "waitress", "bartender"]),
   bonusPercent: zod.number(),
   bonusLastPaidAt: zod.string().nullish(),
+  isVipSection: zod.boolean(),
 });
 export const GetAdminStaffResponse = zod.array(GetAdminStaffResponseItem);
 
@@ -189,6 +192,7 @@ export const UpdateStaffBody = zod.object({
     .min(updateStaffBodyBonusPercentMin)
     .max(updateStaffBodyBonusPercentMax)
     .optional(),
+  isVipSection: zod.boolean().optional(),
 });
 
 export const UpdateStaffResponse = zod.object({
@@ -214,6 +218,7 @@ export const GetMenuItemsResponseItem = zod.object({
   name: zod.string(),
   category: zod.string(),
   pricePence: zod.number(),
+  vipPricePence: zod.number().nullable().optional(),
   barcode: zod.string().nullable().optional(),
   sku: zod.string().nullable().optional(),
 });
@@ -228,6 +233,7 @@ export const CreateMenuItemBody = zod.object({
   name: zod.string(),
   category: zod.string(),
   pricePence: zod.number().min(createMenuItemBodyPricePenceMin),
+  vipPricePence: zod.number().nullable().optional(),
   barcode: zod.string().nullable().optional(),
   sku: zod.string().nullable().optional(),
 });

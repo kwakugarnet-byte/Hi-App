@@ -13,4 +13,5 @@ export interface AdminStaffMember {
   role: StaffRole;
   bonusPercent: number;
   bonusLastPaidAt?: string | null;
+  isVipSection: boolean;
 }

@@ -75,6 +75,7 @@ router.post("/pin-login", async (req: Request, res: Response): Promise<void> => 
       lastName,
       profileImageUrl: null,
       role: staff.role as "admin" | "waitress" | "bartender",
+      isVipSection: staff.isVipSection ?? false,
     },
     access_token: "staff",
   };
