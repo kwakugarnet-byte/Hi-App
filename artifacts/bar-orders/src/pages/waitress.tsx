@@ -674,11 +674,16 @@ function WaitressInner() {
                           {item.sku && (
                             <span className="block text-[10px] text-muted-foreground/60 mt-0.5 font-mono tracking-wider">{item.sku}</span>
                           )}
-                          {isVipSection && item.vipPricePence != null && (
-                            <span className="block text-[10px] text-purple-400 font-bold mt-0.5">
-                              VIP ₵{(item.vipPricePence / 100).toFixed(2)}
-                            </span>
-                          )}
+                          {(() => {
+                            const useVip = (isVipSection || isVipCustomer) && item.vipPricePence != null;
+                            const price = useVip ? item.vipPricePence! : item.pricePence;
+                            return (
+                              <span className={`block text-xs font-bold mt-1 ${useVip ? "text-yellow-400" : "text-muted-foreground/70"}`}>
+                                ₵{(price / 100).toFixed(2)}
+                                {useVip && <span className="ml-1 text-[9px] font-black uppercase tracking-wide opacity-80">VIP</span>}
+                              </span>
+                            );
+                          })()}
                           {searchQuery && (
                             <span className="block text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wide">{item.category}</span>
                           )}

@@ -334,7 +334,8 @@ export default function Bills() {
       setVipCustomerNames((prev) => new Set([...prev, customerName]));
       queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
       toast({ title: `${customerName} is now VIP`, description: "Bill repriced at VIP rates." });
-    } catch {
+    } catch (err) {
+      console.error("[make-customer-vip] network error:", err);
       toast({ title: "Failed to upgrade to VIP", variant: "destructive" });
     } finally {
       setMakingVipFor(null);
