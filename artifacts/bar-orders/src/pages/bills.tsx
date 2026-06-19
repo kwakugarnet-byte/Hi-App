@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import logo from "@/assets/logo.jpg";
 import { Link } from "wouter";
 const BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
-import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle, CircleDashed, ChevronRight, Eye, X, CreditCard, Pencil, Plus, Minus, Trash2, RotateCcw, Sparkles, Send, Search, Phone } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle2, Hourglass, Receipt, Printer, Banknote, TrendingUp, ShieldCheck, Users, AlertTriangle, CircleDashed, ChevronRight, Eye, X, CreditCard, Pencil, Plus, Minus, Trash2, RotateCcw, Sparkles, Send, Search, Phone, Crown } from "lucide-react";
 import {
   useGetOrderBatches,
   useGetMenuItems,
@@ -305,6 +305,36 @@ export default function Bills() {
 
   const [bonusClearConfirm, setBonusClearConfirm] = useState<number | null>(null);
   const [bonusDeduction, setBonusDeduction] = useState("");
+
+  const [vipCustomerNames, setVipCustomerNames] = useState<Set<string>>(new Set());
+  const [makingVipFor, setMakingVipFor] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`${BASE}/api/admin/vip-customers`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data: { name: string }[]) => setVipCustomerNames(new Set(data.map((c) => c.name))))
+      .catch(() => {});
+  }, []);
+
+  async function makeCustomerVip(customerName: string) {
+    setMakingVipFor(customerName);
+    try {
+      const res = await fetch(`${BASE}/api/order-batches/make-customer-vip`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customerName }),
+      });
+      if (!res.ok) { toast({ title: "Failed to upgrade to VIP", variant: "destructive" }); return; }
+      setVipCustomerNames((prev) => new Set([...prev, customerName]));
+      queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
+      toast({ title: `${customerName} is now VIP`, description: "Bill repriced at VIP rates." });
+    } catch {
+      toast({ title: "Failed to upgrade to VIP", variant: "destructive" });
+    } finally {
+      setMakingVipFor(null);
+    }
+  }
   const [salesRange, setSalesRange] = useState<"7d" | "30d" | "90d" | "1y" | "custom">("30d");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
@@ -1056,7 +1086,12 @@ export default function Bills() {
                   </div>
                 )}
                 <div className="min-w-0">
-                  <h2 className="text-xl font-black uppercase tracking-tight truncate">{customer.customerName}</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-black uppercase tracking-tight truncate">{customer.customerName}</h2>
+                    {vipCustomerNames.has(customer.customerName) && (
+                      <Crown className="w-4 h-4 text-yellow-400 shrink-0" title="VIP Customer" />
+                    )}
+                  </div>
                   <div className={`flex items-center gap-1 text-xs font-bold mt-0.5 ${customer.overallStatus === "pending" ? "text-yellow-500" : "text-green-500"}`}>
                     {customer.overallStatus === "pending"
                       ? <><Hourglass className="w-3 h-3" /><span className="uppercase tracking-wide">Being prepared</span></>
@@ -1109,6 +1144,20 @@ export default function Bills() {
                         Call
                       </a>
                     )}
+                    {isAdmin && vipCustomerNames.has(customer.customerName) ? (
+                      <span className="flex items-center gap-1 text-xs font-bold text-yellow-400 border border-yellow-500/30 rounded-lg px-2.5 py-1.5 bg-yellow-500/8">
+                        <Crown className="w-3.5 h-3.5" />VIP
+                      </span>
+                    ) : isAdmin ? (
+                      <button
+                        onClick={() => makeCustomerVip(customer.customerName)}
+                        disabled={makingVipFor === customer.customerName}
+                        className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-yellow-500 hover:text-yellow-400 transition-colors border border-yellow-500/40 hover:border-yellow-400/60 rounded-lg px-2.5 py-1.5 disabled:opacity-50"
+                      >
+                        <Crown className="w-3.5 h-3.5" />
+                        {makingVipFor === customer.customerName ? "…" : "Make VIP"}
+                      </button>
+                    ) : null}
                   </div>
                 )}
               </div>

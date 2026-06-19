@@ -63,6 +63,42 @@ async function getCustomerIsVip(name: string): Promise<boolean> {
 
 const storedPrice = sql<number>`COALESCE(${orderItemsTable.pricePence}, ${menuItemsTable.pricePence})`;
 
+// Upgrade a customer to VIP mid-session: adds to VIP list + reprices all their active batches
+router.post("/order-batches/make-customer-vip", async (req, res): Promise<void> => {
+  const { customerName } = req.body as { customerName?: string };
+  if (!customerName?.trim()) { res.status(400).json({ error: "customerName required" }); return; }
+  const name = customerName.trim();
+
+  // Upsert VIP customer
+  const [existing] = await db.select().from(vipCustomersTable).where(eq(vipCustomersTable.name, name));
+  if (!existing) {
+    await db.insert(vipCustomersTable).values({ name });
+  }
+
+  // Find all non-paid batches for this customer
+  const activeBatches = await db
+    .select({ id: orderBatchesTable.id })
+    .from(orderBatchesTable)
+    .where(and(eq(orderBatchesTable.customerName, name), ne(orderBatchesTable.status, "paid")));
+
+  // Reprice every item in those batches to VIP price
+  let repriced = 0;
+  for (const batch of activeBatches) {
+    const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.batchId, batch.id));
+    if (items.length === 0) continue;
+    const priceMap = await getPriceMap(items.map((i) => i.menuItemId), true);
+    for (const item of items) {
+      const vipPrice = priceMap.get(item.menuItemId);
+      if (vipPrice !== undefined && vipPrice !== item.pricePence) {
+        await db.update(orderItemsTable).set({ pricePence: vipPrice }).where(eq(orderItemsTable.id, item.id));
+        repriced++;
+      }
+    }
+  }
+
+  res.json({ ok: true, batchCount: activeBatches.length, repriced });
+});
+
 router.get("/order-batches", async (req, res): Promise<void> => {
   const batches = await db.select().from(orderBatchesTable).orderBy(orderBatchesTable.createdAt);
 
