@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, and, ne } from "drizzle-orm";
 import bcrypt from "bcryptjs";
-import { db, menuItemsTable, staffTable, categoriesTable, staffPermissionsTable, orderBatchesTable } from "@workspace/db";
+import { db, menuItemsTable, staffTable, categoriesTable, staffPermissionsTable, orderBatchesTable, vipCustomersTable } from "@workspace/db";
 import { CreateMenuItemBody, CreateStaffBody, UpdateStaffBody } from "@workspace/api-zod";
 import { logActivity } from "../lib/logActivity";
 
@@ -235,6 +235,36 @@ router.delete("/admin/staff/:id/permissions/:permission", requireAdmin, async (r
   await db
     .delete(staffPermissionsTable)
     .where(and(eq(staffPermissionsTable.staffId, id), eq(staffPermissionsTable.permission, req.params.permission as string)));
+  res.status(204).send();
+});
+
+// ─── VIP Customers ────────────────────────────────────────────────────────────
+
+router.get("/admin/vip-customers", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
+  const customers = await db.select().from(vipCustomersTable).orderBy(vipCustomersTable.name);
+  res.json(customers.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() })));
+});
+
+router.post("/admin/vip-customers", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  const { name } = req.body;
+  if (!name || typeof name !== "string" || !name.trim()) {
+    res.status(400).json({ error: "Name is required" });
+    return;
+  }
+  const [existing] = await db.select().from(vipCustomersTable).where(eq(vipCustomersTable.name, name.trim()));
+  if (existing) { res.status(409).json({ error: "Customer already has VIP status" }); return; }
+  const [customer] = await db.insert(vipCustomersTable).values({ name: name.trim() }).returning();
+  await logActivity(actor(req), "admin", "vip_customer_added", { name: customer.name });
+  res.json({ ...customer, createdAt: customer.createdAt.toISOString() });
+});
+
+router.delete("/admin/vip-customers/:id", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(req.params.id as string, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const [customer] = await db.select().from(vipCustomersTable).where(eq(vipCustomersTable.id, id));
+  if (!customer) { res.status(404).json({ error: "Not found" }); return; }
+  await db.delete(vipCustomersTable).where(eq(vipCustomersTable.id, id));
+  await logActivity(actor(req), "admin", "vip_customer_removed", { name: customer.name });
   res.status(204).send();
 });
 

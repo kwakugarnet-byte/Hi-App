@@ -554,3 +554,19 @@ export const GetActivityLogsResponseItem = zod.object({
   details: zod.record(zod.string(), zod.unknown()).nullish(),
 });
 export const GetActivityLogsResponse = zod.array(GetActivityLogsResponseItem);
+
+export const VipCustomer = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  createdAt: zod.string(),
+});
+export const GetVipCustomersResponse = zod.array(VipCustomer);
+export type VipCustomerType = zod.infer<typeof VipCustomer>;
+
+export const CreateVipCustomerBody = zod.object({
+  name: zod.string().min(1).max(255),
+});
+
+export const DeleteVipCustomerParams = zod.object({
+  id: zod.coerce.number(),
+});

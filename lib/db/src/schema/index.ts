@@ -12,3 +12,4 @@ export * from "./shifts";
 export * from "./staff";
 export * from "./staffPermissions";
 export * from "./settings";
+export * from "./vipCustomers";

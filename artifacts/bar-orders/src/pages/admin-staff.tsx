@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, Plus, Pencil, Trash2, Check, X, Percent, ShieldCheck, ChevronDown, Crown } from "lucide-react";
 import {
