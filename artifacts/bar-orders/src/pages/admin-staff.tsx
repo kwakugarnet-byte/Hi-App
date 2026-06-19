@@ -100,6 +100,59 @@ function AdminStaffInner() {
   const [loadingPermsFor, setLoadingPermsFor] = useState<Set<number>>(new Set());
   const [togglingKey, setTogglingKey] = useState<string | null>(null);
 
+  // VIP Customers state
+  const [vipCustomers, setVipCustomers] = useState<{ id: number; name: string }[]>([]);
+  const [vipLoading, setVipLoading] = useState(false);
+  const [newVipName, setNewVipName] = useState("");
+  const [savingVip, setSavingVip] = useState(false);
+  const [removingVipId, setRemovingVipId] = useState<number | null>(null);
+
+  useEffect(() => {
+    setVipLoading(true);
+    fetch(`${BASE}/api/admin/vip-customers`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => setVipCustomers(Array.isArray(data) ? data : []))
+      .catch(() => {})
+      .finally(() => setVipLoading(false));
+  }, []);
+
+  async function addVipCustomer() {
+    const name = newVipName.trim();
+    if (!name) return;
+    setSavingVip(true);
+    try {
+      const res = await fetch(`${BASE}/api/admin/vip-customers`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (res.status === 409) { toast({ title: "Already a VIP customer", variant: "destructive" }); return; }
+      if (!res.ok) { toast({ title: "Failed to add VIP customer", variant: "destructive" }); return; }
+      const customer = await res.json();
+      setVipCustomers((prev) => [...prev, customer].sort((a, b) => a.name.localeCompare(b.name)));
+      setNewVipName("");
+      toast({ title: `${customer.name} is now a VIP customer` });
+    } finally {
+      setSavingVip(false);
+    }
+  }
+
+  async function removeVipCustomer(id: number, name: string) {
+    setRemovingVipId(id);
+    try {
+      const res = await fetch(`${BASE}/api/admin/vip-customers/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) { toast({ title: "Failed to remove", variant: "destructive" }); return; }
+      setVipCustomers((prev) => prev.filter((c) => c.id !== id));
+      toast({ title: `${name} removed from VIP list` });
+    } finally {
+      setRemovingVipId(null);
+    }
+  }
+
   function startAdd() {
     setAdding({ name: "", role: "waitress", pin: "", bonusPercent: "0" });
     setEditing(null);
@@ -630,6 +683,62 @@ function AdminStaffInner() {
               );
             })
           )}
+          {/* ── VIP Customers ─────────────────────────────────────────── */}
+          <section className="px-4 pt-6 pb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Crown className="w-4 h-4 text-yellow-400" />
+              <h2 className="text-sm font-black uppercase tracking-widest text-foreground">VIP Customers</h2>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              Customers on this list automatically get VIP prices on every order, regardless of which staff takes the order.
+            </p>
+
+            {/* Add form */}
+            <div className="flex gap-2 mb-4">
+              <Input
+                value={newVipName}
+                onChange={(e) => setNewVipName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") addVipCustomer(); }}
+                placeholder="Customer name…"
+                className="h-10 bg-background border-border text-sm"
+              />
+              <Button
+                onClick={addVipCustomer}
+                disabled={savingVip || !newVipName.trim()}
+                size="sm"
+                className="h-10 px-4 bg-yellow-500 hover:bg-yellow-400 text-black font-bold shrink-0"
+              >
+                {savingVip ? "…" : <><Plus className="w-4 h-4 mr-1" />Add VIP</>}
+              </Button>
+            </div>
+
+            {/* List */}
+            {vipLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((n) => <Skeleton key={n} className="h-10 w-full rounded-lg" />)}
+              </div>
+            ) : vipCustomers.length === 0 ? (
+              <p className="text-xs text-muted-foreground/60 italic py-2">No VIP customers yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {vipCustomers.map((c) => (
+                  <div key={c.id} className="flex items-center justify-between bg-yellow-500/8 border border-yellow-500/20 rounded-xl px-4 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <Crown className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
+                      <span className="text-sm font-semibold">{c.name}</span>
+                    </div>
+                    <button
+                      onClick={() => removeVipCustomer(c.id, c.name)}
+                      disabled={removingVipId === c.id}
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-40"
+                    >
+                      {removingVipId === c.id ? <span className="text-xs">…</span> : <X className="w-4 h-4" />}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </main>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Link, Redirect } from "wouter";
 import { ArrowLeft, Send, Plus, Minus, Trash2, AlertTriangle, RotateCcw, CheckCircle2, Search, X, ScanLine, Crown } from "lucide-react";
 import {
@@ -42,6 +42,16 @@ function WaitressInner() {
 
   const [customerName, setCustomerName] = useState("");
   const [namePickedFromList, setNamePickedFromList] = useState(false);
+  const [vipCustomerNames, setVipCustomerNames] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    fetch("/api/admin/vip-customers", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data: { name: string }[]) => setVipCustomerNames(new Set(data.map((c) => c.name))))
+      .catch(() => {});
+  }, []);
+
+  const isVipCustomer = vipCustomerNames.has(customerName.trim());
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selected, setSelected] = useState<Record<number, SelectedItem>>({});
@@ -744,6 +754,12 @@ function WaitressInner() {
                 placeholder={activeCustomers.length > 0 ? "New customer or select above…" : "Customer name (Table 4, John…)"}
                 className={`h-11 bg-background border-border focus-visible:ring-primary ${nameError || duplicateName ? "border-destructive" : ""}`}
               />
+              {isVipCustomer && (
+                <div className="flex items-center gap-1.5 px-1">
+                  <Crown className="w-3.5 h-3.5 text-yellow-400" />
+                  <span className="text-xs font-bold text-yellow-400 uppercase tracking-wide">VIP Customer — VIP prices applied</span>
+                </div>
+              )}
               {nameError && <p className="text-destructive text-xs">Customer name is required</p>}
               {duplicateName && (
                 <p className="text-destructive text-xs">

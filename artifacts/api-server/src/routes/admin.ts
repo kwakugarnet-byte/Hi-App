@@ -240,7 +240,7 @@ router.delete("/admin/staff/:id/permissions/:permission", requireAdmin, async (r
 
 // ─── VIP Customers ────────────────────────────────────────────────────────────
 
-router.get("/admin/vip-customers", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
+router.get("/admin/vip-customers", async (_req: Request, res: Response): Promise<void> => {
   const customers = await db.select().from(vipCustomersTable).orderBy(vipCustomersTable.name);
   res.json(customers.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() })));
 });
