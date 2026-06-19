@@ -325,7 +325,12 @@ export default function Bills() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ customerName }),
       });
-      if (!res.ok) { toast({ title: "Failed to upgrade to VIP", variant: "destructive" }); return; }
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => "");
+        console.error("[make-customer-vip]", res.status, errBody);
+        toast({ title: "Failed to upgrade to VIP", description: `${res.status}: ${errBody}`, variant: "destructive" });
+        return;
+      }
       setVipCustomerNames((prev) => new Set([...prev, customerName]));
       queryClient.invalidateQueries({ queryKey: getGetOrderBatchesQueryKey() });
       toast({ title: `${customerName} is now VIP`, description: "Bill repriced at VIP rates." });
